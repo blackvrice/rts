@@ -3,58 +3,40 @@
 //
 // src/core/GameApp.cpp
 #include "core/GameApp.hpp"
-#include "component/RenderInfo.hpp"
-#include "scene/SceneManager.hpp"
+
+#include <memory>
+
+#include "../../include/manager/SceneManager.hpp"
 #include "scene/MenuScene.hpp"
-#include "core/LogicThread.hpp"
-#include "scene/LoginScene.hpp"
-#include "view/RenderLoop.hpp"
+#include "../../include/thread/LogicThread.hpp"
+#include "manager/GameUIManager.hpp"
 
 namespace rts::core {
+    GameApp::GameApp(DIContainer &di)
+        : m_di(di) {
 
-    GameApp::GameApp(DIContainer& di)
-        : m_di(di)
-    {}
-
-    void GameApp::run()
-    {
-        // 1) GameManager 를 생성 (싱글톤 등록)
-        auto game = m_di.registerSingleton<rts::manager::GameManager>();
-
-        // 2) 초기 유닛 구성
-        setupInitialEntities(*game);
-
-        // 3) LogicThread 시작
-        LogicThread logic(game);
-        logic.start();
-
-        // 4) SceneManager 생성
-        auto mgr = m_di.registerSingleton<rts::scene::SceneManager>();
-
-        // 5) 첫 화면: 메뉴
-        mgr->push(std::make_shared<rts::scene::LoginScene>(mgr, game));
-
-        // 6) 렌더 루프 실행
-        rts::view::RenderLoop loop(mgr);
-        loop.run();
-
-        // 7) 프로그램 종료 → LogicThread 종료
-        logic.stop();
+        m_uiManager = std::make_shared<manager::GameUIManager>();
+        m_uiBus = std::make_shared<command::CommandBus>();
+        m_uiRouter = std::make_shared<command::CommandRouter>();
     }
 
-    void GameApp::setupInitialEntities(rts::manager::GameManager& game)
-    {
-        ecs::Registry& reg = game.registry();
+    void GameApp::run() {
+        using clock = std::chrono::steady_clock;
+        while (m_window->isOpen()) {
+            auto start = clock::now();
+            // 1️⃣ OS 이벤트 수집
+            m_window->pollEvents();
 
-        auto e1 = reg.createEntity();
-        reg.add<rts::component::Position>(e1, {{300, 300}});
-        reg.add<rts::component::RenderInfo>(e1, {sf::Color::White, 8.f});
-        reg.add<rts::component::Selection>(e1, {false});
+            command::CommandBus::CommandPtr cmd;
+            while (m_uiBus->tryPop(cmd)) {
+                m_uiRouter->dispatch(*cmd);
+            }
 
-        auto e2 = reg.createEntity();
-        reg.add<rts::component::Position>(e2, {{350, 300}});
-        reg.add<rts::component::RenderInfo>(e2, {sf::Color::White, 8.f});
-        reg.add<rts::component::Selection>(e2, {false});
+            // 2️⃣ UI 업데이트 (UICommand 실행)
+            m_uiManager->update();
+
+            // 5️⃣ 렌더
+            m_window->display();
+        }
     }
-
 } // namespace rts::core

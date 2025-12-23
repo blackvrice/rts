@@ -2,7 +2,7 @@
 // Created by black on 25. 12. 6..
 //
 #include "presenter/GamePresenter.hpp"
-#include "core/Command.hpp"
+#include "../../include/command/Command.hpp"
 #include "component/Velocity.hpp"
 #include "component/Selection.hpp"
 #include "component/Position.hpp"
@@ -15,7 +15,7 @@ namespace rts::presenter {
     // ------------------------------
     // Move Command (GameManager 기반)
     // ------------------------------
-    class MoveCommand final : public rts::core::Command {
+    class MoveCommand final : public rts::thread::Command {
     public:
         explicit MoveCommand(sf::Vector2f target)
             : m_target(target) {}
@@ -57,7 +57,7 @@ namespace rts::presenter {
     // GamePresenter
     // ------------------------------
     GamePresenter::GamePresenter(std::shared_ptr<manager::GameManager> game,
-                                 std::shared_ptr<core::CommandBus> bus)
+                                 std::shared_ptr<thread::CommandBus> bus)
         : m_game(std::move(game)), m_bus(std::move(bus))
     {}
 

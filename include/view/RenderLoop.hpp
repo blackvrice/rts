@@ -6,7 +6,7 @@
 #pragma once
 #include <memory>
 #include <SFML/Graphics.hpp>
-#include "../scene/SceneManager.hpp"
+#include "../manager/SceneManager.hpp"
 
 namespace rts::view {
 

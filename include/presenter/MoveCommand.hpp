@@ -5,7 +5,7 @@
 // include/rts/presenter/MoveCommand.hpp
 #pragma once
 
-#include "core/Command.hpp"
+#include "../command/Command.hpp"
 #include "component/Selection.hpp"
 #include "component/Position.hpp"
 #include "component/Velocity.hpp"
@@ -15,7 +15,7 @@
 
 namespace rts::presenter {
 
-    class MoveCommand final : public rts::core::Command {
+    class MoveCommand final : public rts::thread::Command {
     public:
         explicit MoveCommand(sf::Vector2f target)
             : m_target(target) {}

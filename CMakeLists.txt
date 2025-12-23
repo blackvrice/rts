@@ -9,11 +9,11 @@ set(SFML_DIR "D:/Libs/SFML-3.0.2/lib/cmake/SFML")
 find_package(SFML 3 REQUIRED COMPONENTS System Window Graphics)
 
 add_executable(RTS src/main.cpp
-        include/core/ThreadBase.hpp
+        include/thread/ThreadBase.hpp
         include/core/DIContainer.hpp
-        include/core/Command.hpp
-        include/core/CommandBus.hpp
-        include/core/LogicThread.hpp
+        include/command/Command.hpp
+        include/command/CommandBus.hpp
+        include/thread/LogicThread.hpp
         src/core/LogicThread.cpp
         include/core/GameApp.hpp
         src/core/GameApp.cpp
@@ -37,8 +37,8 @@ add_executable(RTS src/main.cpp
         include/view/RenderLoop.hpp
         src/view/RenderLoop.cpp
         include/scene/Scene.hpp
-        include/scene/SceneManager.hpp
-        src/scene/SceneManager.cpp
+        include/manager/SceneManager.hpp
+        src/manager/SceneManager.cpp
         include/scene/InGameScene.hpp
         src/scene/InGameScene.cpp
         include/scene/MenuScene.hpp
@@ -53,7 +53,7 @@ add_executable(RTS src/main.cpp
         include/presenter/MoveCommand.hpp
         src/system/SelectionSystem.cpp
         include/model/UnitSnapshot.hpp
-        include/manager/UIManager.hpp
+        include/manager/GameUIManager.hpp
         include/ui/UIElement.hpp
         include/ui/Button.hpp
         include/ui/TextBox.hpp
@@ -72,6 +72,32 @@ add_executable(RTS src/main.cpp
         src/system/RendererSystem.cpp
         include/scene/GameSceneBase.hpp
         src/ui/TextBox.cpp
+        include/manager/CursorManager.hpp
+        src/manager/CursorManager.cpp
+        include/system/UiSystem.hpp
+        src/system/UISystem.cpp
+        include/manager/IManager.hpp
+        include/command/CommandRouter.hpp
+        src/manager/GameUIManager.cpp
+        include/manager/LoginUIManager.hpp
+        include/platform/IWindow.hpp
+        include/platform/sfml/sfmlWindow.hpp
+        src/platform/sfml/sfmlWindow.cpp
+        include/core/Vector2D.hpp
+        include/manager/IUIManager.hpp
+        include/factory/SceneFactory.hpp
+        include/type/SceneType.hpp
+        src/factory/SceneFactory.cpp
+        src/core/DIContainer.cpp
+        include/scene/LobbyScene.hpp
+        include/factory/UnitFactory.hpp
+        include/prototype/UnitPrototypeLoader.hpp
+        include/entity/UnitEntity.hpp
+        include/data/UnitStaticData.hpp
+        include/data/BuildingStaticData.hpp
+        include/entity/BuildingEntity.hpp
+        include/factory/BuildingFactory.hpp
+        include/data/TileStaticData.hpp
 )
 
 add_custom_command(TARGET RTS POST_BUILD

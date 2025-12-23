@@ -12,6 +12,8 @@ namespace rts::ui {
         m_rect.setOutlineColor(sf::Color::White);
         m_rect.setOutlineThickness(2.f);
 
+        line.
+
         m_text.setCharacterSize(20);
         m_text.setPosition(pos + sf::Vector2f(5, 5));
     }
@@ -19,6 +21,11 @@ namespace rts::ui {
     std::string TextBox::value() const { return m_string; }
 
     bool TextBox::handleEvent(const sf::Event &ev) {
+        if (ev.is<sf::Event::MouseMoved>()) {
+            auto m = ev.getIf<sf::Event::MouseMoved>();
+            m_hovered = bounds().contains({(float)m->position.x, (float)m->position.y});
+        }
+
         // 클릭 시 Focus
         if (ev.is<sf::Event::MouseButtonPressed>()) {
             auto m = ev.getIf<sf::Event::MouseButtonPressed>();
@@ -42,6 +49,9 @@ namespace rts::ui {
     }
 
     void TextBox::render(sf::RenderTarget &target) {
+        if (m_hovered) {
+            target.draw(sf::Cursor::Type::Text);
+        }
         target.draw(m_rect);
         target.draw(m_text);
     }

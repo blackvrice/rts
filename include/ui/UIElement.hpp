@@ -1,20 +1,24 @@
 ﻿//
 // Created by black on 25. 12. 7..
 //
-
-#include <SFML/Graphics.hpp>
-
 #pragma once
+#include <SFML/Graphics/RenderTarget.hpp>
+#include <SFML/Window/Event.hpp>
+#include <SFML/System/Vector2.hpp>
+
 namespace rts::ui {
+
     class UIElement {
     public:
         virtual ~UIElement() = default;
 
-        virtual void update(float dt) {}
-        virtual void render(sf::RenderTarget& target) = 0;
+        virtual void update() = 0;
+        virtual bool isHovered() const = 0;
 
-        virtual bool handleEvent(const sf::Event& ev) { return false; }
+        virtual bool wantsTextCursor() const { return false; }
+        virtual bool blocksWorldInput() const { return false; }
 
-        virtual sf::FloatRect bounds() const = 0;
+        virtual void render() = 0;
     };
+
 }

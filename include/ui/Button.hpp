@@ -16,8 +16,6 @@ namespace rts::ui {
             t.draw(m_text);
         }
 
-        sf::FloatRect bounds() const override;
-
         std::function<void()> onClick;
 
     private:

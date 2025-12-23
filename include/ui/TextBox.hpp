@@ -17,15 +17,19 @@ namespace rts::ui {
 
         void render(sf::RenderTarget& target) override;
 
-        sf::FloatRect bounds() const override;
+        bool wantsTextCursor() const override { return m_hovered; }
+        bool blocksWorldInput() const override { return m_hovered; }
 
     private:
         bool m_focused = false;
+        bool m_hovered = false;
         std::string m_string;
 
         sf::RectangleShape m_rect;
+        sf::VertexArray line;
         sf::Font m_font;
         sf::Text m_text;
+
     };
 
 } // namespace rts::ui

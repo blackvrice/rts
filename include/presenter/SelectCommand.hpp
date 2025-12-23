@@ -4,12 +4,12 @@
 // include/rts/presenter/SelectCommand.hpp
 #pragma once
 
-#include "core/Command.hpp"
+#include "../command/Command.hpp"
 #include <SFML/Graphics/Rect.hpp>
 
 namespace rts::presenter {
 
-    class SelectCommand : public rts::core::Command {
+    class SelectCommand : public rts::thread::Command {
     public:
         explicit SelectCommand(const sf::FloatRect& area)
             : m_area(area) {}

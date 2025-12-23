@@ -16,9 +16,11 @@ namespace rts::ui {
 
         void render(sf::RenderTarget& target) override;
 
-        sf::FloatRect bounds() const override;
+        bool wantsTextCursor() const override { return m_hovered; }
+        bool blocksWorldInput() const override { return m_hovered; }
 
     private:
+        bool m_hovered = false;
         bool m_focused = false;
         std::string m_actual;
         std::string m_masked;

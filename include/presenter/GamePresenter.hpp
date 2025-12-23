@@ -8,7 +8,7 @@
 #include <SFML/Window/Event.hpp>
 #include <SFML/Graphics/Rect.hpp>
 #include "model/Snapshot.hpp"
-#include "core/CommandBus.hpp"
+#include "../command/CommandBus.hpp"
 #include "manager/GameManager.hpp"
 
 namespace rts::presenter {
@@ -16,7 +16,7 @@ namespace rts::presenter {
     class GamePresenter {
     public:
         GamePresenter(std::shared_ptr<rts::manager::GameManager> game,
-                      std::shared_ptr<rts::core::CommandBus> bus);
+                      std::shared_ptr<rts::thread::CommandBus> bus);
 
         void handleEvent(const sf::Event& ev);
         rts::model::Snapshot buildSnapshot() const;
@@ -26,7 +26,7 @@ namespace rts::presenter {
 
     private:
         std::shared_ptr<rts::manager::GameManager> m_game;
-        std::shared_ptr<rts::core::CommandBus>    m_bus;
+        std::shared_ptr<rts::thread::CommandBus>    m_bus;
 
         bool m_dragging{false};
         sf::Vector2f m_dragStart{};

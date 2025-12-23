@@ -6,6 +6,7 @@
 #define RTS_DICONTAINER_HPP
 // include/rts/core/DIContainer.hpp
 #pragma once
+#include <functional>
 #include <unordered_map>
 #include <typeindex>
 #include <memory>
@@ -13,41 +14,36 @@
 
 namespace rts::core {
 
-    class DIContainer {
+    class DIContainer : public std::enable_shared_from_this<DIContainer> {
     public:
+        using Factory = std::function<std::shared_ptr<void>(DIContainer&)>;
+
         DIContainer() = default;
+        explicit DIContainer(std::shared_ptr<DIContainer> parent);
 
-        template<typename T, typename... Args>
-        std::shared_ptr<T> registerSingleton(Args&&... args) {
-            auto typeId = std::type_index(typeid(T));
-            auto it = m_singletons.find(typeId);
-            if (it != m_singletons.end()) {
-                return std::static_pointer_cast<T>(it->second);
-            }
-
-            auto instance = std::make_shared<T>(std::forward<Args>(args)...);
-            m_singletons.emplace(typeId, instance);
-            return instance;
-        }
+        // ───────────── Register ─────────────
+        template<typename T>
+        void registerSingleton(std::function<std::shared_ptr<T>(DIContainer&)> factory);
 
         template<typename T>
-        std::shared_ptr<T> resolve() const {
-            auto typeId = std::type_index(typeid(T));
-            auto it = m_singletons.find(typeId);
-            if (it == m_singletons.end()) {
-                throw std::runtime_error("DIContainer: type not registered");
-            }
-            return std::static_pointer_cast<T>(it->second);
-        }
+        void registerTransient(std::function<std::shared_ptr<T>(DIContainer&)> factory);
 
         template<typename T>
-        bool isRegistered() const {
-            auto typeId = std::type_index(typeid(T));
-            return m_singletons.find(typeId) != m_singletons.end();
-        }
+        void registerInstance(std::shared_ptr<T> instance);
+
+        // ───────────── Resolve ─────────────
+        template<typename T>
+        std::shared_ptr<T> resolve();
+
+        // ───────────── Scope ─────────────
+        std::shared_ptr<DIContainer> createScope();
 
     private:
+        std::unordered_map<std::type_index, Factory> m_factories;
         std::unordered_map<std::type_index, std::shared_ptr<void>> m_singletons;
+        std::shared_ptr<DIContainer> m_parent;
+
+        std::shared_ptr<void> resolveInternal(const std::type_index& type);
     };
 
 } // namespace rts::core

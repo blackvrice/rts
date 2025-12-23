@@ -3,7 +3,7 @@
 //
 #include "scene/MenuScene.hpp"
 #include "scene/InGameScene.hpp"
-#include "scene/SceneManager.hpp"
+#include "../../include/manager/SceneManager.hpp"
 
 namespace rts::scene {
 
