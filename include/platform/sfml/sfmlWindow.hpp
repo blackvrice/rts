@@ -9,15 +9,15 @@
 
 namespace rts::platform::sfml {
     class sfmlWindow : public IWindow {
-        sf::RenderWindow m_window;
-
     public:
-        sfmlWindow(const std::shared_ptr<command::CommandBus> &bus,  const std::shared_ptr<command::CommandRouter> &router);
+        explicit sfmlWindow(command::UICommandBus& bus);
 
         bool isOpen() const override;
 
         void pollEvents() override;
 
         void display() override;
+    private:
+        sf::RenderWindow m_window;
     };
 }

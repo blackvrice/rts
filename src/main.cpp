@@ -1,6 +1,6 @@
 // src/main.cpp
-#include "core/GameApp.hpp"
-#include "core/DIContainer.hpp"
+#include "../include/core/app/GameApp.hpp"
+#include "../include/core/di/DIContainer.hpp"
 
 int main()
 {
