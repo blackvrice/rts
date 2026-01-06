@@ -5,95 +5,101 @@
 
 #include <string>
 
-#include "command/UIRenderCommand.hpp"
 #include "Signal.hpp"
 #include "../model/Vector2D.hpp"
-#include "render/RenderQueue.hpp"
+#include "core/model/Event.hpp"
+#include "core/render/RenderQueue.hpp"
 
-namespace rts::ui {
+namespace rts::core::ui {
     class IUIElement {
     public:
         virtual ~IUIElement() = default;
 
         // --- Update / Render ---
         virtual void update() = 0;
-        virtual void buildRenderCommands(render::RenderQueue& q) const = 0;
+        virtual void buildRenderCommands(core::render::RenderQueue& q) const = 0;
 
         // =====================================================
         // Internal input entry points (UIManager only)
         // =====================================================
 
         // --- Mouse ---
-        void handleMouseMove(const core::Vector2D &pos) {
-            MouseMove.emit(pos);
+        void handleMouseMove(const core::model::Vector2D &pos) {
+            MouseMove(pos);
         }
 
-        void handleMouseEnter(const core::Vector2D &pos) {
-            MouseEnter.emit(pos);
-            HoverChanged.emit(true);
+        void handleMouseEnter(const core::model::Vector2D &pos) {
+            MouseEnter(pos);
+            HoverChanged(true);
         }
 
-        void handleMouseLeave(const core::Vector2D &pos) {
-            MouseLeave.emit(pos);
-            HoverChanged.emit(false);
+        void handleMouseLeave(const core::model::Vector2D &pos) {
+            MouseLeave(pos);
+            HoverChanged(false);
         }
 
-        void handleMouseDown(const core::Vector2D &pos) {
-            MouseDown.emit(pos);
+        void handleMouseDown(const core::model::Vector2D &pos) {
+            MouseDown(pos);
         }
 
-        void handleMouseUp(const core::Vector2D &pos) {
-            MouseUp.emit(pos);
-            MouseClick.emit(pos); // 기본 클릭 처리
-            Clicked.emit();
+        void handleMouseUp(const core::model::Vector2D &pos) {
+            MouseUp(pos);
+            MouseClick(pos); // 기본 클릭 처리
+            Clicked();
         }
 
         void handleMouseWheel(int delta) {
-            MouseWheel.emit(delta);
+            MouseWheel(delta);
         }
 
         // --- Keyboard ---
         void handleKeyChar(char c) {
-            KeyChar.emit(c);
+            KeyChar(c);
         }
 
-        void handleKeyDown(int key) {
-            KeyDown.emit(key);
+        void handleKeyDown(core::model::KeyEvent key) {
+            KeyDown(key);
         }
 
-        void handleKeyUp(int key) {
-            KeyUp.emit(key);
+        void handleKeyUp(core::model::KeyEvent key) {
+            KeyUp(key);
         }
+
+
 
         // --- Focus ---
         void handleFocusGained() {
-            FocusGained.emit();
+            FocusGained();
         }
 
         void handleFocusLost() {
-            FocusLost.emit();
+            FocusLost();
         }
 
         // --- State ---
-        void handleEnableChanged(bool enabled) {
-            EnableChanged.emit(enabled);
+        void handleEnableChanged(const bool enabled) {
+            EnableChanged(enabled);
         }
 
-        void handleVisibleChanged(bool visible) {
-            VisibleChanged.emit(visible);
+        void handleVisibleChanged(const bool visible) {
+            VisibleChanged(visible);
         }
 
         // --- Value / Action ---
         void handleTextChanged(const std::string &text) {
-            TextChanged.emit(text);
+            TextChanged(text);
         }
 
         void handleSubmitted() {
-            Submitted.emit();
+            Submitted();
         }
 
         void handleCanceled() {
-            Canceled.emit();
+            Canceled();
+        }
+
+        void handleTextInput(const char32_t c) {
+            TextInput(c);
         }
 
     public:
@@ -102,18 +108,18 @@ namespace rts::ui {
         // =====================================================
 
         // --- Mouse ---
-        core::Signal<const core::Vector2D &> MouseMove;
-        core::Signal<const core::Vector2D &> MouseEnter;
-        core::Signal<const core::Vector2D &> MouseLeave;
-        core::Signal<const core::Vector2D &> MouseDown;
-        core::Signal<const core::Vector2D &> MouseUp;
-        core::Signal<const core::Vector2D &> MouseClick;
+        core::Signal<const core::model::Vector2D &> MouseMove;
+        core::Signal<const core::model::Vector2D &> MouseEnter;
+        core::Signal<const core::model::Vector2D &> MouseLeave;
+        core::Signal<const core::model::Vector2D &> MouseDown;
+        core::Signal<const core::model::Vector2D &> MouseUp;
+        core::Signal<const core::model::Vector2D &> MouseClick;
         core::Signal<int> MouseWheel;
 
         // --- Keyboard ---
         core::Signal<char> KeyChar;
-        core::Signal<int> KeyDown;
-        core::Signal<int> KeyUp;
+        core::Signal<core::model::KeyEvent> KeyDown;
+        core::Signal<core::model::KeyEvent> KeyUp;
 
         // --- Focus ---
         core::Signal<> FocusGained;
@@ -129,5 +135,8 @@ namespace rts::ui {
         core::Signal<> Clicked;
         core::Signal<> Submitted;
         core::Signal<> Canceled;
+
+        // -- Text --
+        core::Signal<char32_t> TextInput;
     };
 }

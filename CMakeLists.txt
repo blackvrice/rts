@@ -19,16 +19,11 @@ add_executable(RTS src/main.cpp
         src/core/di/GameApp.cpp
         include/core/ecs/Entity.hpp
         include/core/ecs/Registry.hpp
-        include/core/model/Snapshot.hpp
-        include/core/model/GameModel.hpp
-        include/core/model/UnitSnapshot.hpp
         include/core/ui/IUIElement.hpp
-        include/core/model/TileMap.hpp
-        include/core/model/Element.hpp
         include/core/Manager/ILogicManger.hpp
         include/platform/IWindow.hpp
         include/platform/sfml/sfmlWindow.hpp
-        src/platform/sfml/sfmlWindow.cpp
+        src/platform/sfml/SfmlWindow.cpp
         include/core/model/Vector2D.hpp
         include/core/Manager/IUIManager.hpp
         include/core/type/SceneType.hpp
@@ -60,7 +55,7 @@ add_executable(RTS src/main.cpp
         include/game/lobby/LobbyUIManager.hpp
         include/game/lobby/LobbyScene.hpp
         src/game/lobby/LobbyScene.cpp
-        src/manager/LoginUIManager.cpp
+        src/game/login/LoginUIManager.cpp
         include/core/ui/TextBox.hpp
         include/core/ui/Signal.hpp
         src/core/ui/TextBox.cpp
@@ -78,6 +73,33 @@ add_executable(RTS src/main.cpp
         src/platform/sfml/SfmlRenderManager.cpp
         src/platform/sfml/SfmlRenderManager.cpp
         src/platform/sfml/SfmlRenderManager.cpp
+        src/game/login/LoginLogicManager.cpp
+        src/game/lobby/LobbyLogicManager.cpp
+        src/game/lobby/LobbyUIManager.cpp
+        src/game/game/GameUIManager.cpp
+        src/game/game/GameLogicManager.cpp
+        include/core/factory/SceneFacotry.hpp
+        include/core/model/Key.hpp
+        include/core/model/Event.hpp
+        "include/core/font/FontMetrics.hpp"
+        include/platform/sfml/SfmlFontMetrics.hpp
+        include/core/font/FontTypes.hpp
+        include/core/font/FontManager.hpp
+        src/core/font/FontManager.cpp
+        include/core/model/IElement.hpp
+        include/core/model/IGameElement.hpp
+        include/core/model/IUIElement.hpp
+        include/core/model/Unit.hpp
+        include/core/model/State.hpp
+        include/core/model/Data.hpp
+        include/core/model/Entity.hpp
+        include/core/ui/SelectBox.hpp
+        src/core/ui/SelectBox.cpp
+        include/core/model/Rect.hpp
+        include/core/model/IViewModel.hpp
+        include/core/model/UnitPanelViewModel.hpp
+        include/core/model/UnitViewModel.hpp
+        src/core/model/Unit.cpp
 )
 
 add_custom_command(TARGET RTS POST_BUILD

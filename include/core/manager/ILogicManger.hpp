@@ -8,6 +8,8 @@
 #include <core/command/LogicCommandBus.hpp>
 #include <core/command/CommandRouterBase.hpp>
 
+#include "core/model/IViewModel.hpp"
+
 namespace rts::manager {
     class ILogicManager {
     public:

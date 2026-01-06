@@ -8,6 +8,9 @@
 
 #include <core/command/Command.hpp>
 
+#include "core/model/Rect.hpp"
+#include "core/model/Vector2D.hpp"
+
 namespace rts::command {
 
     // =========================================================
@@ -43,18 +46,15 @@ namespace rts::command {
     // =========================================================
     class SelectCommand final : public LogicCommand {
     public:
-        SelectCommand(sf::Vector2i first, sf::Vector2i second) {
-            float minX  = static_cast<float>(std::min(first.x, second.x));
-            float minY  = static_cast<float>(std::min(first.y, second.y));
-            float sizeX = static_cast<float>(std::abs(second.x - first.x));
-            float sizeY = static_cast<float>(std::abs(second.y - first.y));
-            m_area = sf::FloatRect({minX, minY}, {sizeX, sizeY});
+        SelectCommand(const core::model::Vector2D& first, const core::model::Vector2D& second) : m_area(first, second){
         }
+\
 
-        const sf::FloatRect& area() const noexcept { return m_area; }
+
+        core::model::Rect area() const noexcept { return m_area; }
 
     private:
-        sf::FloatRect m_area;
+        core::model::Rect m_area;
     };
 
     class SelectUnitCommand final : public LogicCommand {
@@ -75,15 +75,15 @@ namespace rts::command {
     // =========================================================
     class MoveCommand final : public LogicCommand {
     public:
-        MoveCommand(int unitId, sf::Vector2f target)
+        MoveCommand(int unitId, core::model::Vector2D target)
             : m_unitId(unitId), m_target(target) {}
 
         int unitId() const noexcept { return m_unitId; }
-        sf::Vector2f target() const noexcept { return m_target; }
+        core::model::Vector2D target() const noexcept { return m_target; }
 
     private:
         int m_unitId;
-        sf::Vector2f m_target;
+        core::model::Vector2D m_target;
     };
 
     class StopCommand final : public LogicCommand {
@@ -123,30 +123,30 @@ namespace rts::command {
 
     class AttackMoveCommand final : public LogicCommand {
     public:
-        AttackMoveCommand(int unitId, sf::Vector2f target)
+        AttackMoveCommand(int unitId, core::model::Vector2D target)
             : m_unitId(unitId), m_target(target) {}
 
         int unitId() const noexcept { return m_unitId; }
-        sf::Vector2f target() const noexcept { return m_target; }
+        core::model::Vector2D target() const noexcept { return m_target; }
 
     private:
         int m_unitId;
-        sf::Vector2f m_target;
+        core::model::Vector2D m_target;
     };
 
     class PatrolCommand final : public LogicCommand {
     public:
-        PatrolCommand(int unitId, sf::Vector2f from, sf::Vector2f to)
+        PatrolCommand(int unitId, core::model::Vector2D from, core::model::Vector2D to)
             : m_unitId(unitId), m_from(from), m_to(to) {}
 
         int unitId() const noexcept { return m_unitId; }
-        sf::Vector2f from() const noexcept { return m_from; }
-        sf::Vector2f to() const noexcept { return m_to; }
+        core::model::Vector2D from() const noexcept { return m_from; }
+        core::model::Vector2D to() const noexcept { return m_to; }
 
     private:
         int m_unitId;
-        sf::Vector2f m_from;
-        sf::Vector2f m_to;
+        core::model::Vector2D m_from;
+        core::model::Vector2D m_to;
     };
 
     // =========================================================
@@ -167,15 +167,15 @@ namespace rts::command {
 
     class BuildCommand final : public LogicCommand {
     public:
-        BuildCommand(int buildingId, sf::Vector2f position)
+        BuildCommand(int buildingId, core::model::Vector2D position)
             : m_buildingId(buildingId), m_position(position) {}
 
         int buildingId() const noexcept { return m_buildingId; }
-        sf::Vector2f position() const noexcept { return m_position; }
+        core::model::Vector2D position() const noexcept { return m_position; }
 
     private:
         int m_buildingId;
-        sf::Vector2f m_position;
+        core::model::Vector2D m_position;
     };
 
     class CancelProductionCommand final : public LogicCommand {
@@ -221,19 +221,19 @@ namespace rts::command {
     // =========================================================
     class UseAbilityCommand final : public LogicCommand {
     public:
-        UseAbilityCommand(int casterId, int abilityId, sf::Vector2f target)
+        UseAbilityCommand(int casterId, int abilityId, core::model::Vector2D target)
             : m_casterId(casterId),
               m_abilityId(abilityId),
               m_target(target) {}
 
         int casterId() const noexcept { return m_casterId; }
         int abilityId() const noexcept { return m_abilityId; }
-        sf::Vector2f target() const noexcept { return m_target; }
+        core::model::Vector2D target() const noexcept { return m_target; }
 
     private:
         int m_casterId;
         int m_abilityId;
-        sf::Vector2f m_target;
+        core::model::Vector2D m_target;
     };
 
     // =========================================================

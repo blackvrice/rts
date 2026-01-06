@@ -3,8 +3,9 @@
 //
 
 #pragma once
-#include <../core/model/Vector2D.hpp>
-#include <command/UICommandBus.hpp>
+#include <core/model/Vector2D.hpp>
+#include <core/command/UICommandBus.hpp>
+#include "core/command/UICommandBus.hpp"
 
 namespace rts::platform {
     class IWindow {
@@ -13,9 +14,11 @@ namespace rts::platform {
       : m_bus(bus) {}
         virtual ~IWindow() = default;
 
+        virtual void clear() = 0;
         virtual bool isOpen() const = 0;
         virtual void pollEvents() = 0;
         virtual void display() = 0;
+        virtual void* getNativeHandle() = 0;
     protected:
         command::UICommandBus& m_bus;
     };

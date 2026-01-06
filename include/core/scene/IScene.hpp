@@ -17,7 +17,7 @@ namespace rts::scene {
         virtual void render() = 0;
         manager::ILogicManager& getLogicManager() const { return *m_logicManager; }
 
-    private:
+    protected:
         std::shared_ptr<manager::IUIManager> m_uiManager;
         std::shared_ptr<manager::ILogicManager> m_logicManager;
     };

@@ -14,15 +14,15 @@ namespace rts::thread {
 
     class LogicThread : public ThreadBase {
     public:
-        explicit LogicThread(std::shared_ptr<command::LogicCommandBus> bus, std::shared_ptr<command::LogicCommandRouter> router)
-            : m_CommandBus(std::move(bus)) , m_CommandRouter(std::move(router)) {}
+        explicit LogicThread(command::LogicCommandBus& bus, command::LogicCommandRouter& router)
+            : m_CommandBus(bus) , m_CommandRouter(router) {}
 
     protected:
         void run() override;
 
     private:
-        std::shared_ptr<command::LogicCommandBus> m_CommandBus;
-        std::shared_ptr<command::LogicCommandRouter> m_CommandRouter;
+        command::LogicCommandBus& m_CommandBus;
+        command::LogicCommandRouter& m_CommandRouter;
     };
 
 } // namespace rts::core

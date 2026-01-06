@@ -4,12 +4,12 @@
 
 #pragma once
 
-#include <scene/IScene.hpp>
+#include <core/scene/IScene.hpp>
 
 namespace rts::scene {
     class LobbyScene : public IScene {
     public:
-        LobbyScene();
+        LobbyScene(const std::shared_ptr<manager::IUIManager> &uiManager, const std::shared_ptr<manager::ILogicManager> &logicManager);
         void update() override;
         void render() override;
     private:

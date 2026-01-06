@@ -25,8 +25,8 @@ namespace rts::thread {
 
             // 1️⃣ 모든 Command 처리
             command::LogicCommandBus::CommandPtr cmd;
-            while (m_CommandBus->tryPop(cmd)) {
-                m_CommandRouter->dispatch(*cmd);
+            while (m_CommandBus.tryPop(cmd)) {
+                m_CommandRouter.dispatch(*cmd);
             }
 
             // 3️⃣ 틱 고정

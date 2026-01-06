@@ -7,6 +7,8 @@
 #include <core/Manager/IUIManager.hpp>
 #include <core/command/CommandRouterBase.hpp>
 
+#include "core/manager/ILogicManger.hpp"
+
 namespace rts::manager {
     class LoginLogicManager : public ILogicManager {
     public:

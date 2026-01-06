@@ -4,13 +4,14 @@
 #pragma once
 #include <cmath>
 
-namespace rts::core {
+namespace rts::core::model {
     struct Vector2D {
         float x = 0.f;
         float y = 0.f;
 
         Vector2D() = default;
         Vector2D(float x_, float y_) : x(x_), y(y_) {}
+
 
         Vector2D operator+(const Vector2D& o) const {
             return { x + o.x, y + o.y };

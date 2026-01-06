@@ -8,68 +8,71 @@
 #include <SFML/Graphics/Text.hpp>
 #include <SFML/Graphics/Texture.hpp>
 
+#include "core/font/FontManager.hpp"
+#include "platform/sfml/SfmlWindow.hpp"
+
 namespace rts::platform::sfml {
     void SfmlRenderManager::execute(
         const core::render::RenderQueue &queue,
         const core::render::RenderContext &ctx
     ) {
-        auto *window = static_cast<sf::RenderWindow *>(ctx.nativeHandle);
-        if (!window) return;
+        auto& windowBase = ctx.window();
+
+        auto* sfWindow = static_cast<sf::RenderWindow*>(windowBase.getNativeHandle());
+        if (!sfWindow) return;
 
         for (const auto &cmd: queue.commands()) {
             std::visit(
                 [&](auto &&data) {
-                    draw(window, data);
+                    draw(*sfWindow, data);
                 },
                 cmd.data
             );
         }
     }
 
-    void SfmlRenderManager::draw(sf::RenderWindow *window, const core::render::DrawRect &r) {
-        sf::RectangleShape rect({r.w, r.h});
-        rect.setPosition({r.x, r.y});
+    void SfmlRenderManager::draw(sf::RenderWindow &window, const core::render::DrawRect &r) {
+        sf::RectangleShape rect({r.rect.width(), r.rect.height()});
+        rect.setPosition({r.rect.left(), r.rect.top()});
+        rect.setOutlineColor(sf::Color(r.border_color));
+        rect.setOutlineThickness(1);
         rect.setFillColor(sf::Color(r.color));
-        window->draw(rect);
+        window.draw(rect);
     }
 
     void SfmlRenderManager::draw(
-        sf::RenderWindow *window,
-        const core::render::DrawText &r
+        sf::RenderWindow& window,
+        const core::render::DrawText& r
     ) {
-        if (!window) return;
+        using core::font::FontManager;
 
-        // TODO: ResourceManager로 교체 예정
-        static sf::Font defaultFont("assets/fonts/default.ttf");
-        static bool fontLoaded = false;
+        const sf::Font* font =
+            FontManager::instance().getNative<sf::Font>(r.fontId);
 
-        if (!fontLoaded) {
-            fontLoaded = true;
-        }
+        // 🔥 폰트 없으면 fallback (절대 크래시 X)
+        // if (!font)
+        //     font = FontManager::instance().getNative<sf::Font>(core::font::FontId::Default);
 
-        sf::Text text(defaultFont);
+        // 그래도 없으면 그냥 그리지 않음
+        if (!font)
+            return;
+
+        sf::Text text(*font);
         text.setString(r.text);
         text.setCharacterSize(r.size);
-        text.setPosition({r.x, r.y});
+        text.setPosition({r.pos.x, r.pos.y});
 
         // ARGB → SFML Color
-        sf::Color color(
-            (r.color >> 16) & 0xFF, // R
-            (r.color >> 8) & 0xFF, // G
-            (r.color) & 0xFF, // B
-            (r.color >> 24) & 0xFF // A
-        );
+        sf::Color color(r.color);
         text.setFillColor(color);
 
-        window->draw(text);
+        window.draw(text);
     }
 
     void SfmlRenderManager::draw(
-        sf::RenderWindow *window,
+        sf::RenderWindow &window,
         const core::render::DrawSprite &r
     ) {
-        if (!window) return;
-
         // TODO: textureId → ResourceManager에서 가져오기
         static sf::Texture dummyTexture;
         static bool textureLoaded = false;
@@ -95,6 +98,6 @@ namespace rts::platform::sfml {
             }
         );
 
-        window->draw(sprite);
+        window.draw(sprite);
     }
 }

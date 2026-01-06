@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <functional>
 #include <mutex>
-
+namespace rts::core{
     template<typename... Args>
     class Signal {
     public:
@@ -26,7 +26,7 @@
                 slots.end());
         }
 
-        void emit(Args... args) {
+        void operator()(Args... args) {
             std::vector<Slot> copy;
             {
                 std::lock_guard lock(mutex);

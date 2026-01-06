@@ -2,10 +2,11 @@
 // Created by black on 25. 12. 6..
 //
 // src/core/GameApp.cpp
-#include "../../../include/core/app/GameApp.hpp"
+#include "core/app/GameApp.hpp"
 
-#include "command/LogicCommandBus.hpp"
-#include "platform/sfml/sfmlWindow.hpp"
+#include "core/command/LogicCommandBus.hpp"
+#include "platform/sfml/SfmlRenderManager.hpp"
+#include "platform/sfml/SfmlWindow.hpp"
 
 
 namespace rts::core {
@@ -26,9 +27,21 @@ namespace rts::core {
             [](auto &) { return std::make_shared<command::UICommandRouter>(); }
         );
 
+        di.registerSingleton<render::RenderQueue>(
+            [](auto &) { return std::make_shared<render::RenderQueue>(); }
+        );
+
         di.registerSingleton<manager::SceneManager>(
             [](DIContainer &di) {
                 return std::make_shared<manager::SceneManager>(di);
+            }
+        );
+
+        di.registerSingleton<thread::LogicThread>(
+            [](DIContainer &di) {
+                auto &bus = *di.resolve<command::LogicCommandBus>();
+                auto &router = *di.resolve<command::LogicCommandRouter>();
+                return std::make_shared<thread::LogicThread>(bus, router);
             }
         );
 
@@ -46,13 +59,16 @@ namespace rts::core {
         di.registerScoped<manager::GameUIManager>(
             [](DIContainer &di) {
                 auto &router = *di.resolve<command::UICommandRouter>();
-                return std::make_shared<manager::GameUIManager>(router);
+                auto &logicBus = *di.resolve<command::LogicCommandBus>();
+                auto &queue = *di.resolve<render::RenderQueue>();
+                return std::make_shared<manager::GameUIManager>(router, logicBus, queue);
             }
         );
         di.registerScoped<manager::GameLogicManager>(
             [](DIContainer &di) {
+                auto &bus = *di.resolve<command::LogicCommandBus>();
                 auto &router = *di.resolve<command::LogicCommandRouter>();
-                return std::make_shared<manager::GameLogicManager>(router);
+                return std::make_shared<manager::GameLogicManager>(bus, router);
             }
         );
 
@@ -69,7 +85,8 @@ namespace rts::core {
             [](DIContainer &di) {
                 auto &router = *di.resolve<command::UICommandRouter>();
                 auto &logicBus = *di.resolve<command::LogicCommandBus>();
-                return std::make_shared<manager::LoginUIManager>(router, logicBus);
+                auto &queue = *di.resolve<render::RenderQueue>();
+                return std::make_shared<manager::LoginUIManager>(router, logicBus, queue);
             }
         );
         di.registerScoped<manager::LoginLogicManager>(
@@ -82,8 +99,11 @@ namespace rts::core {
 
 
         di.registerScoped<scene::LobbyScene>(
-            [](DIContainer &) {
-                return std::make_shared<scene::LobbyScene>();
+            [](DIContainer &di) {
+                return std::make_shared<scene::LobbyScene>(
+                    di.resolve<manager::LoginUIManager>(),
+                    di.resolve<manager::LoginLogicManager>()
+                );
             }
         );
 
@@ -94,27 +114,49 @@ namespace rts::core {
             }
         );
 
+        di.registerSingleton<render::IRenderManager>(
+            [](DIContainer &di) {
+                return std::make_shared<platform::sfml::SfmlRenderManager>();
+            }
+        );
+
         di.registerSingleton<platform::IWindow>(
             [](DIContainer &di) {
                 auto &bus = *di.resolve<command::UICommandBus>();
-                return std::static_pointer_cast<platform::IWindow>(std::make_shared<platform::sfml::sfmlWindow>(bus));
+                return std::static_pointer_cast<platform::IWindow>(std::make_shared<platform::sfml::SfmlWindow>(bus));
+            }
+        );
+
+        di.registerSingleton<render::RenderContext>(
+            [](DIContainer &di) {
+                auto &window = *di.resolve<platform::IWindow>();
+                return std::make_shared<render::RenderContext>(
+                    window,
+                    model::Vector2D(1920, 1080)
+                );
             }
         );
 
         m_logicThread = di.resolve<thread::LogicThread>();
-        m_window = di.resolve<platform::IWindow>();
         m_uiBus = di.resolve<command::UICommandBus>();
         m_uiRouter = di.resolve<command::UICommandRouter>();
+        m_logicBus = di.resolve<command::LogicCommandBus>();
+        m_logicRouter = di.resolve<command::LogicCommandRouter>();
         m_sceneManager = di.resolve<manager::SceneManager>();
-        m_sceneManager->changeScene(manager::SceneId::Login);
+        m_renderQueue = di.resolve<render::RenderQueue>();
+        m_renderContext = di.resolve<render::RenderContext>();
+        m_renderManager = di.resolve<render::IRenderManager>();
+        m_sceneManager->changeScene(manager::SceneId::Game);
     }
 
-    void GameApp::run() {
+    void GameApp::run() const {
         using clock = std::chrono::steady_clock;
-        while (m_window->isOpen()) {
+        auto& window = m_renderContext->window();
+        while (window.isOpen()) {
+            window.clear();
             auto start = clock::now();
             // 1️⃣ OS 이벤트 수집
-            m_window->pollEvents();
+            window.pollEvents();
 
 
             command::UICommandPtr cmd;
@@ -126,7 +168,9 @@ namespace rts::core {
 
             m_sceneManager->render();
 
-            m_window->display();
+            m_renderManager->execute(*m_renderQueue, *m_renderContext);
+
+            window.display();
         }
     }
 } // namespace rts::core

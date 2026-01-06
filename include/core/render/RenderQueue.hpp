@@ -21,7 +21,7 @@ namespace rts::core::render {
             m_commands.reserve(count);
         }
 
-        void push(RenderCommand&& cmd) {
+        void push(RenderCommand& cmd) {
             m_commands.emplace_back(std::move(cmd));
         }
 

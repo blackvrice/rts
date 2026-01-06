@@ -3,7 +3,12 @@
 //
 // render/RenderCommand.hpp
 #pragma once
+#include <cstdint>
+#include <string>
 #include <variant>
+
+#include "core/font/FontTypes.hpp"
+#include "core/model/Rect.hpp"
 
 namespace rts::core::render {
 
@@ -13,19 +18,18 @@ namespace rts::core::render {
     };
 
     struct DrawRect {
-        float x, y, w, h;
+        model::Rect rect;
+        uint32_t border_color;
         uint32_t color;
     };
 
     struct DrawText {
-        float x;
-        float y;
-        uint32_t color;     // ARGB
-        int fontId;
+        model::Vector2D pos;
+        uint32_t color;
+        font::FontId fontId;
         int size;
         std::string text;
     };
-
 
     struct DrawSprite {
         float x;

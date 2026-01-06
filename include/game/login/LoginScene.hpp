@@ -14,8 +14,5 @@ namespace rts::scene {
 
         void update() override;
         void render() override;
-    private:
-        std::shared_ptr<manager::LoginUIManager> m_uiManager;
-        std::shared_ptr<manager::LoginLogicManager> m_logicManager;
     };
 }

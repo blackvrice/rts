@@ -6,8 +6,11 @@
 
 #include <core/command/Command.hpp>
 
-namespace rts::command {
+#include "core/model/Event.hpp"
+#include "core/model/Key.hpp"
+#include "core/model/Vector2D.hpp"
 
+namespace rts::command {
     // =========================================================
     // Base UICommand
     // =========================================================
@@ -23,45 +26,62 @@ namespace rts::command {
     // =========================================================
     class MouseLeftPressedCommand final : public UICommand {
     public:
-        explicit MouseLeftPressedCommand(sf::Vector2i position)
-            : m_position(position) {}
+        explicit MouseLeftPressedCommand(core::model::Vector2D position)
+            : m_position(position) {
+        }
 
-        sf::Vector2i position() const noexcept { return m_position; }
+        core::model::Vector2D position() const noexcept { return m_position; }
 
     private:
-        sf::Vector2i m_position;
+        core::model::Vector2D m_position;
     };
 
     class MouseRightPressedCommand final : public UICommand {
     public:
-        explicit MouseRightPressedCommand(sf::Vector2i position)
-            : m_position(position) {}
+        explicit MouseRightPressedCommand(core::model::Vector2D position)
+            : m_position(position) {
+        }
 
-        sf::Vector2i position() const noexcept { return m_position; }
+        core::model::Vector2D position() const noexcept { return m_position; }
 
     private:
-        sf::Vector2i m_position;
+        core::model::Vector2D m_position;
     };
 
     class MouseLeftReleasedCommand final : public UICommand {
     public:
-        MouseLeftReleasedCommand() = default;
+        MouseLeftReleasedCommand(core::model::Vector2D position)
+            : m_position(position) {
+        }
+
+        core::model::Vector2D position() const noexcept { return m_position; }
+
+    private:
+        core::model::Vector2D m_position;
     };
 
     class MouseRightReleasedCommand final : public UICommand {
     public:
-        MouseRightReleasedCommand() = default;
+        MouseRightReleasedCommand(core::model::Vector2D position)
+            : m_position(position) {
+        }
+
+        core::model::Vector2D position() const noexcept { return m_position; }
+
+    private:
+        core::model::Vector2D m_position;
     };
 
     class MouseMoveCommand final : public UICommand {
     public:
-        explicit MouseMoveCommand(sf::Vector2i position)
-            : m_position(position) {}
+        explicit MouseMoveCommand(core::model::Vector2D position)
+            : m_position(position) {
+        }
 
-        sf::Vector2i position() const noexcept { return m_position; }
+        core::model::Vector2D position() const noexcept { return m_position; }
 
     private:
-        sf::Vector2i m_position;
+        core::model::Vector2D m_position;
     };
 
     // =========================================================
@@ -69,25 +89,32 @@ namespace rts::command {
     // =========================================================
     class KeyPressedCommand final : public UICommand {
     public:
-        explicit KeyPressedCommand(const sf::Event::KeyPressed& key)
-            : m_code(key.code),
-              m_scancode(key.scancode),
-              m_shift(key.shift),
-              m_alt(key.alt),
-              m_control(key.control) {}
+        explicit KeyPressedCommand(
+            core::model::Key code,
+            core::model::Scan scancode,
+            core::model::KeyModifier mods
+        ) : m_code(code), m_scancode(scancode), m_mods(mods) {
+        }
 
-        sf::Keyboard::Key code() const noexcept { return m_code; }
-        sf::Keyboard::Scancode scancode() const noexcept { return m_scancode; }
-        bool shift() const noexcept { return m_shift; }
-        bool alt() const noexcept { return m_alt; }
-        bool control() const noexcept { return m_control; }
+        core::model::Key getCode() const { return m_code; }
+        core::model::Scan getScanCode() const { return m_scancode; }
+        core::model::KeyModifier getMods() const { return m_mods; }
 
     private:
-        sf::Keyboard::Key m_code;
-        sf::Keyboard::Scancode m_scancode;
-        bool m_shift;
-        bool m_alt;
-        bool m_control;
+        core::model::Key m_code;
+        core::model::Scan m_scancode;
+        core::model::KeyModifier m_mods;
     };
 
+    class TextEnteredCommand final : public UICommand {
+    public:
+        explicit TextEnteredCommand(char32_t ch)
+            : m_char(ch) {
+        }
+
+        char32_t getChar() const { return m_char; }
+
+    private:
+        char32_t m_char;
+    };
 } // namespace rts::command

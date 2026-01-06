@@ -26,7 +26,7 @@ namespace rts::manager {
         SceneManager(core::DIContainer& di) : di(di) {}
 
         void changeScene(SceneId id) {
-            di.endScope();
+            if (m_scene != nullptr) di.endScope();
             di.beginScope();
 
             switch (id) {
