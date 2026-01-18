@@ -6,13 +6,15 @@
 #include <memory>
 
 #include "IGameElement.hpp"
-#include "IViewModel.hpp"
-#include "UnitViewModel.hpp"
-
+namespace rts::manager {
+    class GameLogicManager;
+}
 namespace rts::core::model {
     class Unit : public IGameElement, public std::enable_shared_from_this<Unit>{
     public:
-        ActionType currentAction() const override;
+        explicit Unit(manager::GameLogicManager& logic);
+
+        ActionType getAction() const override;
 
         void moveTo(const Vector2D &target) override;
 
@@ -24,15 +26,29 @@ namespace rts::core::model {
 
         void updateAttack(float dt);
 
-        bool canMoveTo(const Vector2D &pos) const;
-
         void takeDamage(float amount, IGameElement *attacker) override;
 
+        float getHp() const;
 
+        float getMaxHp() const;
 
-        std::shared_ptr<IViewModel> buildViewModel() override;
+        void update() override;
+        void buildRenderCommands(render::RenderQueue&) const override;
+        const GameState& state() const override;
+        Vector2D getPosition() const override;
+        void setPosition(const Vector2D&) override;
+        void idle() override;
+        void stop() override;
+        void holdPosition() override;
+        void patrol(const Vector2D&, const Vector2D&) override {}
+        void attackMove(const Vector2D&) override {}
+        void gather(IGameElement*) override {}
+        void build(int, const Vector2D&) override {}
+        void cast(int, const Vector2D&) override {}
 
     private:
+        manager::GameLogicManager& m_logic;
+
         ActionType m_action = ActionType::Idle;
 
         Vector2D m_position{};
@@ -49,5 +65,7 @@ namespace rts::core::model {
 
         float m_hp = 100.f;
         float m_maxHp = 100.f;
+
+        GameState m_state{};
     };
 }

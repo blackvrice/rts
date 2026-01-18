@@ -8,6 +8,7 @@
 #include "State.hpp"
 #include "Vector2D.hpp"
 #include "core/render/RenderQueue.hpp"
+#include "game/game/GameLogicManager.hpp"
 
 namespace rts::core::model {
     enum class ActionType {
@@ -33,7 +34,7 @@ namespace rts::core::model {
         virtual const GameState& state() const = 0;
 
         // 📍 위치
-        virtual Vector2D position() const = 0;
+        virtual Vector2D getPosition() const = 0;
         virtual void setPosition(const Vector2D& pos) = 0;
 
         // ===============================
@@ -62,11 +63,10 @@ namespace rts::core::model {
         // 스킬
         virtual void cast(int skillId, const Vector2D& target) = 0;
 
-        virtual std::shared_ptr<IViewModel> buildViewModel() = 0;
-
         // 상태
-        virtual ActionType currentAction() const = 0;
+        virtual ActionType getAction() const = 0;
 
+    protected:
     };
 
 }

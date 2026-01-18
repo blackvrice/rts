@@ -72,4 +72,9 @@ namespace rts::manager {
             element->buildRenderCommands(m_renderQueue);
         }
     }
+
+    void LoginUIManager::syncWithLogic() {
+        // Login 화면은 Logic과 동기화할 ViewModel이 보통 없음
+        // 필요하면 나중에 연결
+    }
 }

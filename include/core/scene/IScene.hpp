@@ -15,6 +15,7 @@ namespace rts::scene {
         virtual ~IScene() = default;
         virtual void update() = 0;
         virtual void render() = 0;
+        manager::IUIManager& getUIManager() const { return *m_uiManager; }
         manager::ILogicManager& getLogicManager() const { return *m_logicManager; }
 
     protected:

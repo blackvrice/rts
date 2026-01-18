@@ -40,6 +40,7 @@ namespace rts::manager {
                     m_scene = di.resolve<scene::LobbyScene>();
                     break;
             }
+            m_scene->getUIManager().setLogicSource(m_scene->getLogicManager());
         }
 
         void update() const {

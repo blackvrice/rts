@@ -6,7 +6,7 @@
 
 #include <string>
 
-namespace rts::core::model {
+namespace rts::core::viewmodel {
 
     class IViewModel {
     public:
@@ -24,6 +24,8 @@ namespace rts::core::model {
 
         // 🧹 정리 가능 여부
         virtual bool expired() const = 0;
+        // 🔥 핵심: 어떤 Model을 바라보는 ViewModel인가?
+        virtual const void* modelPtr() const = 0;
     };
 
 }

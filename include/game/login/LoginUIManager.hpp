@@ -18,6 +18,7 @@ namespace rts::manager {
 
         void update() override;
         void render() override;
+        void syncWithLogic() override;   // ✅ 추가
 
     private:
         std::vector<std::unique_ptr<core::ui::IUIElement>> m_elements;

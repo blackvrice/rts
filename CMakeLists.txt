@@ -98,8 +98,9 @@ add_executable(RTS src/main.cpp
         include/core/model/Rect.hpp
         include/core/model/IViewModel.hpp
         include/core/model/UnitPanelViewModel.hpp
-        include/core/model/UnitViewModel.hpp
+        include/core/viewmodel/UnitViewModel.hpp
         src/core/model/Unit.cpp
+        src/core/viewmodel/UnitViewModel.cpp
 )
 
 add_custom_command(TARGET RTS POST_BUILD

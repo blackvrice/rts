@@ -4,8 +4,11 @@
 
 #include "game/game/GameUIManager.hpp"
 
+#include "core/model/Unit.hpp"
 #include "core/ui/SelectBox.hpp"
 #include "core/ui/TextBox.hpp"
+#include "core/viewmodel/UnitViewModel.hpp"
+#include "game/game/GameLogicManager.hpp"
 
 namespace rts::manager {
     GameUIManager::GameUIManager(command::UICommandRouter &router, command::LogicCommandBus &logicBus,
@@ -40,8 +43,8 @@ namespace rts::manager {
 
 
     void GameUIManager::update() {
-        for (auto it = m_viewModels.begin(); it != m_viewModels.end(); ) {
-            auto& vm = *it;
+        for (auto it = m_viewModels.begin(); it != m_viewModels.end();) {
+            auto &vm = *it;
 
             if (!vm || vm->expired()) {
                 it = m_viewModels.erase(it);
@@ -56,7 +59,7 @@ namespace rts::manager {
         }
     }
 
-    void GameUIManager::addViewModel(std::shared_ptr<core::model::IViewModel> vm) {
+    void GameUIManager::addViewModel(std::shared_ptr<core::viewmodel::IViewModel> vm) {
         m_viewModels.push_back(vm);
     }
 
@@ -65,5 +68,45 @@ namespace rts::manager {
         for (auto &element: m_elements) {
             element->buildRenderCommands(m_renderQueue);
         }
+    }
+
+    void GameUIManager::setLogicSource(ILogicManager& logic) {
+        m_logic = &logic;
+    }
+
+
+    void GameUIManager::syncWithLogic() {
+        if (!m_logic)
+            return;
+
+        // 1. 기존 ViewModel 중 expired 제거
+        std::erase_if(m_viewModels,
+                      [](const auto &vm) { return vm->expired(); });
+
+        // 2. Logic에 있는데 ViewModel 없는 것 생성
+        for (auto &element: *m_logic->) {
+            if (!hasViewModelFor(element)) {
+                if (auto unit = std::dynamic_pointer_cast<core::model::Unit>(element)) {
+                    m_viewModels.push_back(
+                        std::make_shared<core::viewmodel::UnitViewModel>(unit)
+                    );
+                }
+            }
+        }
+    }
+
+    bool GameUIManager::hasViewModelFor(
+        const std::shared_ptr<core::model::IGameElement> &element) const {
+        if (!element)
+            return false;
+
+        const void *target = element.get();
+
+        for (const auto &vm: m_viewModels) {
+            if (vm->modelPtr() == target) {
+                return true;
+            }
+        }
+        return false;
     }
 }
