@@ -2,20 +2,27 @@
 project(RTS)
 
 set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # SFML Root Directory 설정
 set(SFML_DIR "D:/Libs/SFML-3.0.2/lib/cmake/SFML")
 
 find_package(SFML 3 REQUIRED COMPONENTS System Window Graphics)
+find_package(OpenGL REQUIRED)
 
 include(CheckCXXSourceCompiles)
+
 set(RTS_CRT_HEADER_TEST "#include <cstdlib>\n#include <ctime>\nint main(){return 0;}")
 check_cxx_source_compiles("${RTS_CRT_HEADER_TEST}" RTS_CRT_HEADERS_COMPILE)
+
 if(MINGW AND NOT RTS_CRT_HEADERS_COMPILE)
         set(RTS_PREVIOUS_CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS}")
         set(CMAKE_REQUIRED_DEFINITIONS "-D_UCRT")
+
         check_cxx_source_compiles("${RTS_CRT_HEADER_TEST}" RTS_CRT_HEADERS_COMPILE_WITH_UCRT)
+
         set(CMAKE_REQUIRED_DEFINITIONS "${RTS_PREVIOUS_CMAKE_REQUIRED_DEFINITIONS}")
+
         if(RTS_CRT_HEADERS_COMPILE_WITH_UCRT)
                 add_compile_definitions(_UCRT)
         else()
@@ -23,17 +30,35 @@ if(MINGW AND NOT RTS_CRT_HEADERS_COMPILE)
         endif()
 endif()
 
-if(MINGW)
-        get_filename_component(RTS_COMPILER_RUNTIME_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+# =========================
+# ImGui 설정
+# =========================
+set(IMGUI_DIR "D:/Libs/imgui")
 
-        if(RTS_CRT_HEADERS_COMPILE_WITH_UCRT AND EXISTS "C:/msys64/ucrt64/bin")
-                set(RTS_MINGW_RUNTIME_DIR "C:/msys64/ucrt64/bin")
-        else()
-                set(RTS_MINGW_RUNTIME_DIR "${RTS_COMPILER_RUNTIME_DIR}")
-        endif()
+add_library(imgui STATIC
+        ${IMGUI_DIR}/imgui.cpp
+        ${IMGUI_DIR}/imgui_draw.cpp
+        ${IMGUI_DIR}/imgui_widgets.cpp
+        ${IMGUI_DIR}/imgui_tables.cpp
+        ${IMGUI_DIR}/imgui_demo.cpp
+        ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+        ${IMGUI_DIR}/backends/imgui_impl_win32.cpp
+)
+
+target_include_directories(imgui PUBLIC
+        ${IMGUI_DIR}
+        ${IMGUI_DIR}/backends
+)
+
+if(WIN32)
+        target_link_libraries(imgui PUBLIC gdi32 dwmapi)
 endif()
 
-add_executable(RTS src/main.cpp
+# =========================
+# RTS 실행 파일
+# =========================
+add_executable(RTS
+        src/main.cpp
         include/core/thread/ThreadBase.hpp
         include/core/di/DIContainer.hpp
         include/core/command/Command.hpp
@@ -93,10 +118,9 @@ add_executable(RTS src/main.cpp
         include/core/render/RenderManager.hpp
         include/platform/sfml/SfmlRenderManager.hpp
         src/platform/sfml/SfmlRenderManager.cpp
+        include/platform/sfml/SfmlHudOverlay.hpp
+        src/platform/sfml/SfmlHudOverlay.cpp
         include/core/render/RenderContext.hpp
-        src/platform/sfml/SfmlRenderManager.cpp
-        src/platform/sfml/SfmlRenderManager.cpp
-        src/platform/sfml/SfmlRenderManager.cpp
         src/game/login/LoginLogicManager.cpp
         src/game/lobby/LobbyLogicManager.cpp
         src/game/lobby/LobbyUIManager.cpp
@@ -105,7 +129,7 @@ add_executable(RTS src/main.cpp
         include/core/factory/SceneFacotry.hpp
         include/core/model/Key.hpp
         include/core/model/Event.hpp
-        "include/core/font/FontMetrics.hpp"
+        include/core/font/FontMetrics.hpp
         include/platform/sfml/SfmlFontMetrics.hpp
         include/core/font/FontTypes.hpp
         include/core/font/FontManager.hpp
@@ -126,7 +150,7 @@ add_executable(RTS src/main.cpp
         src/core/model/Unit.cpp
         src/core/viewmodel/UnitViewModel.cpp
         include/core/map/TileMapSoA.hpp
-        "include/core/world/GameWorld.hpp"
+        include/core/world/GameWorld.hpp
         include/core/manager/PathManager.hpp
         src/core/manager/PathManager.cpp
         include/core/path/GridTypes.hpp
@@ -135,8 +159,38 @@ add_executable(RTS src/main.cpp
         include/core/world/GameWorldGridQuery.hpp
         src/core/world/GameWorld.cpp
         src/core/world/GameWorldGridQuery.cpp
-        "include/core/world/GridTransform.hpp"
+        include/core/world/GridTransform.hpp
 )
+
+# tmxlite
+add_subdirectory(external/tmxlite/tmxlite)
+
+if(MINGW AND TARGET tmxlite)
+        target_compile_definitions(tmxlite PRIVATE __NO_MINGW_LFS)
+endif()
+
+target_include_directories(RTS PRIVATE
+        include
+)
+
+target_link_libraries(RTS PRIVATE
+        SFML::System
+        SFML::Window
+        SFML::Graphics
+        OpenGL::GL
+        tmxlite
+        imgui
+)
+
+if(MINGW)
+        get_filename_component(RTS_COMPILER_RUNTIME_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+
+        if(RTS_CRT_HEADERS_COMPILE_WITH_UCRT AND EXISTS "C:/msys64/ucrt64/bin")
+                set(RTS_MINGW_RUNTIME_DIR "C:/msys64/ucrt64/bin")
+        else()
+                set(RTS_MINGW_RUNTIME_DIR "${RTS_COMPILER_RUNTIME_DIR}")
+        endif()
+endif()
 
 add_custom_command(TARGET RTS POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
@@ -155,10 +209,3 @@ if(MINGW)
                 endif()
         endforeach()
 endif()
-
-add_subdirectory(external/tmxlite/tmxlite)
-if(MINGW AND TARGET tmxlite)
-        target_compile_definitions(tmxlite PRIVATE __NO_MINGW_LFS)
-endif()
-target_link_libraries(RTS PRIVATE SFML::System SFML::Window SFML::Graphics tmxlite)
-target_include_directories(RTS PRIVATE include)

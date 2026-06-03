@@ -9,13 +9,22 @@
 #include <SFML/Graphics/Text.hpp>
 #include <SFML/Graphics/Texture.hpp>
 
+#include <memory>
+
 #include "core/font/FontManager.hpp"
 #include "core/render/RenderCommand.hpp"
 #include "core/render/RenderContext.hpp"
 #include "core/render/RenderQueue.hpp"
+#include "platform/sfml/SfmlHudOverlay.hpp"
 #include "platform/sfml/SfmlWindow.hpp"
 
 namespace rts::platform::sfml {
+    SfmlRenderManager::SfmlRenderManager()
+        : m_hud(std::make_unique<SfmlHudOverlay>()) {
+    }
+
+    SfmlRenderManager::~SfmlRenderManager() = default;
+
     void SfmlRenderManager::execute(
         const core::render::RenderQueue &queue,
         const core::render::RenderContext &ctx
@@ -33,6 +42,8 @@ namespace rts::platform::sfml {
                 cmd.data
             );
         }
+
+        m_hud->render(*sfWindow);
     }
 
     void SfmlRenderManager::draw(sf::RenderWindow &window, const core::render::DrawRect &r) {
