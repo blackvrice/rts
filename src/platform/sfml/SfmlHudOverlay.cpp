@@ -20,7 +20,6 @@
 
 namespace {
     constexpr ImU32 kConsoleFill = IM_COL32(10, 18, 26, 235);
-    constexpr ImU32 kPanelFill = IM_COL32(18, 34, 48, 230);
     constexpr ImU32 kPanelDark = IM_COL32(5, 10, 15, 245);
     constexpr ImU32 kPanelHigh = IM_COL32(82, 145, 158, 230);
     constexpr ImU32 kPanelEdge = IM_COL32(145, 205, 212, 210);
@@ -31,9 +30,6 @@ namespace {
     constexpr ImU32 kWarning = IM_COL32(236, 198, 81, 255);
 
     constexpr const char* kWoodTable = "UI Elements/UI Elements/Wood Table/WoodTable.png";
-    constexpr const char* kWoodSlots = "UI Elements/UI Elements/Wood Table/WoodTable_Slots.png";
-    constexpr const char* kBanner = "UI Elements/UI Elements/Banners/Banner.png";
-    constexpr const char* kBannerSlots = "UI Elements/UI Elements/Banners/Banner_Slots.png";
     constexpr const char* kButtonRegular = "UI Elements/UI Elements/Buttons/SmallBlueSquareButton_Regular.png";
     constexpr const char* kButtonPressed = "UI Elements/UI Elements/Buttons/SmallBlueSquareButton_Pressed.png";
     constexpr const char* kBarBase = "UI Elements/UI Elements/Bars/BigBar_Base.png";
@@ -126,20 +122,9 @@ namespace {
         }
     }
 
-    void drawPanelFrame(ImDrawList& drawList, const ImVec2 min, const ImVec2 max, const char* title, const sf::Texture* texture, const float sourceEdge, const float targetEdge) {
-        if (texture) {
-            drawNineSlice(drawList, texture, min, max, sourceEdge, targetEdge, IM_COL32(255, 255, 255, 238));
-            drawList.AddRectFilled(min, max, IM_COL32(12, 11, 8, 72), 2.0f);
-        } else {
-            drawList.AddRectFilled(min, max, kPanelFill, 2.0f);
-        }
-
-        drawList.AddRect(min, max, kPanelEdge, 2.0f, 0, 2.0f);
-        drawList.AddRect(min + ImVec2{4.0f, 4.0f}, max + ImVec2{-4.0f, -4.0f}, kPanelHigh, 1.0f, 0, 1.0f);
-
-        const ImVec2 titlePos{min.x + 12.0f, min.y + 8.0f};
-        drawList.AddText(titlePos, kTextDim, title);
-        drawList.AddLine({min.x + 8.0f, min.y + 30.0f}, {max.x - 8.0f, min.y + 30.0f}, IM_COL32(70, 120, 132, 180), 1.0f);
+    void drawSectionHeader(ImDrawList& drawList, const ImVec2 min, const ImVec2 max, const char* title) {
+        drawList.AddText({min.x + 12.0f, min.y + 8.0f}, kTextDim, title);
+        drawList.AddLine({min.x + 10.0f, min.y + 30.0f}, {max.x - 10.0f, min.y + 30.0f}, IM_COL32(77, 50, 38, 110), 1.0f);
     }
 
     void drawResourcePill(ImDrawList& drawList, const ImVec2 min, const ImVec2 size, const char* label, const char* value, const ImU32 color, const sf::Texture* icon, const SourceRect* iconSource = nullptr) {
@@ -364,9 +349,6 @@ namespace rts::platform::sfml {
 
         ImDrawList& drawList = *ImGui::GetWindowDrawList();
         const sf::Texture* woodTable = texture(kWoodTable);
-        const sf::Texture* woodSlots = texture(kWoodSlots);
-        const sf::Texture* banner = texture(kBanner);
-        const sf::Texture* bannerSlots = texture(kBannerSlots);
         const sf::Texture* buttonRegular = texture(kButtonRegular);
         const sf::Texture* buttonPressed = texture(kButtonPressed);
         const sf::Texture* barBase = texture(kBarBase);
@@ -401,9 +383,9 @@ namespace rts::platform::sfml {
         const ImVec2 statusMin{miniMax.x + margin, bottomY + margin};
         const ImVec2 statusMax{commandMin.x - margin, height - margin};
 
-        drawPanelFrame(drawList, miniMin, miniMax, "MINI MAP", bannerSlots, 64.0f, 32.0f);
-        drawPanelFrame(drawList, statusMin, statusMax, "SELECTION", banner, 128.0f, 56.0f);
-        drawPanelFrame(drawList, commandMin, commandMax, "COMMAND", woodSlots, 64.0f, 32.0f);
+        drawSectionHeader(drawList, miniMin, miniMax, "MINI MAP");
+        drawSectionHeader(drawList, statusMin, statusMax, "SELECTION");
+        drawSectionHeader(drawList, commandMin, commandMax, "COMMAND");
         drawMiniMap(drawList, miniMin, miniMax);
 
         const ImVec2 portraitMin{statusMin.x + 18.0f, statusMin.y + 44.0f};
