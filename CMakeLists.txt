@@ -4,6 +4,12 @@ project(RTS)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+if(CMAKE_GENERATOR MATCHES "Ninja")
+        # GCC 16 UCRT debug builds can fail with temp-file/ICE errors under high CLion -j values.
+        set_property(GLOBAL PROPERTY JOB_POOLS rts_compile_pool=4)
+        set(CMAKE_JOB_POOL_COMPILE rts_compile_pool)
+endif()
+
 # SFML Root Directory 설정
 set(SFML_DIR "D:/Libs/SFML-3.0.2/lib/cmake/SFML")
 
@@ -40,7 +46,6 @@ add_library(imgui STATIC
         ${IMGUI_DIR}/imgui_draw.cpp
         ${IMGUI_DIR}/imgui_widgets.cpp
         ${IMGUI_DIR}/imgui_tables.cpp
-        ${IMGUI_DIR}/imgui_demo.cpp
         ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
         ${IMGUI_DIR}/backends/imgui_impl_win32.cpp
 )
