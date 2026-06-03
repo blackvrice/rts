@@ -8,8 +8,12 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
+#include <unordered_map>
 
+#include <SFML/Graphics/Image.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/Texture.hpp>
 
@@ -49,7 +53,40 @@ namespace {
         float h;
     };
 
+    struct TrimCacheKey {
+        const sf::Texture* texture;
+        int x;
+        int y;
+        int w;
+        int h;
+
+        bool operator==(const TrimCacheKey& other) const {
+            return texture == other.texture &&
+                   x == other.x &&
+                   y == other.y &&
+                   w == other.w &&
+                   h == other.h;
+        }
+    };
+
+    struct TrimCacheKeyHash {
+        std::size_t operator()(const TrimCacheKey& key) const {
+            std::size_t result = std::hash<const sf::Texture*>{}(key.texture);
+            const auto combine = [&result](const std::size_t value) {
+                result ^= value + 0x9e3779b97f4a7c15ULL + (result << 6) + (result >> 2);
+            };
+            combine(std::hash<int>{}(key.x));
+            combine(std::hash<int>{}(key.y));
+            combine(std::hash<int>{}(key.w));
+            combine(std::hash<int>{}(key.h));
+            return result;
+        }
+    };
+
     constexpr SourceRect kBlueSwordIcon{0.0f, 0.0f, 96.0f, 128.0f};
+
+    std::unordered_map<const sf::Texture*, sf::Image> g_trimImages;
+    std::unordered_map<TrimCacheKey, SourceRect, TrimCacheKeyHash> g_trimCache;
 
     std::filesystem::path tinySwordsRoot() {
         return std::filesystem::path(rts::platform::sfml::TinySwordsRoot);
@@ -94,6 +131,62 @@ namespace {
         );
     }
 
+    const sf::Image& trimImageFor(const sf::Texture& texture) {
+        if (const auto it = g_trimImages.find(&texture); it != g_trimImages.end()) {
+            return it->second;
+        }
+
+        auto [it, _] = g_trimImages.emplace(&texture, texture.copyToImage());
+        return it->second;
+    }
+
+    SourceRect trimTransparentSourceRect(const sf::Texture& texture, const SourceRect src) {
+        const auto textureSize = texture.getSize();
+        const int x0 = std::clamp(static_cast<int>(std::round(src.x)), 0, static_cast<int>(textureSize.x));
+        const int y0 = std::clamp(static_cast<int>(std::round(src.y)), 0, static_cast<int>(textureSize.y));
+        const int x1 = std::clamp(static_cast<int>(std::round(src.x + src.w)), x0, static_cast<int>(textureSize.x));
+        const int y1 = std::clamp(static_cast<int>(std::round(src.y + src.h)), y0, static_cast<int>(textureSize.y));
+
+        const TrimCacheKey key{x0 < x1 && y0 < y1 ? &texture : nullptr, x0, y0, x1 - x0, y1 - y0};
+        if (const auto it = g_trimCache.find(key); it != g_trimCache.end()) {
+            return it->second;
+        }
+
+        const sf::Image& image = trimImageFor(texture);
+        const auto imageSize = image.getSize();
+        const std::uint8_t* pixels = image.getPixelsPtr();
+        int minX = x1;
+        int minY = y1;
+        int maxX = x0 - 1;
+        int maxY = y0 - 1;
+
+        for (int y = y0; y < y1; ++y) {
+            for (int x = x0; x < x1; ++x) {
+                const std::size_t alphaIndex = (static_cast<std::size_t>(y) * imageSize.x + static_cast<std::size_t>(x)) * 4U + 3U;
+                if (pixels[alphaIndex] == 0U) {
+                    continue;
+                }
+
+                minX = std::min(minX, x);
+                minY = std::min(minY, y);
+                maxX = std::max(maxX, x);
+                maxY = std::max(maxY, y);
+            }
+        }
+
+        // HUD ADJUST: transparent source padding is trimmed here before 9-slice pieces are drawn.
+        const SourceRect trimmed = maxX < minX || maxY < minY
+            ? SourceRect{src.x, src.y, src.w, src.h}
+            : SourceRect{
+                static_cast<float>(minX),
+                static_cast<float>(minY),
+                static_cast<float>(maxX - minX + 1),
+                static_cast<float>(maxY - minY + 1)
+            };
+        g_trimCache.emplace(key, trimmed);
+        return trimmed;
+    }
+
     void drawTiledImageRect(
         ImDrawList& drawList,
         const sf::Texture* texture,
@@ -133,7 +226,7 @@ namespace {
     }
 
     // HUD ADJUST: sourceEdge is the png corner size, targetEdge is the on-screen corner size.
-    void drawNineSlice(ImDrawList& drawList, const sf::Texture* texture, const ImVec2 min, const ImVec2 max, const float sourceEdge, const float targetEdge, const ImU32 tint = IM_COL32_WHITE) {
+    void drawNineSlice(ImDrawList& drawList, const sf::Texture* texture, const ImVec2 min, const ImVec2 max, const float sourceEdge, const float targetEdge, const ImU32 tint = IM_COL32_WHITE, const bool trimTransparentSource = true) {
         if (!texture || sourceEdge <= 0.0f) {
             return;
         }
@@ -153,31 +246,38 @@ namespace {
         const std::array<float, 4> dx{min.x, min.x + edge, max.x - edge, max.x};
         const std::array<float, 4> dy{min.y, min.y + edge, max.y - edge, max.y};
 
-        drawImageRect(drawList, texture, SourceRect{sx[0], sy[0], sourceEdge, sourceEdge}, {dx[0], dy[0]}, {dx[1], dy[1]}, tint);
-        drawImageRect(drawList, texture, SourceRect{sx[2], sy[0], sourceEdge, sourceEdge}, {dx[2], dy[0]}, {dx[3], dy[1]}, tint);
-        drawImageRect(drawList, texture, SourceRect{sx[0], sy[2], sourceEdge, sourceEdge}, {dx[0], dy[2]}, {dx[1], dy[3]}, tint);
-        drawImageRect(drawList, texture, SourceRect{sx[2], sy[2], sourceEdge, sourceEdge}, {dx[2], dy[2]}, {dx[3], dy[3]}, tint);
+        const auto trimRect = [&](const SourceRect rect) {
+            return trimTransparentSource ? trimTransparentSourceRect(*texture, rect) : rect;
+        };
+
+        drawImageRect(drawList, texture, trimRect(SourceRect{sx[0], sy[0], sourceEdge, sourceEdge}), {dx[0], dy[0]}, {dx[1], dy[1]}, tint);
+        drawImageRect(drawList, texture, trimRect(SourceRect{sx[2], sy[0], sourceEdge, sourceEdge}), {dx[2], dy[0]}, {dx[3], dy[1]}, tint);
+        drawImageRect(drawList, texture, trimRect(SourceRect{sx[0], sy[2], sourceEdge, sourceEdge}), {dx[0], dy[2]}, {dx[1], dy[3]}, tint);
+        drawImageRect(drawList, texture, trimRect(SourceRect{sx[2], sy[2], sourceEdge, sourceEdge}), {dx[2], dy[2]}, {dx[3], dy[3]}, tint);
 
         if (sourceCenterW > 0.0f) {
-            const ImVec2 horizontalTileSize{sourceCenterW * scale, edge};
-            drawTiledImageRect(drawList, texture, SourceRect{sx[1], sy[0], sourceCenterW, sourceEdge}, {dx[1], dy[0]}, {dx[2], dy[1]}, horizontalTileSize, tint);
-            drawTiledImageRect(drawList, texture, SourceRect{sx[1], sy[2], sourceCenterW, sourceEdge}, {dx[1], dy[2]}, {dx[2], dy[3]}, horizontalTileSize, tint);
+            const SourceRect top = trimRect(SourceRect{sx[1], sy[0], sourceCenterW, sourceEdge});
+            const SourceRect bottom = trimRect(SourceRect{sx[1], sy[2], sourceCenterW, sourceEdge});
+            drawTiledImageRect(drawList, texture, top, {dx[1], dy[0]}, {dx[2], dy[1]}, {top.w * scale, edge}, tint);
+            drawTiledImageRect(drawList, texture, bottom, {dx[1], dy[2]}, {dx[2], dy[3]}, {bottom.w * scale, edge}, tint);
         }
 
         if (sourceCenterH > 0.0f) {
-            const ImVec2 verticalTileSize{edge, sourceCenterH * scale};
-            drawTiledImageRect(drawList, texture, SourceRect{sx[0], sy[1], sourceEdge, sourceCenterH}, {dx[0], dy[1]}, {dx[1], dy[2]}, verticalTileSize, tint);
-            drawTiledImageRect(drawList, texture, SourceRect{sx[2], sy[1], sourceEdge, sourceCenterH}, {dx[2], dy[1]}, {dx[3], dy[2]}, verticalTileSize, tint);
+            const SourceRect left = trimRect(SourceRect{sx[0], sy[1], sourceEdge, sourceCenterH});
+            const SourceRect right = trimRect(SourceRect{sx[2], sy[1], sourceEdge, sourceCenterH});
+            drawTiledImageRect(drawList, texture, left, {dx[0], dy[1]}, {dx[1], dy[2]}, {edge, left.h * scale}, tint);
+            drawTiledImageRect(drawList, texture, right, {dx[2], dy[1]}, {dx[3], dy[2]}, {edge, right.h * scale}, tint);
         }
 
         if (sourceCenterW > 0.0f && sourceCenterH > 0.0f) {
+            const SourceRect center = trimRect(SourceRect{sx[1], sy[1], sourceCenterW, sourceCenterH});
             drawTiledImageRect(
                 drawList,
                 texture,
-                SourceRect{sx[1], sy[1], sourceCenterW, sourceCenterH},
+                center,
                 {dx[1], dy[1]},
                 {dx[2], dy[2]},
-                {sourceCenterW * scale, sourceCenterH * scale},
+                {center.w * scale, center.h * scale},
                 tint
             );
         }
