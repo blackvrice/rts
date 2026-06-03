@@ -13,6 +13,7 @@
 #include <array>
 #include <filesystem>
 #include <memory>
+#include <unordered_map>
 
 #include "core/font/FontManager.hpp"
 #include "core/render/RenderCommand.hpp"
@@ -25,6 +26,8 @@
 namespace {
     constexpr int kWorldTileSize = 64;
     constexpr const char* kWorldTilesetPath = "Terrain/Tileset/Tilemap_color1.png";
+    constexpr int kBlueWarriorIdleTextureId = 1;
+    constexpr const char* kBlueWarriorIdlePath = "Units/Blue Units/Warrior/Warrior_Idle.png";
 
     const sf::Texture* tinySwordsWorldTileset() {
         static sf::Texture texture;
@@ -43,6 +46,35 @@ namespace {
         return loaded ? &texture : nullptr;
     }
 
+    const sf::Texture* tinySwordsSpriteTexture(const int textureId) {
+        static std::unordered_map<int, std::unique_ptr<sf::Texture>> textures;
+
+        if (const auto it = textures.find(textureId); it != textures.end()) {
+            return it->second.get();
+        }
+
+        const char* relativePath = nullptr;
+        switch (textureId) {
+            case kBlueWarriorIdleTextureId:
+                relativePath = kBlueWarriorIdlePath;
+                break;
+            default:
+                return nullptr;
+        }
+
+        auto texture = std::make_unique<sf::Texture>();
+        texture->setSmooth(false);
+
+        const std::filesystem::path path =
+            std::filesystem::path(rts::platform::sfml::TinySwordsRoot) / relativePath;
+        if (!texture->loadFromFile(path.string())) {
+            return nullptr;
+        }
+
+        const sf::Texture* result = texture.get();
+        textures.emplace(textureId, std::move(texture));
+        return result;
+    }
     sf::IntRect tileSourceRect(const sf::Texture& texture, const int tileIndex) {
         const auto textureSize = texture.getSize();
         const int columns = static_cast<int>(textureSize.x) / kWorldTileSize;
@@ -171,28 +203,29 @@ namespace rts::platform::sfml {
         sf::RenderWindow &window,
         const core::render::DrawSprite &r
     ) {
-        // TODO: textureId → ResourceManager에서 가져오기
-        static sf::Texture dummyTexture;
-        static bool textureLoaded = false;
-
-        if (!textureLoaded) {
-            dummyTexture.loadFromFile("assets/textures/dummy.png");
-            textureLoaded = true;
+        const sf::Texture* texture = tinySwordsSpriteTexture(r.textureId);
+        if (!texture) {
+            return;
         }
 
-        sf::Sprite sprite(dummyTexture);
-        sprite.setTexture(dummyTexture);
+        sf::Sprite sprite(*texture);
+        if (r.sourceW > 0 && r.sourceH > 0) {
+            sprite.setTextureRect(sf::IntRect(
+                {r.sourceX, r.sourceY},
+                {r.sourceW, r.sourceH}
+            ));
+        }
 
-        // 원본 텍스처 크기
-        auto texSize = dummyTexture.getSize();
+        const sf::IntRect sourceRect = sprite.getTextureRect();
+        if (sourceRect.size.x <= 0 || sourceRect.size.y <= 0) {
+            return;
+        }
 
         sprite.setPosition({r.x, r.y});
-
-        // 크기 스케일링
         sprite.setScale(
             {
-                r.w / static_cast<float>(texSize.x),
-                r.h / static_cast<float>(texSize.y)
+                r.w / static_cast<float>(sourceRect.size.x),
+                r.h / static_cast<float>(sourceRect.size.y)
             }
         );
 

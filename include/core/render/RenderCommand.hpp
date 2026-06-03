@@ -37,6 +37,10 @@ namespace rts::core::render {
         float w;
         float h;
         int textureId;
+        int sourceX { 0 };
+        int sourceY { 0 };
+        int sourceW { 0 };
+        int sourceH { 0 };
     };
 
     struct DrawCircle {

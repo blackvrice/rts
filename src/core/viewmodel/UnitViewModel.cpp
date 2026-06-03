@@ -51,15 +51,20 @@ namespace rts::core::viewmodel {
         if (!unit) return;
 
         model::Vector2D pos = unit->getPosition();
+        // Keep the model position near the unit's feet while drawing the 192px sprite frame.
         out.emplace(
-            core::render::RenderLayer::UI,
+            core::render::RenderLayer::World,
             10,
-            render::DrawCircle{
-                .cx = pos.x,
-                .cy = pos.y,
-                .radius = 50.f,
-                .border_color = 0xFF000000, // black
-                .color = 0xFFFF0000 // red
+            render::DrawSprite{
+                .x = pos.x - 48.0f,
+                .y = pos.y - 72.0f,
+                .w = 96.0f,
+                .h = 96.0f,
+                .textureId = 1,
+                .sourceX = 0,
+                .sourceY = 0,
+                .sourceW = 192,
+                .sourceH = 192
             });
     }
 }
