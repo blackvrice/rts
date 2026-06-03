@@ -23,6 +23,16 @@ if(MINGW AND NOT RTS_CRT_HEADERS_COMPILE)
         endif()
 endif()
 
+if(MINGW)
+        get_filename_component(RTS_COMPILER_RUNTIME_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+
+        if(RTS_CRT_HEADERS_COMPILE_WITH_UCRT AND EXISTS "C:/msys64/ucrt64/bin")
+                set(RTS_MINGW_RUNTIME_DIR "C:/msys64/ucrt64/bin")
+        else()
+                set(RTS_MINGW_RUNTIME_DIR "${RTS_COMPILER_RUNTIME_DIR}")
+        endif()
+endif()
+
 add_executable(RTS src/main.cpp
         include/core/thread/ThreadBase.hpp
         include/core/di/DIContainer.hpp
@@ -133,6 +143,18 @@ add_custom_command(TARGET RTS POST_BUILD
         "D:/Libs/SFML-3.0.2/bin"
         $<TARGET_FILE_DIR:RTS>
 )
+
+if(MINGW)
+        foreach(RTS_RUNTIME_DLL libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll)
+                if(EXISTS "${RTS_MINGW_RUNTIME_DIR}/${RTS_RUNTIME_DLL}")
+                        add_custom_command(TARGET RTS POST_BUILD
+                                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                                "${RTS_MINGW_RUNTIME_DIR}/${RTS_RUNTIME_DLL}"
+                                $<TARGET_FILE_DIR:RTS>
+                        )
+                endif()
+        endforeach()
+endif()
 
 add_subdirectory(external/tmxlite/tmxlite)
 if(MINGW AND TARGET tmxlite)
