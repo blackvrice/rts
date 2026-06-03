@@ -39,6 +39,16 @@ namespace {
     constexpr const char* kBarBase = "UI Elements/UI Elements/Bars/BigBar_Base.png";
     constexpr const char* kBarFill = "UI Elements/UI Elements/Bars/BigBar_Fill.png";
     constexpr const char* kAvatar = "UI Elements/UI Elements/Human Avatars/Avatars_01.png";
+    constexpr const char* kSwords = "UI Elements/UI Elements/Swords/Swords.png";
+
+    struct SourceRect {
+        float x;
+        float y;
+        float w;
+        float h;
+    };
+
+    constexpr SourceRect kBlueSwordIcon{0.0f, 0.0f, 96.0f, 128.0f};
 
     std::filesystem::path tinySwordsRoot() {
         return std::filesystem::path(rts::platform::sfml::TinySwordsRoot);
@@ -52,6 +62,14 @@ namespace {
         return ImTextureRef(static_cast<ImTextureID>(texture.getNativeHandle()));
     }
 
+    ImVec2 uv(const sf::Texture& texture, const float x, const float y) {
+        const auto size = texture.getSize();
+        return {
+            x / static_cast<float>(size.x),
+            y / static_cast<float>(size.y)
+        };
+    }
+
     void drawImage(ImDrawList& drawList, const sf::Texture* texture, const ImVec2 min, const ImVec2 max, const ImU32 tint = IM_COL32_WHITE) {
         if (!texture) {
             return;
@@ -60,9 +78,57 @@ namespace {
         drawList.AddImage(textureRef(*texture), min, max, {0.0f, 0.0f}, {1.0f, 1.0f}, tint);
     }
 
-    void drawPanelFrame(ImDrawList& drawList, const ImVec2 min, const ImVec2 max, const char* title, const sf::Texture* texture) {
+    void drawImageRect(ImDrawList& drawList, const sf::Texture* texture, const SourceRect src, const ImVec2 min, const ImVec2 max, const ImU32 tint = IM_COL32_WHITE) {
+        if (!texture) {
+            return;
+        }
+
+        drawList.AddImage(
+            textureRef(*texture),
+            min,
+            max,
+            uv(*texture, src.x, src.y),
+            uv(*texture, src.x + src.w, src.y + src.h),
+            tint
+        );
+    }
+
+    void drawNineSlice(ImDrawList& drawList, const sf::Texture* texture, const ImVec2 min, const ImVec2 max, const float sourceEdge, const float targetEdge, const ImU32 tint = IM_COL32_WHITE) {
+        if (!texture) {
+            return;
+        }
+
+        const auto textureSize = texture->getSize();
+        const float sourceW = static_cast<float>(textureSize.x);
+        const float sourceH = static_cast<float>(textureSize.y);
+        const float sourceCenterW = sourceW - sourceEdge * 2.0f;
+        const float sourceCenterH = sourceH - sourceEdge * 2.0f;
+        const float targetW = max.x - min.x;
+        const float targetH = max.y - min.y;
+        const float edge = std::min({targetEdge, targetW * 0.5f, targetH * 0.5f});
+
+        const std::array<float, 4> sx{0.0f, sourceEdge, sourceEdge + sourceCenterW, sourceW};
+        const std::array<float, 4> sy{0.0f, sourceEdge, sourceEdge + sourceCenterH, sourceH};
+        const std::array<float, 4> dx{min.x, min.x + edge, max.x - edge, max.x};
+        const std::array<float, 4> dy{min.y, min.y + edge, max.y - edge, max.y};
+
+        for (int y = 0; y < 3; ++y) {
+            for (int x = 0; x < 3; ++x) {
+                drawImageRect(
+                    drawList,
+                    texture,
+                    SourceRect{sx[x], sy[y], sx[x + 1] - sx[x], sy[y + 1] - sy[y]},
+                    {dx[x], dy[y]},
+                    {dx[x + 1], dy[y + 1]},
+                    tint
+                );
+            }
+        }
+    }
+
+    void drawPanelFrame(ImDrawList& drawList, const ImVec2 min, const ImVec2 max, const char* title, const sf::Texture* texture, const float sourceEdge, const float targetEdge) {
         if (texture) {
-            drawImage(drawList, texture, min, max, IM_COL32(255, 255, 255, 238));
+            drawNineSlice(drawList, texture, min, max, sourceEdge, targetEdge, IM_COL32(255, 255, 255, 238));
             drawList.AddRectFilled(min, max, IM_COL32(12, 11, 8, 72), 2.0f);
         } else {
             drawList.AddRectFilled(min, max, kPanelFill, 2.0f);
@@ -76,13 +142,19 @@ namespace {
         drawList.AddLine({min.x + 8.0f, min.y + 30.0f}, {max.x - 8.0f, min.y + 30.0f}, IM_COL32(70, 120, 132, 180), 1.0f);
     }
 
-    void drawResourcePill(ImDrawList& drawList, const ImVec2 min, const ImVec2 size, const char* label, const char* value, const ImU32 color, const sf::Texture* icon) {
+    void drawResourcePill(ImDrawList& drawList, const ImVec2 min, const ImVec2 size, const char* label, const char* value, const ImU32 color, const sf::Texture* icon, const SourceRect* iconSource = nullptr) {
         const ImVec2 max{min.x + size.x, min.y + size.y};
         drawList.AddRectFilled(min, max, IM_COL32(8, 16, 22, 232), 2.0f);
         drawList.AddRect(min, max, IM_COL32(70, 126, 138, 210), 2.0f, 0, 1.0f);
 
         if (icon) {
-            drawImage(drawList, icon, {min.x + 8.0f, min.y + 5.0f}, {min.x + 30.0f, min.y + 27.0f});
+            const ImVec2 iconMin{min.x + 8.0f, min.y + 5.0f};
+            const ImVec2 iconMax{min.x + 30.0f, min.y + 27.0f};
+            if (iconSource) {
+                drawImageRect(drawList, icon, *iconSource, iconMin, iconMax);
+            } else {
+                drawImage(drawList, icon, iconMin, iconMax);
+            }
         } else {
             drawList.AddCircleFilled({min.x + 18.0f, min.y + size.y * 0.5f}, 6.0f, color, 16);
         }
@@ -300,11 +372,12 @@ namespace rts::platform::sfml {
         const sf::Texture* barBase = texture(kBarBase);
         const sf::Texture* barFill = texture(kBarFill);
         const sf::Texture* avatar = texture(kAvatar);
+        const sf::Texture* swords = texture(kSwords);
 
         const ImVec2 consoleMin{0.0f, bottomY};
         const ImVec2 consoleMax{width, height};
         if (woodTable) {
-            drawImage(drawList, woodTable, consoleMin, consoleMax, IM_COL32(255, 255, 255, 238));
+            drawNineSlice(drawList, woodTable, consoleMin, consoleMax, 128.0f, 72.0f, IM_COL32(255, 255, 255, 238));
             drawList.AddRectFilled(consoleMin, consoleMax, IM_COL32(20, 12, 7, 96));
         } else {
             drawList.AddRectFilled(consoleMin, consoleMax, kConsoleFill);
@@ -317,7 +390,7 @@ namespace rts::platform::sfml {
         drawResourcePill(drawList, {resourceStart, resourceTop}, resourceSize, "Gold", "1,500", kMineral, texture("UI Elements/UI Elements/Icons/Icon_01.png"));
         drawResourcePill(drawList, {resourceStart + 154.0f, resourceTop}, resourceSize, "Wood", "520", kGas, texture("UI Elements/UI Elements/Icons/Icon_02.png"));
         drawResourcePill(drawList, {resourceStart + 308.0f, resourceTop}, resourceSize, "Food", "24/32", kWarning, texture("UI Elements/UI Elements/Icons/Icon_03.png"));
-        drawResourcePill(drawList, {resourceStart + 462.0f, resourceTop}, resourceSize, "Army", "142", kPanelHigh, texture("UI Elements/UI Elements/Swords/Swords.png"));
+        drawResourcePill(drawList, {resourceStart + 462.0f, resourceTop}, resourceSize, "Army", "142", kPanelHigh, swords, &kBlueSwordIcon);
 
         const float miniWidth = std::clamp(width * 0.18f, 285.0f, 340.0f);
         const float commandWidth = std::clamp(width * 0.22f, 360.0f, 420.0f);
@@ -328,9 +401,9 @@ namespace rts::platform::sfml {
         const ImVec2 statusMin{miniMax.x + margin, bottomY + margin};
         const ImVec2 statusMax{commandMin.x - margin, height - margin};
 
-        drawPanelFrame(drawList, miniMin, miniMax, "MINI MAP", bannerSlots);
-        drawPanelFrame(drawList, statusMin, statusMax, "SELECTION", banner);
-        drawPanelFrame(drawList, commandMin, commandMax, "COMMAND", woodSlots);
+        drawPanelFrame(drawList, miniMin, miniMax, "MINI MAP", bannerSlots, 64.0f, 32.0f);
+        drawPanelFrame(drawList, statusMin, statusMax, "SELECTION", banner, 128.0f, 56.0f);
+        drawPanelFrame(drawList, commandMin, commandMax, "COMMAND", woodSlots, 64.0f, 32.0f);
         drawMiniMap(drawList, miniMin, miniMax);
 
         const ImVec2 portraitMin{statusMin.x + 18.0f, statusMin.y + 44.0f};
