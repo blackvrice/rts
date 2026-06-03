@@ -9,14 +9,95 @@
 #include <SFML/Graphics/Text.hpp>
 #include <SFML/Graphics/Texture.hpp>
 
+#include <algorithm>
+#include <array>
+#include <filesystem>
 #include <memory>
 
 #include "core/font/FontManager.hpp"
 #include "core/render/RenderCommand.hpp"
 #include "core/render/RenderContext.hpp"
 #include "core/render/RenderQueue.hpp"
+#include "platform/sfml/SfmlAssetPaths.hpp"
 #include "platform/sfml/SfmlHudOverlay.hpp"
 #include "platform/sfml/SfmlWindow.hpp"
+
+namespace {
+    constexpr int kWorldTileSize = 64;
+    constexpr const char* kWorldTilesetPath = "Terrain/Tileset/Tilemap_color1.png";
+
+    const sf::Texture* tinySwordsWorldTileset() {
+        static sf::Texture texture;
+        static bool attemptedLoad = false;
+        static bool loaded = false;
+
+        if (!attemptedLoad) {
+            attemptedLoad = true;
+            texture.setSmooth(false);
+
+            const std::filesystem::path path =
+                std::filesystem::path(rts::platform::sfml::TinySwordsRoot) / kWorldTilesetPath;
+            loaded = texture.loadFromFile(path.string());
+        }
+
+        return loaded ? &texture : nullptr;
+    }
+
+    sf::IntRect tileSourceRect(const sf::Texture& texture, const int tileIndex) {
+        const auto textureSize = texture.getSize();
+        const int columns = static_cast<int>(textureSize.x) / kWorldTileSize;
+        const int safeColumns = std::max(columns, 1);
+        const int x = tileIndex % safeColumns;
+        const int y = tileIndex / safeColumns;
+
+        return sf::IntRect(
+            {x * kWorldTileSize, y * kWorldTileSize},
+            {kWorldTileSize, kWorldTileSize}
+        );
+    }
+
+    void drawTinySwordsTileGrid(sf::RenderWindow& window) {
+        const sf::Texture* tileset = tinySwordsWorldTileset();
+        if (!tileset) {
+            return;
+        }
+
+        const auto windowSize = window.getSize();
+        const int columns = static_cast<int>((windowSize.x + kWorldTileSize - 1) / kWorldTileSize);
+        const int rows = static_cast<int>((windowSize.y + kWorldTileSize - 1) / kWorldTileSize);
+
+        // Tilemap_color1.png은 64px 타일 시트라서 잔디/흙 변형을 반복 배치한다.
+        constexpr std::array<int, 8> tilePattern{0, 1, 2, 9, 10, 11, 18, 19};
+        sf::Sprite tile(*tileset);
+
+        for (int y = 0; y < rows; ++y) {
+            for (int x = 0; x < columns; ++x) {
+                const int patternIndex = (x * 3 + y * 5 + (x + y) % 2) % static_cast<int>(tilePattern.size());
+                tile.setTextureRect(tileSourceRect(*tileset, tilePattern[patternIndex]));
+                tile.setPosition({
+                    static_cast<float>(x * kWorldTileSize),
+                    static_cast<float>(y * kWorldTileSize)
+                });
+                window.draw(tile);
+            }
+        }
+
+        sf::RectangleShape line;
+        line.setFillColor(sf::Color(28, 43, 36, 96));
+
+        line.setSize({1.0f, static_cast<float>(windowSize.y)});
+        for (int x = 0; x <= columns; ++x) {
+            line.setPosition({static_cast<float>(x * kWorldTileSize), 0.0f});
+            window.draw(line);
+        }
+
+        line.setSize({static_cast<float>(windowSize.x), 1.0f});
+        for (int y = 0; y <= rows; ++y) {
+            line.setPosition({0.0f, static_cast<float>(y * kWorldTileSize)});
+            window.draw(line);
+        }
+    }
+}
 
 namespace rts::platform::sfml {
     SfmlRenderManager::SfmlRenderManager()
@@ -33,6 +114,8 @@ namespace rts::platform::sfml {
 
         auto* sfWindow = static_cast<sf::RenderWindow*>(windowBase.getNativeHandle());
         if (!sfWindow) return;
+
+        drawTinySwordsTileGrid(*sfWindow);
 
         for (const auto &cmd: queue.commands()) {
             std::visit(
