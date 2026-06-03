@@ -27,8 +27,20 @@ namespace rts::core::world {
         }
 
         // ✅ "void"가 아니라 int 반환 + const 여야 GameWorldGridQuery에서 width()/height()가 return 가능
-        int gridWidth() const noexcept;
-        int gridHeight() const noexcept;
+        int gridWidth() const noexcept { return m_tileMap.width; }
+        int gridHeight() const noexcept { return m_tileMap.height; }
+
+        bool isTileBlocked(int x, int y) const noexcept {
+            if (x < 0 || y < 0 || x >= gridWidth() || y >= gridHeight()) {
+                return true;
+            }
+
+            return m_tileMap.getMoveCost(x, y) == 0;
+        }
+
+        bool isCellOccupied(int, int) const noexcept {
+            return false;
+        }
 
         const std::vector<std::shared_ptr<model::IElement>>& getElements() const {
             return m_elements;

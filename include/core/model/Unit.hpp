@@ -3,11 +3,13 @@
 //
 
 #pragma once
+#include <deque>
 #include <memory>
+#include <vector>
 
 #include "IGameElement.hpp"
+#include "core/path/Path.hpp"
 #include "core/world/GridTransform.hpp"
-#include "game/game/GameLogicManager.hpp"
 
 namespace rts::core::model {
     class Unit : public IGameElement{
@@ -21,6 +23,8 @@ namespace rts::core::model {
         void attack(IGameElement *target) override;
 
         void tick(float dt) override;
+
+        void updateMove(float dt);
 
         void updateMove(float dt, const world::GridTransform& tf);
 

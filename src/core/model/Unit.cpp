@@ -52,6 +52,32 @@ namespace rts::core::model {
         }
     }
 
+    void Unit::updateMove(float dt)
+    {
+        if (m_action != ActionType::Move) return;
+
+        Vector2D delta{ m_moveTarget.x - m_position.x, m_moveTarget.y - m_position.y };
+        float distSq = delta.x * delta.x + delta.y * delta.y;
+
+        constexpr float ARRIVE_EPS = 1.0f; // 타일 중심으로 붙는 오차
+        if (distSq <= ARRIVE_EPS * ARRIVE_EPS) {
+            m_position = m_moveTarget;
+            m_action = ActionType::Idle;
+            return;
+        }
+
+        float dist = std::sqrt(distSq);
+        Vector2D dir{ delta.x / dist, delta.y / dist };
+
+        float step = moveSpeed * dt;
+        if (step >= dist) {
+            m_position = m_moveTarget;
+        } else {
+            m_position.x += dir.x * step;
+            m_position.y += dir.y * step;
+        }
+    }
+
     void Unit::updateMove(float dt, const world::GridTransform& tf)
     {
         if (m_action != ActionType::Move) return;
@@ -184,6 +210,7 @@ namespace rts::core::model {
         for (auto& n : gridPath) m_gridPath.push_back(n);
 
         m_finalTargetWorld = finalWorldTarget;
+        m_moveTarget = finalWorldTarget;
         m_action = ActionType::Move;
     }
 

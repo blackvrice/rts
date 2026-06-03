@@ -10,7 +10,7 @@
 namespace rts::platform {
     class IWindow {
     public:
-        explicit IWindow(command::UICommandBus& bus)
+        explicit IWindow(core::command::UICommandBus& bus)
       : m_bus(bus) {}
         virtual ~IWindow() = default;
 
@@ -20,6 +20,6 @@ namespace rts::platform {
         virtual void display() = 0;
         virtual void* getNativeHandle() = 0;
     protected:
-        command::UICommandBus& m_bus;
+        core::command::UICommandBus& m_bus;
     };
 }

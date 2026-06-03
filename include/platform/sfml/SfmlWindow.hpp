@@ -13,7 +13,7 @@
 namespace rts::platform::sfml {
     class SfmlWindow : public IWindow {
     public:
-        explicit SfmlWindow(command::UICommandBus& bus);
+        explicit SfmlWindow(core::command::UICommandBus& bus);
 
         void clear() override;
 

@@ -3,8 +3,9 @@
 //
 
 #pragma once
-#include <queue>
 #include <memory>
+#include <mutex>
+#include <queue>
 #include <core/command/UICommand.hpp>
 
 namespace rts::core::command {

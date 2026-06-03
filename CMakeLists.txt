@@ -8,6 +8,21 @@ set(SFML_DIR "D:/Libs/SFML-3.0.2/lib/cmake/SFML")
 
 find_package(SFML 3 REQUIRED COMPONENTS System Window Graphics)
 
+include(CheckCXXSourceCompiles)
+set(RTS_CRT_HEADER_TEST "#include <cstdlib>\n#include <ctime>\nint main(){return 0;}")
+check_cxx_source_compiles("${RTS_CRT_HEADER_TEST}" RTS_CRT_HEADERS_COMPILE)
+if(MINGW AND NOT RTS_CRT_HEADERS_COMPILE)
+        set(RTS_PREVIOUS_CMAKE_REQUIRED_DEFINITIONS "${CMAKE_REQUIRED_DEFINITIONS}")
+        set(CMAKE_REQUIRED_DEFINITIONS "-D_UCRT")
+        check_cxx_source_compiles("${RTS_CRT_HEADER_TEST}" RTS_CRT_HEADERS_COMPILE_WITH_UCRT)
+        set(CMAKE_REQUIRED_DEFINITIONS "${RTS_PREVIOUS_CMAKE_REQUIRED_DEFINITIONS}")
+        if(RTS_CRT_HEADERS_COMPILE_WITH_UCRT)
+                add_compile_definitions(_UCRT)
+        else()
+                message(FATAL_ERROR "The MinGW CRT headers do not compile with or without _UCRT.")
+        endif()
+endif()
+
 add_executable(RTS src/main.cpp
         include/core/thread/ThreadBase.hpp
         include/core/di/DIContainer.hpp
@@ -117,5 +132,8 @@ add_custom_command(TARGET RTS POST_BUILD
 )
 
 add_subdirectory(external/tmxlite/tmxlite)
+if(MINGW AND TARGET tmxlite)
+        target_compile_definitions(tmxlite PRIVATE __NO_MINGW_LFS)
+endif()
 target_link_libraries(RTS PRIVATE SFML::System SFML::Window SFML::Graphics tmxlite)
 target_include_directories(RTS PRIVATE include)

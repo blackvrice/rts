@@ -12,12 +12,12 @@ namespace rts::core::manager {
         core::world::GameWorld &world)
         : m_world(world), ILogicManager(bus, router) {
         // ===== 테스트용 유닛 생성 =====
-        auto unit = std::make_shared<core::model::Unit>(*this);
+        auto unit = std::make_shared<core::model::Unit>();
         unit->setPosition({300.f, 300.f});
 
         m_world.addElement(unit);
 
-        auto unit2 = std::make_shared<core::model::Unit>(*this);
+        auto unit2 = std::make_shared<core::model::Unit>();
         unit2->setPosition({500.f, 500.f});
 
         m_world.addElement(unit2);
@@ -37,14 +37,7 @@ namespace rts::core::manager {
         });
 
         m_router.on<command::MoveCommand>([this](const command::MoveCommand &cmd) {
-            core::model::Vector2D base = cmd.target();
-
-            for (auto &weak: m_selectedElements) {
-                if (auto element = weak.lock()) {
-                    element->stop();
-                    element->moveTo(base);
-                }
-            }
+            handleMoveCommand(cmd);
         });
 
         m_router.on<command::AttackCommand>([this](const command::AttackCommand &) {
@@ -187,27 +180,12 @@ namespace rts::core::manager {
 
     void GameLogicManager::handleMoveCommand(const command::MoveCommand& cmd)
     {
-        auto& world = di.resolve<world::GameWorld>();
-        world::GameWorldGridQuery query(world);
-        world::GridTransform tf{ .tileSize = world.tileSize() };
-
-        auto& pathMgr = di.resolve<path::PathManager>();
-
-        for (auto id : cmd.unitIds) {
-            auto* unit = world.tryGetUnit(id);
-            if (!unit) continue;
-
-            auto start = tf.worldToGrid(unit->position());
-            auto goal  = tf.worldToGrid(cmd.targetWorld);
-
-            // ✅ 핵심: A* 호출
-            auto gridPath = pathMgr.findPath(query, start, goal);
-
-            // 보통 첫 노드가 start를 포함하니까 제거(선택)
-            if (!gridPath.empty() && gridPath.front() == start)
-                gridPath.erase(gridPath.begin());
-
-            unit->setMoveTargetWithPath(gridPath, cmd.targetWorld);
+        const core::model::Vector2D target = cmd.target();
+        for (auto &weak: m_selectedElements) {
+            if (auto element = weak.lock()) {
+                element->stop();
+                element->moveTo(target);
+            }
         }
     }
 

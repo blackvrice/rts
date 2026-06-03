@@ -3,13 +3,18 @@
 //
 
 #pragma once
+#include <array>
 #include <vector>
 #include <memory>
 
 #include "core/manager/ILogicManager.hpp"
-#include "core/model/Unit.hpp"
+#include "core/model/IGameElement.hpp"
+#include "core/model/Vector2D.hpp"
 #include "core/world/GameWorld.hpp"
 
+namespace rts::core::model {
+    class Unit;
+}
 
 namespace rts::core::manager {
     class GameLogicManager final : public ILogicManager {

@@ -11,7 +11,7 @@
 
 #include "core/manager/ILogicManager.hpp"
 
-namespace rts::thread {
+namespace rts::core::thread {
 
     void LogicThread::run()
     {
@@ -24,7 +24,7 @@ namespace rts::thread {
 
         while (isRunning()) {
             // 1️⃣ Command 처리 (이벤트)
-            command::LogicCommandBus::CommandPtr cmd;
+            command::LogicCommandPtr cmd;
             while (m_CommandBus.tryPop(cmd)) {
                 m_CommandRouter.dispatch(*cmd);
             }

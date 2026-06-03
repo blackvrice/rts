@@ -13,7 +13,7 @@
 
 
 namespace rts::platform::sfml {
-    SfmlWindow::SfmlWindow(command::UICommandBus &bus)
+    SfmlWindow::SfmlWindow(core::command::UICommandBus &bus)
         : IWindow(bus),
           m_window(sf::VideoMode({1920, 1080}), "RTS") {
         auto &fm = core::font::FontManager::instance();
@@ -41,11 +41,11 @@ namespace rts::platform::sfml {
                 auto position = core::model::Vector2D(mouse->position.x, mouse->position.y);
                 if (mouse->button == sf::Mouse::Button::Left) {
                     m_bus.push(
-                        std::make_unique<command::MouseLeftPressedCommand>(position)
+                        std::make_unique<core::command::MouseLeftPressedCommand>(position)
                     );
                 } else if (mouse->button == sf::Mouse::Button::Right) {
                     m_bus.push(
-                        std::make_unique<command::MouseRightPressedCommand>(position)
+                        std::make_unique<core::command::MouseRightPressedCommand>(position)
                     );
                 }
             }
@@ -55,11 +55,11 @@ namespace rts::platform::sfml {
                 auto position = core::model::Vector2D(mouse->position.x, mouse->position.y);
                 if (mouse->button == sf::Mouse::Button::Left) {
                     m_bus.push(
-                        std::make_unique<command::MouseLeftReleasedCommand>(position)
+                        std::make_unique<core::command::MouseLeftReleasedCommand>(position)
                     );
                 } else if (mouse->button == sf::Mouse::Button::Right) {
                     m_bus.push(
-                        std::make_unique<command::MouseRightReleasedCommand>(position)
+                        std::make_unique<core::command::MouseRightReleasedCommand>(position)
                     );
                 }
             }
@@ -68,7 +68,7 @@ namespace rts::platform::sfml {
                 const auto *mouse = event.getIf<sf::Event::MouseMoved>();
                 auto position = core::model::Vector2D(mouse->position.x, mouse->position.y);
                 m_bus.push(
-                    std::make_unique<command::MouseMoveCommand>(position)
+                    std::make_unique<core::command::MouseMoveCommand>(position)
                 );
             }
 
@@ -85,7 +85,7 @@ namespace rts::platform::sfml {
                 if (key->system) mods = mods | KeyModifier::System;
 
                 m_bus.push(
-                    std::make_unique<command::KeyPressedCommand>(toKey(key->code), toScan(key->scancode), mods)
+                    std::make_unique<core::command::KeyPressedCommand>(toKey(key->code), toScan(key->scancode), mods)
                 );
             }
 
@@ -102,7 +102,7 @@ namespace rts::platform::sfml {
                 if (key->system) mods = mods | KeyModifier::System;
 
                 m_bus.push(
-                    std::make_unique<command::KeyReleasedCommand>(toKey(key->code), toScan(key->scancode), mods)
+                    std::make_unique<core::command::KeyReleasedCommand>(toKey(key->code), toScan(key->scancode), mods)
                 );
             }
 
@@ -113,7 +113,7 @@ namespace rts::platform::sfml {
                     // 제어 문자 필터링 (엔터/백스페이스 등은 KeyPressed에서 처리)
                     if (ch >= 32) {
                         m_bus.push(
-                            std::make_unique<command::TextEnteredCommand>(ch)
+                            std::make_unique<core::command::TextEnteredCommand>(ch)
                         );
                     }
                 }

@@ -11,7 +11,9 @@
 
 #include "core/command/LogicCommandBus.hpp"
 
-
+namespace rts::core::manager {
+    class ILogicManager;
+}
 
 namespace rts::core::thread {
 

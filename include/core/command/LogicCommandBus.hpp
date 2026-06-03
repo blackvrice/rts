@@ -5,6 +5,7 @@
 
 #pragma once
 #include <memory>
+#include <mutex>
 #include <queue>
 
 #include "core/command/LogicCommand.hpp"

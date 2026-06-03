@@ -10,6 +10,10 @@
 #include "core/model/Key.hpp"
 #include "core/model/Vector2D.hpp"
 
+namespace rts::core::manager {
+    class ILogicManager;
+}
+
 namespace rts::core::command {
     // =========================================================
     // Base UICommand
