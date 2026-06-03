@@ -20,6 +20,7 @@
 
 namespace {
     constexpr ImU32 kConsoleFill = IM_COL32(10, 18, 26, 235);
+    constexpr ImU32 kPanelFill = IM_COL32(18, 34, 48, 230);
     constexpr ImU32 kPanelDark = IM_COL32(5, 10, 15, 245);
     constexpr ImU32 kPanelHigh = IM_COL32(82, 145, 158, 230);
     constexpr ImU32 kPanelEdge = IM_COL32(145, 205, 212, 210);
@@ -30,6 +31,9 @@ namespace {
     constexpr ImU32 kWarning = IM_COL32(236, 198, 81, 255);
 
     constexpr const char* kWoodTable = "UI Elements/UI Elements/Wood Table/WoodTable.png";
+    constexpr const char* kWoodSlots = "UI Elements/UI Elements/Wood Table/WoodTable_Slots.png";
+    constexpr const char* kBanner = "UI Elements/UI Elements/Banners/Banner.png";
+    constexpr const char* kBannerSlots = "UI Elements/UI Elements/Banners/Banner_Slots.png";
     constexpr const char* kButtonRegular = "UI Elements/UI Elements/Buttons/SmallBlueSquareButton_Regular.png";
     constexpr const char* kButtonPressed = "UI Elements/UI Elements/Buttons/SmallBlueSquareButton_Pressed.png";
     constexpr const char* kBarBase = "UI Elements/UI Elements/Bars/BigBar_Base.png";
@@ -89,8 +93,46 @@ namespace {
         );
     }
 
+    void drawTiledImageRect(
+        ImDrawList& drawList,
+        const sf::Texture* texture,
+        const SourceRect src,
+        const ImVec2 min,
+        const ImVec2 max,
+        const ImVec2 tileSize,
+        const ImU32 tint = IM_COL32_WHITE
+    ) {
+        if (!texture || tileSize.x <= 0.0f || tileSize.y <= 0.0f || max.x <= min.x || max.y <= min.y) {
+            return;
+        }
+
+        for (float y = min.y; y < max.y;) {
+            const float h = std::min(tileSize.y, max.y - y);
+            const float v = h / tileSize.y;
+
+            for (float x = min.x; x < max.x;) {
+                const float w = std::min(tileSize.x, max.x - x);
+                const float u = w / tileSize.x;
+
+                // Crop the source UV on the final tile so repeated HUD pieces end flush.
+                drawImageRect(
+                    drawList,
+                    texture,
+                    SourceRect{src.x, src.y, src.w * u, src.h * v},
+                    {x, y},
+                    {x + w, y + h},
+                    tint
+                );
+
+                x += w;
+            }
+
+            y += h;
+        }
+    }
+
     void drawNineSlice(ImDrawList& drawList, const sf::Texture* texture, const ImVec2 min, const ImVec2 max, const float sourceEdge, const float targetEdge, const ImU32 tint = IM_COL32_WHITE) {
-        if (!texture) {
+        if (!texture || sourceEdge <= 0.0f) {
             return;
         }
 
@@ -102,29 +144,57 @@ namespace {
         const float targetW = max.x - min.x;
         const float targetH = max.y - min.y;
         const float edge = std::min({targetEdge, targetW * 0.5f, targetH * 0.5f});
+        const float scale = edge / sourceEdge;
 
         const std::array<float, 4> sx{0.0f, sourceEdge, sourceEdge + sourceCenterW, sourceW};
         const std::array<float, 4> sy{0.0f, sourceEdge, sourceEdge + sourceCenterH, sourceH};
         const std::array<float, 4> dx{min.x, min.x + edge, max.x - edge, max.x};
         const std::array<float, 4> dy{min.y, min.y + edge, max.y - edge, max.y};
 
-        for (int y = 0; y < 3; ++y) {
-            for (int x = 0; x < 3; ++x) {
-                drawImageRect(
-                    drawList,
-                    texture,
-                    SourceRect{sx[x], sy[y], sx[x + 1] - sx[x], sy[y + 1] - sy[y]},
-                    {dx[x], dy[y]},
-                    {dx[x + 1], dy[y + 1]},
-                    tint
-                );
-            }
+        drawImageRect(drawList, texture, SourceRect{sx[0], sy[0], sourceEdge, sourceEdge}, {dx[0], dy[0]}, {dx[1], dy[1]}, tint);
+        drawImageRect(drawList, texture, SourceRect{sx[2], sy[0], sourceEdge, sourceEdge}, {dx[2], dy[0]}, {dx[3], dy[1]}, tint);
+        drawImageRect(drawList, texture, SourceRect{sx[0], sy[2], sourceEdge, sourceEdge}, {dx[0], dy[2]}, {dx[1], dy[3]}, tint);
+        drawImageRect(drawList, texture, SourceRect{sx[2], sy[2], sourceEdge, sourceEdge}, {dx[2], dy[2]}, {dx[3], dy[3]}, tint);
+
+        if (sourceCenterW > 0.0f) {
+            const ImVec2 horizontalTileSize{sourceCenterW * scale, edge};
+            drawTiledImageRect(drawList, texture, SourceRect{sx[1], sy[0], sourceCenterW, sourceEdge}, {dx[1], dy[0]}, {dx[2], dy[1]}, horizontalTileSize, tint);
+            drawTiledImageRect(drawList, texture, SourceRect{sx[1], sy[2], sourceCenterW, sourceEdge}, {dx[1], dy[2]}, {dx[2], dy[3]}, horizontalTileSize, tint);
+        }
+
+        if (sourceCenterH > 0.0f) {
+            const ImVec2 verticalTileSize{edge, sourceCenterH * scale};
+            drawTiledImageRect(drawList, texture, SourceRect{sx[0], sy[1], sourceEdge, sourceCenterH}, {dx[0], dy[1]}, {dx[1], dy[2]}, verticalTileSize, tint);
+            drawTiledImageRect(drawList, texture, SourceRect{sx[2], sy[1], sourceEdge, sourceCenterH}, {dx[2], dy[1]}, {dx[3], dy[2]}, verticalTileSize, tint);
+        }
+
+        if (sourceCenterW > 0.0f && sourceCenterH > 0.0f) {
+            drawTiledImageRect(
+                drawList,
+                texture,
+                SourceRect{sx[1], sy[1], sourceCenterW, sourceCenterH},
+                {dx[1], dy[1]},
+                {dx[2], dy[2]},
+                {sourceCenterW * scale, sourceCenterH * scale},
+                tint
+            );
         }
     }
 
-    void drawSectionHeader(ImDrawList& drawList, const ImVec2 min, const ImVec2 max, const char* title) {
-        drawList.AddText({min.x + 12.0f, min.y + 8.0f}, kTextDim, title);
-        drawList.AddLine({min.x + 10.0f, min.y + 30.0f}, {max.x - 10.0f, min.y + 30.0f}, IM_COL32(77, 50, 38, 110), 1.0f);
+    void drawPanelFrame(ImDrawList& drawList, const ImVec2 min, const ImVec2 max, const char* title, const sf::Texture* texture, const float sourceEdge, const float targetEdge) {
+        if (texture) {
+            drawNineSlice(drawList, texture, min, max, sourceEdge, targetEdge, IM_COL32(255, 255, 255, 238));
+            drawList.AddRectFilled(min, max, IM_COL32(12, 11, 8, 72), 2.0f);
+        } else {
+            drawList.AddRectFilled(min, max, kPanelFill, 2.0f);
+        }
+
+        drawList.AddRect(min, max, kPanelEdge, 2.0f, 0, 2.0f);
+        drawList.AddRect(min + ImVec2{4.0f, 4.0f}, max + ImVec2{-4.0f, -4.0f}, kPanelHigh, 1.0f, 0, 1.0f);
+
+        const ImVec2 titlePos{min.x + 12.0f, min.y + 8.0f};
+        drawList.AddText(titlePos, kTextDim, title);
+        drawList.AddLine({min.x + 8.0f, min.y + 30.0f}, {max.x - 8.0f, min.y + 30.0f}, IM_COL32(70, 120, 132, 180), 1.0f);
     }
 
     void drawResourcePill(ImDrawList& drawList, const ImVec2 min, const ImVec2 size, const char* label, const char* value, const ImU32 color, const sf::Texture* icon, const SourceRect* iconSource = nullptr) {
@@ -349,6 +419,9 @@ namespace rts::platform::sfml {
 
         ImDrawList& drawList = *ImGui::GetWindowDrawList();
         const sf::Texture* woodTable = texture(kWoodTable);
+        const sf::Texture* woodSlots = texture(kWoodSlots);
+        const sf::Texture* banner = texture(kBanner);
+        const sf::Texture* bannerSlots = texture(kBannerSlots);
         const sf::Texture* buttonRegular = texture(kButtonRegular);
         const sf::Texture* buttonPressed = texture(kButtonPressed);
         const sf::Texture* barBase = texture(kBarBase);
@@ -383,9 +456,9 @@ namespace rts::platform::sfml {
         const ImVec2 statusMin{miniMax.x + margin, bottomY + margin};
         const ImVec2 statusMax{commandMin.x - margin, height - margin};
 
-        drawSectionHeader(drawList, miniMin, miniMax, "MINI MAP");
-        drawSectionHeader(drawList, statusMin, statusMax, "SELECTION");
-        drawSectionHeader(drawList, commandMin, commandMax, "COMMAND");
+        drawPanelFrame(drawList, miniMin, miniMax, "MINI MAP", bannerSlots, 64.0f, 32.0f);
+        drawPanelFrame(drawList, statusMin, statusMax, "SELECTION", banner, 128.0f, 56.0f);
+        drawPanelFrame(drawList, commandMin, commandMax, "COMMAND", woodSlots, 64.0f, 32.0f);
         drawMiniMap(drawList, miniMin, miniMax);
 
         const ImVec2 portraitMin{statusMin.x + 18.0f, statusMin.y + 44.0f};
