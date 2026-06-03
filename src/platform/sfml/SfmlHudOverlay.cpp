@@ -30,6 +30,7 @@ namespace {
     constexpr ImU32 kGas = IM_COL32(78, 218, 148, 255);
     constexpr ImU32 kWarning = IM_COL32(236, 198, 81, 255);
 
+    // HUD ADJUST: swap these paths when testing different Tiny Swords HUD png pieces.
     constexpr const char* kWoodTable = "UI Elements/UI Elements/Wood Table/WoodTable.png";
     constexpr const char* kWoodSlots = "UI Elements/UI Elements/Wood Table/WoodTable_Slots.png";
     constexpr const char* kBanner = "UI Elements/UI Elements/Banners/Banner.png";
@@ -131,6 +132,7 @@ namespace {
         }
     }
 
+    // HUD ADJUST: sourceEdge is the png corner size, targetEdge is the on-screen corner size.
     void drawNineSlice(ImDrawList& drawList, const sf::Texture* texture, const ImVec2 min, const ImVec2 max, const float sourceEdge, const float targetEdge, const ImU32 tint = IM_COL32_WHITE) {
         if (!texture || sourceEdge <= 0.0f) {
             return;
@@ -181,6 +183,7 @@ namespace {
         }
     }
 
+    // HUD ADJUST: panel title position, border color, and dark overlay are controlled here.
     void drawPanelFrame(ImDrawList& drawList, const ImVec2 min, const ImVec2 max, const char* title, const sf::Texture* texture, const float sourceEdge, const float targetEdge) {
         if (texture) {
             drawNineSlice(drawList, texture, min, max, sourceEdge, targetEdge, IM_COL32(255, 255, 255, 238));
@@ -401,6 +404,7 @@ namespace rts::platform::sfml {
     void SfmlHudOverlay::drawHud(const ImVec2& displaySize) {
         const float width = std::max(displaySize.x, 1280.0f);
         const float height = std::max(displaySize.y, 720.0f);
+        // HUD ADJUST: bottomHeight changes the full lower HUD height; margin changes outer spacing.
         const float bottomHeight = std::clamp(height * 0.24f, 220.0f, 270.0f);
         const float margin = 16.0f;
         const float bottomY = height - bottomHeight;
@@ -431,6 +435,7 @@ namespace rts::platform::sfml {
 
         const ImVec2 consoleMin{0.0f, bottomY};
         const ImVec2 consoleMax{width, height};
+        // HUD ADJUST: this is the full-width bottom console background png.
         if (woodTable) {
             drawNineSlice(drawList, woodTable, consoleMin, consoleMax, 128.0f, 72.0f, IM_COL32(255, 255, 255, 238));
             drawList.AddRectFilled(consoleMin, consoleMax, IM_COL32(20, 12, 7, 96));
@@ -442,6 +447,7 @@ namespace rts::platform::sfml {
         const ImVec2 resourceSize{142.0f, 34.0f};
         const float resourceTop = 12.0f;
         const float resourceStart = width - (resourceSize.x * 4.0f) - (12.0f * 3.0f) - margin;
+        // HUD ADJUST: top-right resource pills are positioned and spaced in this block.
         drawResourcePill(drawList, {resourceStart, resourceTop}, resourceSize, "Gold", "1,500", kMineral, texture("UI Elements/UI Elements/Icons/Icon_01.png"));
         drawResourcePill(drawList, {resourceStart + 154.0f, resourceTop}, resourceSize, "Wood", "520", kGas, texture("UI Elements/UI Elements/Icons/Icon_02.png"));
         drawResourcePill(drawList, {resourceStart + 308.0f, resourceTop}, resourceSize, "Food", "24/32", kWarning, texture("UI Elements/UI Elements/Icons/Icon_03.png"));
@@ -449,6 +455,7 @@ namespace rts::platform::sfml {
 
         const float miniWidth = std::clamp(width * 0.18f, 285.0f, 340.0f);
         const float commandWidth = std::clamp(width * 0.22f, 360.0f, 420.0f);
+        // HUD ADJUST: mini/status/command section bounds are calculated here.
         const ImVec2 miniMin{margin, bottomY + margin};
         const ImVec2 miniMax{miniMin.x + miniWidth, height - margin};
         const ImVec2 commandMin{width - commandWidth - margin, bottomY + margin};
@@ -456,6 +463,7 @@ namespace rts::platform::sfml {
         const ImVec2 statusMin{miniMax.x + margin, bottomY + margin};
         const ImVec2 statusMax{commandMin.x - margin, height - margin};
 
+        // HUD ADJUST: last two numbers are sourceEdge and targetEdge for each repeated png slice.
         drawPanelFrame(drawList, miniMin, miniMax, "MINI MAP", bannerSlots, 64.0f, 32.0f);
         drawPanelFrame(drawList, statusMin, statusMax, "SELECTION", banner, 128.0f, 56.0f);
         drawPanelFrame(drawList, commandMin, commandMax, "COMMAND", woodSlots, 64.0f, 32.0f);
@@ -463,6 +471,7 @@ namespace rts::platform::sfml {
 
         const ImVec2 portraitMin{statusMin.x + 18.0f, statusMin.y + 44.0f};
         const ImVec2 portraitMax{portraitMin.x + 132.0f, statusMax.y - 18.0f};
+        // HUD ADJUST: selection portrait and unit text positions start here.
         drawPortrait(drawList, portraitMin, portraitMax, avatar);
 
         const ImVec2 infoMin{portraitMax.x + 24.0f, statusMin.y + 48.0f};
@@ -481,6 +490,7 @@ namespace rts::platform::sfml {
 
         const float gridTop = commandMin.y + 44.0f;
         const float cellGap = 8.0f;
+        // HUD ADJUST: command button grid starts here; tweak gridTop, cellGap, or 3-column math.
         const float cellW = (commandMax.x - commandMin.x - 28.0f - cellGap * 2.0f) / 3.0f;
         const float cellH = (commandMax.y - gridTop - 16.0f - cellGap * 2.0f) / 3.0f;
 
