@@ -3,13 +3,17 @@
 //
 
 #pragma once
+#include <cstddef>
 #include <deque>
 #include <memory>
 #include <vector>
 
 #include "IGameElement.hpp"
-#include "core/path/Path.hpp"
-#include "core/world/GridTransform.hpp"
+#include "core/path/GridTypes.hpp"
+
+namespace rts::core::world {
+    struct GridTransform;
+}
 
 namespace rts::core::model {
     class Unit : public IGameElement{

@@ -5,6 +5,7 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 #include <core/Manager/IUIManager.hpp>
 
 #include "core/ui/IUIElement.hpp"

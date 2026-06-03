@@ -5,8 +5,10 @@
 
 #include <memory>
 #include "core/scene/IScene.hpp"
-#include "GameUIManager.hpp"
-#include "core/world/GameWorld.hpp"
+
+namespace rts::core::world {
+    class GameWorld;
+}
 
 namespace rts::core::scene {
     class GameScene : public IScene {

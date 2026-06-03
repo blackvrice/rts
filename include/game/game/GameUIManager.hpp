@@ -6,17 +6,31 @@
 
 #include <core/Manager/IUIManager.hpp>
 
-#include "core/model/IGameElement.hpp"
-#include "core/model/IViewModel.hpp"
-#include "core/ui/IUIElement.hpp"
-#include "core/ui/SelectBox.hpp"
-#include "core/world/GameWorld.hpp"
+#include <memory>
+#include <vector>
+
+namespace rts::core::model {
+    class IElement;
+}
+
+namespace rts::core::ui {
+    class IUIElement;
+}
+
+namespace rts::core::viewmodel {
+    class IViewModel;
+}
+
+namespace rts::core::world {
+    class GameWorld;
+}
 
 namespace rts::core::manager {
     class GameUIManager : public IUIManager {
     public:
         GameUIManager(command::UICommandRouter &router, command::LogicCommandBus &logicBus,
                       core::render::RenderQueue &render_queue, core::world::GameWorld &world);
+        ~GameUIManager() override;
 
         void update() override;
 

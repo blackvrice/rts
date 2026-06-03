@@ -10,6 +10,9 @@
 #include <SFML/Graphics/Texture.hpp>
 
 #include "core/font/FontManager.hpp"
+#include "core/render/RenderCommand.hpp"
+#include "core/render/RenderContext.hpp"
+#include "core/render/RenderQueue.hpp"
 #include "platform/sfml/SfmlWindow.hpp"
 
 namespace rts::platform::sfml {

@@ -3,16 +3,31 @@
 //
 
 #pragma once
-#include <core/command/CommandRouterBase.hpp>
-#include <core/di/DIContainer.hpp>
-#include <core/manager/SceneManager.hpp>
-#include <platform/IWindow.hpp>
-#include <core/thread/LogicThread.hpp>
-#include <core/command/UICommandBus.hpp>
-
-#include "core/render/IRenderManager.hpp"
+#include <memory>
 
 namespace rts::core {
+    class DIContainer;
+
+    namespace command {
+        class LogicCommandBus;
+        class LogicCommandRouter;
+        class UICommandBus;
+        class UICommandRouter;
+    }
+
+    namespace manager {
+        class SceneManager;
+    }
+
+    namespace render {
+        class IRenderManager;
+        class RenderContext;
+        class RenderQueue;
+    }
+
+    namespace thread {
+        class LogicThread;
+    }
 
     class GameApp {
     public:

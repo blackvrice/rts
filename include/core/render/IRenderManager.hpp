@@ -2,10 +2,9 @@
 // Created by black on 25. 12. 27..
 //
 #pragma once
-#include "RenderContext.hpp"
-#include "RenderQueue.hpp"
-
 namespace rts::core::render {
+    class RenderContext;
+    class RenderQueue;
 
     class IRenderManager {
     public:

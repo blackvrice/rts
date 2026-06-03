@@ -4,13 +4,25 @@
 
 #include "game/game/GameUIManager.hpp"
 
+#include "core/command/CommandRouterBase.hpp"
+#include "core/command/LogicCommand.hpp"
+#include "core/command/LogicCommandBus.hpp"
+#include "core/command/UICommand.hpp"
+#include "core/model/IElement.hpp"
+#include "core/model/IGameElement.hpp"
 #include "core/model/Unit.hpp"
+#include "core/render/RenderQueue.hpp"
+#include "core/ui/IUIElement.hpp"
 #include "core/ui/SelectBox.hpp"
 #include "core/ui/TextBox.hpp"
+#include "core/model/IViewModel.hpp"
 #include "core/viewmodel/UnitViewModel.hpp"
+#include "core/world/GameWorld.hpp"
 #include "game/game/GameLogicManager.hpp"
 
 namespace rts::core::manager {
+    GameUIManager::~GameUIManager() = default;
+
     GameUIManager::GameUIManager(command::UICommandRouter &router, command::LogicCommandBus &logicBus,
                                  core::render::RenderQueue &render_queue, world::GameWorld& world) : m_world(world), IUIManager(
         router, logicBus, render_queue) {

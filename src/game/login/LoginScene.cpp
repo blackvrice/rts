@@ -4,6 +4,7 @@
 #include <game/login/LoginScene.hpp>
 
 #include <game/login/LoginLogicManager.hpp>
+#include <game/login/LoginUIManager.hpp>
 
 namespace rts::core::scene {
     LoginScene::LoginScene(const std::shared_ptr<manager::IUIManager> &uiManager,

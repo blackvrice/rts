@@ -4,6 +4,7 @@
 #include <iostream>
 #include <core/model/Unit.hpp>
 #include <core/model/IGameElement.hpp>
+#include <core/world/GameWorld.hpp>
 
 namespace rts::core::manager {
     GameLogicManager::GameLogicManager(
@@ -86,6 +87,10 @@ namespace rts::core::manager {
     }
 
     void GameLogicManager::selectElement(core::model::IGameElement &element) {
+        m_selectedElements.push_back(element.weak_from_this());
+    }
+
+    void GameLogicManager::addSelectedElement(core::model::IGameElement &element) {
         m_selectedElements.push_back(element.weak_from_this());
     }
 

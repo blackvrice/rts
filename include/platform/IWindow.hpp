@@ -3,9 +3,9 @@
 //
 
 #pragma once
-#include <core/model/Vector2D.hpp>
-#include <core/command/UICommandBus.hpp>
-#include "core/command/UICommandBus.hpp"
+namespace rts::core::command {
+    class UICommandBus;
+}
 
 namespace rts::platform {
     class IWindow {

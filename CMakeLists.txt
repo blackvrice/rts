@@ -55,6 +55,7 @@ add_executable(RTS src/main.cpp
         include/core/command/UICommand.hpp
         include/core/command/LogicCommand.hpp
         include/core/Manager/SceneManager.hpp
+        src/core/manager/SceneManager.cpp
         include/core/scene/IScene.hpp
         include/game/game/GameScene.hpp
         src/game/game/GameScene.cpp
@@ -117,10 +118,12 @@ add_executable(RTS src/main.cpp
         include/core/map/TileMapSoA.hpp
         "include/core/world/GameWorld.hpp"
         include/core/manager/PathManager.hpp
+        src/core/manager/PathManager.cpp
         include/core/path/GridTypes.hpp
         include/core/path/IGridQuery.hpp
         include/core/path/Path.hpp
         include/core/world/GameWorldGridQuery.hpp
+        src/core/world/GameWorld.cpp
         src/core/world/GameWorldGridQuery.cpp
         "include/core/world/GridTransform.hpp"
 )

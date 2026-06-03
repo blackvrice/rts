@@ -4,6 +4,9 @@
 // src/core/LogicThread.cpp
 // src/core/LogicThread.cpp
 #include <core/thread/LogicThread.hpp>
+#include <core/command/CommandRouterBase.hpp>
+#include <core/command/LogicCommand.hpp>
+#include <core/command/LogicCommandBus.hpp>
 #include <SFML/System/Clock.hpp>
 #include <thread>
 #include <chrono>
@@ -12,6 +15,15 @@
 #include "core/manager/ILogicManager.hpp"
 
 namespace rts::core::thread {
+    LogicThread::LogicThread(command::LogicCommandBus& bus, command::LogicCommandRouter& router)
+        : m_CommandBus(bus)
+        , m_CommandRouter(router) {
+        router.on<command::ChangeLogicManagerCommand>(
+            [this](const command::ChangeLogicManagerCommand& cmd) {
+                m_logic = cmd.logic();
+            }
+        );
+    }
 
     void LogicThread::run()
     {

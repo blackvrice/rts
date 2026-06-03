@@ -2,6 +2,7 @@
 #include <iostream>
 #include <core/model/Unit.hpp>
 #include <core/viewmodel/UnitViewModel.hpp>
+#include <core/world/GridTransform.hpp>
 
 
 namespace rts::core::model {

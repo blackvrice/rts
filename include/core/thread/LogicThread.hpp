@@ -4,30 +4,25 @@
 // include/rts/core/LogicThread.hpp
 #pragma once
 
+#include <atomic>
 #include <memory>
 
-#include <core/command/CommandRouterBase.hpp>
 #include <core/thread/ThreadBase.hpp>
-
-#include "core/command/LogicCommandBus.hpp"
 
 namespace rts::core::manager {
     class ILogicManager;
+}
+
+namespace rts::core::command {
+    class LogicCommandBus;
+    class LogicCommandRouter;
 }
 
 namespace rts::core::thread {
 
     class LogicThread : public ThreadBase {
     public:
-        explicit LogicThread(command::LogicCommandBus& bus, command::LogicCommandRouter& router)
-            : m_CommandBus(bus) , m_CommandRouter(router) {
-            router.on<command::ChangeLogicManagerCommand>(
-                [this](const command::ChangeLogicManagerCommand& cmd) {
-                    m_logic = cmd.logic();
-                }
-            );
-
-        }
+        explicit LogicThread(command::LogicCommandBus& bus, command::LogicCommandRouter& router);
 
     protected:
         void run() override;

@@ -4,8 +4,6 @@
 #pragma once
 
 #include <core/scene/IScene.hpp>
-#include <game/login/LoginLogicManager.hpp>
-#include <game/login/LoginUIManager.hpp>
 
 namespace rts::core::scene {
     class LoginScene : public IScene {

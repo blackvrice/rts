@@ -5,6 +5,10 @@
 
 #include "game/game/GameScene.hpp"
 
+#include "core/manager/ILogicManager.hpp"
+#include "core/manager/IUIManager.hpp"
+#include "core/world/GameWorld.hpp"
+
 namespace rts::core::scene {
     GameScene::GameScene(const std::shared_ptr<manager::IUIManager> &uiManager,
                          const std::shared_ptr<manager::ILogicManager> &logicManager,

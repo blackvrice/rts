@@ -5,8 +5,12 @@
 #include <core/render/IRenderManager.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
 
-#include "SfmlWindow.hpp"
-#include "core/render/RenderContext.hpp"
+namespace rts::core::render {
+    struct DrawCircle;
+    struct DrawRect;
+    struct DrawSprite;
+    struct DrawText;
+}
 
 namespace rts::platform::sfml {
     class SfmlRenderManager : public core::render::IRenderManager {

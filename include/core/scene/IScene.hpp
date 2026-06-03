@@ -4,9 +4,11 @@
 
 #pragma once
 #include <memory>
-#include <typeindex>
-#include <core/manager/ILogicManager.hpp>
-#include <core/manager/IUIManager.hpp>
+
+namespace rts::core::manager {
+    class ILogicManager;
+    class IUIManager;
+}
 
 namespace rts::core::scene {
     class IScene {

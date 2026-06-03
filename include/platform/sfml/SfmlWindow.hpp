@@ -8,7 +8,11 @@
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/Shape.hpp>
 
-#include "core/command/UICommandBus.hpp"
+#include "core/model/Key.hpp"
+
+namespace rts::core::command {
+    class UICommandBus;
+}
 
 namespace rts::platform::sfml {
     class SfmlWindow : public IWindow {

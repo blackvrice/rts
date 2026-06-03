@@ -4,16 +4,20 @@
 
 #pragma once
 #include <array>
-#include <vector>
+#include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "core/manager/ILogicManager.hpp"
-#include "core/model/IGameElement.hpp"
-#include "core/model/Vector2D.hpp"
-#include "core/world/GameWorld.hpp"
 
 namespace rts::core::model {
+    class IGameElement;
     class Unit;
+    struct Vector2D;
+}
+
+namespace rts::core::world {
+    class GameWorld;
 }
 
 namespace rts::core::manager {
@@ -31,7 +35,7 @@ namespace rts::core::manager {
         bool canMoveUnitTo(const model::Unit &unit, const model::Vector2D &pos) const;
 
 
-        void addSelectedElement(model::IGameElement &element) { m_selectedElements.push_back(element.weak_from_this());}
+        void addSelectedElement(model::IGameElement &element);
         // Logic 전용 API
         void clearSelection();
 

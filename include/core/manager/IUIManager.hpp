@@ -3,9 +3,15 @@
 //
 
 #pragma once
-#include <core/command/CommandRouterBase.hpp>
-#include <core/command/LogicCommandBus.hpp>
-#include "core/render/RenderQueue.hpp"
+
+namespace rts::core::command {
+    class LogicCommandBus;
+    class UICommandRouter;
+}
+
+namespace rts::core::render {
+    class RenderQueue;
+}
 
 namespace rts::core::manager {
     class IUIManager {

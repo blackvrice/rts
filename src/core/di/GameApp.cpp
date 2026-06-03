@@ -4,11 +4,27 @@
 // src/core/GameApp.cpp
 #include "core/app/GameApp.hpp"
 
+#include "core/command/CommandRouterBase.hpp"
 #include "core/command/LogicCommandBus.hpp"
+#include "core/command/UICommandBus.hpp"
+#include "core/di/DIContainer.hpp"
 #include "game/game/GameLogicManager.hpp"
+#include "game/game/GameScene.hpp"
+#include "game/game/GameUIManager.hpp"
+#include "game/login/LoginLogicManager.hpp"
+#include "game/login/LoginScene.hpp"
+#include "game/login/LoginUIManager.hpp"
 #include "platform/sfml/SfmlRenderManager.hpp"
 #include "platform/sfml/SfmlWindow.hpp"
+#include "core/manager/SceneManager.hpp"
 #include "core/manager/PathManager.hpp"
+#include "core/model/Vector2D.hpp"
+#include "core/render/IRenderManager.hpp"
+#include "core/render/RenderContext.hpp"
+#include "core/render/RenderQueue.hpp"
+#include "core/thread/LogicThread.hpp"
+#include "core/world/GameWorld.hpp"
+#include "core/world/GameWorldGridQuery.hpp"
 
 
 namespace rts::core {
