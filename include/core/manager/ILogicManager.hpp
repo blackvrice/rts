@@ -7,8 +7,7 @@
 
 #include <core/command/LogicCommandBus.hpp>
 #include <core/command/CommandRouterBase.hpp>
-
-#include "core/model/IGameElement.hpp"
+#include <core/model/IElement.hpp>
 
 namespace rts::manager {
     class ILogicManager {
@@ -25,10 +24,15 @@ namespace rts::manager {
         virtual void update() = 0;
         virtual void tick(float dt) = 0;
 
+        void store() {
+
+        }
+
         // ✅ 공통 베이스만 반환
-        virtual const std::vector<std::shared_ptr<core::model::IElement>>& getElements() const = 0;
+        const std::vector<std::shared_ptr<core::model::IElement>>& getElements() const { return m_elements; };
     protected:
         command::LogicCommandBus& m_bus;
         command::LogicCommandRouter& m_router;
+        std::vector<std::shared_ptr<core::model::IElement>> m_elements;
     };
 }
