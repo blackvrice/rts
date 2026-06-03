@@ -10,7 +10,7 @@
 #include <thread>
 #include <atomic>
 
-namespace rts::thread {
+namespace rts::core::thread {
 
     class ThreadBase {
     public:

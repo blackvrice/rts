@@ -5,21 +5,24 @@
 #pragma once
 #include <memory>
 #include <typeindex>
-#include <core/manager/ILogicManger.hpp>
+#include <core/manager/ILogicManager.hpp>
 #include <core/manager/IUIManager.hpp>
 
-namespace rts::scene {
+namespace rts::core::scene {
     class IScene {
     public:
         IScene(const std::shared_ptr<manager::IUIManager> &uiManager, const std::shared_ptr<manager::ILogicManager> &logicManager) : m_uiManager(uiManager), m_logicManager(logicManager) {}
         virtual ~IScene() = default;
         virtual void update() = 0;
         virtual void render() = 0;
+        virtual void tick(float dt) = 0;
+        virtual void changedScene() {}
         manager::IUIManager& getUIManager() const { return *m_uiManager; }
-        manager::ILogicManager& getLogicManager() const { return *m_logicManager; }
+        const std::shared_ptr<manager::ILogicManager>& getLogicManager() const { return m_logicManager; }
 
     protected:
         std::shared_ptr<manager::IUIManager> m_uiManager;
         std::shared_ptr<manager::ILogicManager> m_logicManager;
+
     };
 }

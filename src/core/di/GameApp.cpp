@@ -5,8 +5,10 @@
 #include "core/app/GameApp.hpp"
 
 #include "core/command/LogicCommandBus.hpp"
+#include "game/game/GameLogicManager.hpp"
 #include "platform/sfml/SfmlRenderManager.hpp"
 #include "platform/sfml/SfmlWindow.hpp"
+#include "core/manager/PathManager.hpp"
 
 
 namespace rts::core {
@@ -31,12 +33,6 @@ namespace rts::core {
             [](auto &) { return std::make_shared<render::RenderQueue>(); }
         );
 
-        di.registerSingleton<manager::SceneManager>(
-            [](DIContainer &di) {
-                return std::make_shared<manager::SceneManager>(di);
-            }
-        );
-
         di.registerSingleton<thread::LogicThread>(
             [](DIContainer &di) {
                 auto &bus = *di.resolve<command::LogicCommandBus>();
@@ -45,30 +41,41 @@ namespace rts::core {
             }
         );
 
+        di.registerScoped<world::GameWorld>(
+            [](DIContainer& di) {
+                return std::make_shared<world::GameWorld>();
+            }
+        );
+
 
         // --- Scenes (Scoped!) ---
         // Game Scene
         di.registerScoped<scene::GameScene>(
             [](DIContainer &di) {
+                auto world = di.resolve<world::GameWorld>();
                 return std::make_shared<scene::GameScene>(
                     di.resolve<manager::GameUIManager>(),
-                    di.resolve<manager::GameLogicManager>()
+                    di.resolve<manager::GameLogicManager>(),
+                    world
                 );
             }
         );
         di.registerScoped<manager::GameUIManager>(
             [](DIContainer &di) {
-                auto &router = *di.resolve<command::UICommandRouter>();
-                auto &logicBus = *di.resolve<command::LogicCommandBus>();
-                auto &queue = *di.resolve<render::RenderQueue>();
-                return std::make_shared<manager::GameUIManager>(router, logicBus, queue);
+                auto &router  = *di.resolve<command::UICommandRouter>();
+                auto &logicBus= *di.resolve<command::LogicCommandBus>();
+                auto &queue   = *di.resolve<render::RenderQueue>();
+                auto &world   = *di.resolve<world::GameWorld>();     // ✅ 같은 스코프의 world
+                return std::make_shared<manager::GameUIManager>(router, logicBus, queue, world);
             }
         );
+
         di.registerScoped<manager::GameLogicManager>(
             [](DIContainer &di) {
-                auto &bus = *di.resolve<command::LogicCommandBus>();
+                auto &bus    = *di.resolve<command::LogicCommandBus>();
                 auto &router = *di.resolve<command::LogicCommandRouter>();
-                return std::make_shared<manager::GameLogicManager>(bus, router);
+                auto &world  = *di.resolve<world::GameWorld>();      // ✅ 같은 스코프의 world
+                return std::make_shared<manager::GameLogicManager>(bus, router, world);
             }
         );
 
@@ -97,20 +104,24 @@ namespace rts::core {
             }
         );
 
+        // GridQuery: Scoped (World에 종속)
+        di.registerScoped<world::GameWorldGridQuery>([](DIContainer& di){
+            auto& world = *di.resolve<world::GameWorld>();
+            return std::make_shared<world::GameWorldGridQuery>(world);
+        });
 
-        di.registerScoped<scene::LobbyScene>(
-            [](DIContainer &di) {
-                return std::make_shared<scene::LobbyScene>(
-                    di.resolve<manager::LoginUIManager>(),
-                    di.resolve<manager::LoginLogicManager>()
-                );
-            }
-        );
+        // PathManager: Singleton (Query를 멤버로 들지 않는 설계 권장)
+        di.registerSingleton<manager::PathManager>([](DIContainer& di){
+            return std::make_shared<manager::PathManager>();
+        });
+
 
         // --- SceneManager ---
         di.registerSingleton<manager::SceneManager>(
-            [](auto &di) {
-                return std::make_shared<manager::SceneManager>(di);
+            [](DIContainer &di) {
+                auto &bus = *di.resolve<command::LogicCommandBus>();
+                auto &uiBus =  *di.resolve<command::UICommandBus>();
+                return std::make_shared<manager::SceneManager>(di, bus, uiBus);
             }
         );
 
@@ -152,9 +163,9 @@ namespace rts::core {
     void GameApp::run() const {
         using clock = std::chrono::steady_clock;
         auto& window = m_renderContext->window();
+        m_logicThread->start();
         while (window.isOpen()) {
             window.clear();
-            auto start = clock::now();
             // 1️⃣ OS 이벤트 수집
             window.pollEvents();
 
@@ -172,5 +183,6 @@ namespace rts::core {
 
             window.display();
         }
+        m_logicThread->stop();
     }
 } // namespace rts::core

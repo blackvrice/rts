@@ -31,6 +31,8 @@ namespace rts::core::viewmodel {
 
         const void* modelPtr() const override;
 
+        void buildRenderCommands(render::RenderQueue &out) const override;
+
     private:
         std::weak_ptr<model::Unit> m_unit;
 

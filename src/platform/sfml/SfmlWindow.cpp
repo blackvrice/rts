@@ -89,6 +89,23 @@ namespace rts::platform::sfml {
                 );
             }
 
+            if (event.is<sf::Event::KeyReleased>()) {
+                const auto *key = event.getIf<sf::Event::KeyReleased>();
+                using core::model::KeyModifier;
+                using core::model::KeyAction;
+
+                KeyModifier mods = KeyModifier::None;
+
+                if (key->shift) mods = mods | KeyModifier::Shift;
+                if (key->control) mods = mods | KeyModifier::Ctrl;
+                if (key->alt) mods = mods | KeyModifier::Alt;
+                if (key->system) mods = mods | KeyModifier::System;
+
+                m_bus.push(
+                    std::make_unique<command::KeyReleasedCommand>(toKey(key->code), toScan(key->scancode), mods)
+                );
+            }
+
             if (event.is<sf::Event::TextEntered>()) {
                 if (const auto *text = event.getIf<sf::Event::TextEntered>()) {
                     char32_t ch = text->unicode;

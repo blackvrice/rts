@@ -4,6 +4,7 @@
 #include <platform/sfml/SfmlRenderManager.hpp>
 #include <SFML/Graphics/Font.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
+#include <SFML/Graphics/CircleShape.hpp>
 #include <SFML/Graphics/Sprite.hpp>
 #include <SFML/Graphics/Text.hpp>
 #include <SFML/Graphics/Texture.hpp>
@@ -99,5 +100,35 @@ namespace rts::platform::sfml {
         );
 
         window.draw(sprite);
+    }
+
+    void SfmlRenderManager::draw(
+        sf::RenderWindow& window,
+        const core::render::DrawCircle& c
+    ) {
+        sf::CircleShape shape(c.radius);
+
+        // 중심 기준으로 위치 잡기
+        shape.setOrigin({c.radius, c.radius});
+        shape.setPosition({c.cx, c.cy});
+
+        // 내부 색
+        shape.setFillColor(sf::Color(
+            (c.color >> 16) & 0xFF,
+            (c.color >> 8)  & 0xFF,
+            (c.color)       & 0xFF,
+            (c.color >> 24) & 0xFF
+        ));
+
+        // 테두리
+        shape.setOutlineColor(sf::Color(
+            (c.border_color >> 16) & 0xFF,
+            (c.border_color >> 8)  & 0xFF,
+            (c.border_color)       & 0xFF,
+            (c.border_color >> 24) & 0xFF
+        ));
+        shape.setOutlineThickness(1.f);
+
+        window.draw(shape);
     }
 }

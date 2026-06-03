@@ -6,33 +6,24 @@
 #include <memory>
 
 #include <core/command/LogicCommandBus.hpp>
-#include <core/command/CommandRouterBase.hpp>
-#include <core/model/IElement.hpp>
 
-namespace rts::manager {
+#include "core/command/CommandRouterBase.hpp"
+
+namespace rts::core::manager {
     class ILogicManager {
     public:
-        explicit ILogicManager(command::LogicCommandBus& bus, command::LogicCommandRouter& router)
+        explicit ILogicManager(command::LogicCommandBus &bus, command::LogicCommandRouter &router)
             : m_bus(bus), m_router(router) {
-
-
         }
 
         virtual ~ILogicManager() = default;
 
-        virtual void start() = 0;
         virtual void update() = 0;
+
         virtual void tick(float dt) = 0;
 
-        void store() {
-
-        }
-
-        // ✅ 공통 베이스만 반환
-        const std::vector<std::shared_ptr<core::model::IElement>>& getElements() const { return m_elements; };
     protected:
-        command::LogicCommandBus& m_bus;
-        command::LogicCommandRouter& m_router;
-        std::vector<std::shared_ptr<core::model::IElement>> m_elements;
+        command::LogicCommandBus &m_bus;
+        command::LogicCommandRouter &m_router;
     };
 }

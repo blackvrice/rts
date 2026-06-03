@@ -7,12 +7,13 @@
 #include <game/login/LoginLogicManager.hpp>
 #include <game/login/LoginUIManager.hpp>
 
-namespace rts::scene {
+namespace rts::core::scene {
     class LoginScene : public IScene {
     public:
         LoginScene(const std::shared_ptr<manager::IUIManager> &uiManager, const std::shared_ptr<manager::ILogicManager> &logicManager);
 
         void update() override;
         void render() override;
+        void tick(float dt) override;
     };
 }

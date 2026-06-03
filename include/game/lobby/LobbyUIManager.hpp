@@ -7,7 +7,7 @@
 
 #include "core/ui/IUIElement.hpp"
 
-namespace rts::manager {
+namespace rts::core::manager {
     class LobbyUIManager : public IUIManager {
     public:
         explicit LobbyUIManager(command::UICommandRouter&, command::LogicCommandBus&, core::render::RenderQueue&);

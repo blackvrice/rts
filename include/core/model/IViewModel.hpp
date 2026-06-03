@@ -5,6 +5,7 @@
 #pragma once
 
 #include <string>
+#include <core/render/RenderQueue.hpp>
 
 namespace rts::core::viewmodel {
 
@@ -26,6 +27,8 @@ namespace rts::core::viewmodel {
         virtual bool expired() const = 0;
         // 🔥 핵심: 어떤 Model을 바라보는 ViewModel인가?
         virtual const void* modelPtr() const = 0;
+
+        virtual void buildRenderCommands(render::RenderQueue& out) const = 0;
     };
 
 }

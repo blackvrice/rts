@@ -1,67 +1,81 @@
 ﻿#include "game/game/GameLogicManager.hpp"
 
 #include <algorithm>
+#include <iostream>
 #include <core/model/Unit.hpp>
 #include <core/model/IGameElement.hpp>
 
-namespace rts::manager {
-
+namespace rts::core::manager {
     GameLogicManager::GameLogicManager(
-        command::LogicCommandBus& bus,
-        command::LogicCommandRouter& router)
-        : manager::ILogicManager(bus, router)
-    {
+        command::LogicCommandBus &bus,
+        command::LogicCommandRouter &router,
+        core::world::GameWorld &world)
+        : m_world(world), ILogicManager(bus, router) {
         // ===== 테스트용 유닛 생성 =====
         auto unit = std::make_shared<core::model::Unit>(*this);
-        unit->setPosition({ 100.f, 100.f });
-        unit->moveTo({ 300.f, 200.f });
+        unit->setPosition({300.f, 300.f});
 
-        addElement(unit);
-    }
+        m_world.addElement(unit);
 
-    void GameLogicManager::start() {
-        m_router.on<command::SelectCommand>([this](const command::SelectCommand& cmd) {
+        auto unit2 = std::make_shared<core::model::Unit>(*this);
+        unit2->setPosition({500.f, 500.f});
+
+        m_world.addElement(unit2);
+
+        m_router.on<command::SelectCommand>([this](const command::SelectCommand &cmd) {
             clearSelection();
 
-            for (auto& element : m_elements) {
-                if (cmd.area().contains(element->getPosition())) {
-                    selectElement(element);
+            auto elements = m_world.getElements();
+            for (auto &element: elements) {
+                if (!cmd.area().contains(element->getPosition()))
+                    continue;
+
+                if (auto *game = dynamic_cast<core::model::IGameElement *>(element.get())) {
+                    selectElement(*game);
                 }
             }
         });
 
-        m_router.on<command::MoveCommand>([this](const command::MoveCommand& cmd) {
+        m_router.on<command::MoveCommand>([this](const command::MoveCommand &cmd) {
             core::model::Vector2D base = cmd.target();
-            int index = 0;
 
-            for (auto& weak : m_selectedElements) {
+            for (auto &weak: m_selectedElements) {
                 if (auto element = weak.lock()) {
-                    core::model::Vector2D offset{
-                        (index % 4) * 20.f,
-                        (index / 4) * 20.f
-                    };
-
                     element->stop();
-                    element->moveTo(base + offset);
-                    ++index;
+                    element->moveTo(base);
                 }
             }
         });
 
-        m_router.on<command::AttackCommand>([this](const command::AttackCommand&) {
+        m_router.on<command::AttackCommand>([this](const command::AttackCommand &) {
             // TODO
         });
 
-        m_router.on<command::HoldPositionCommand>([this](const command::HoldPositionCommand&) {
-            for (auto& weak : m_selectedElements) {
+        m_router.on<command::HoldPositionCommand>([this](const command::HoldPositionCommand &) {
+            for (auto &weak: m_selectedElements) {
                 if (auto element = weak.lock()) {
                     element->holdPosition();
                 }
             }
         });
 
-        m_router.on<command::PatrolCommand>([this](const command::PatrolCommand&) {
+        m_router.on<command::PatrolCommand>([this](const command::PatrolCommand &) {
             // TODO
+        });
+
+        m_router.on<command::ControlGroupAddCommand>([this](const auto &cmd) {
+            applySelectedToGroup(cmd.groupId(), /*assign=*/false);
+        });
+
+        m_router.on<command::ControlGroupAssignCommand>([this](const auto &cmd) {
+            applySelectedToGroup(cmd.groupId(), /*assign=*/true);
+        });
+
+        m_router.on<command::ControlGroupSelectCommand>([this](const auto &cmd) {
+            const uint16_t num = cmd.groupId();
+            auto &group = m_groups[num];
+            eraseExpired(group); // 여기서 한 번 정리
+            m_selectedElements = group; // 대입
         });
     }
 
@@ -69,21 +83,17 @@ namespace rts::manager {
         // Logic-level 업데이트 (AI, 상태 전환 등)
     }
 
-    void GameLogicManager::tick(float dt) const {
-        for (auto& element : m_elements) {
-            element->tick(dt);
+    void GameLogicManager::tick(float dt) {
+        auto elements = m_world.getElements();
+        for (auto &element: elements) {
+            if (auto *game = dynamic_cast<core::model::IGameElement *>(element.get())) {
+                game->tick(dt);
+            }
         }
     }
 
-    void GameLogicManager::selectElement(
-        const std::shared_ptr<core::model::IGameElement>& element)
-    {
-        m_selectedElements.push_back(element);
-    }
-
-    const std::vector<std::shared_ptr<core::model::IElement>>&
-    GameLogicManager::getElements() const {
-        return m_elements;
+    void GameLogicManager::selectElement(core::model::IGameElement &element) {
+        m_selectedElements.push_back(element.weak_from_this());
     }
 
 
@@ -95,9 +105,8 @@ namespace rts::manager {
     // 이동 가능 여부 체크
     // ===============================
     bool GameLogicManager::canMoveUnitTo(
-        const core::model::Unit& unit,
-        const core::model::Vector2D& pos) const
-    {
+        const core::model::Unit &unit,
+        const core::model::Vector2D &pos) const {
         // ===== 1. 맵 경계 체크 =====
         constexpr float MAP_MIN_X = 0.f;
         constexpr float MAP_MIN_Y = 0.f;
@@ -112,8 +121,8 @@ namespace rts::manager {
         // ===== 2. 다른 유닛과 충돌 체크 =====
         constexpr float UNIT_RADIUS = 12.f;
         constexpr float MIN_DIST_SQ = UNIT_RADIUS * UNIT_RADIUS * 4.f;
-
-        for (auto& element : m_elements) {
+        auto elements = m_world.getElements();
+        for (auto &element: elements) {
             auto other = std::dynamic_pointer_cast<core::model::Unit>(element);
             if (!other || other.get() == &unit)
                 continue;
@@ -130,13 +139,76 @@ namespace rts::manager {
         return true;
     }
 
-    void GameLogicManager::addElement(
-        std::shared_ptr<core::model::IGameElement> element)
-    {
-        if (!element)
-            return;
+    template<class T>
+    void GameLogicManager::eraseExpired(std::vector<std::weak_ptr<T> > &v) {
+        v.erase(std::remove_if(v.begin(), v.end(),
+                               [](const std::weak_ptr<T> &w) { return w.expired(); }),
+                v.end());
+    }
 
-        m_elements.push_back(std::move(element));
+    template<class T>
+    bool GameLogicManager::containsPtr(const std::vector<std::weak_ptr<T> > &v, const std::shared_ptr<T> &p) {
+        const T *raw = p.get();
+        for (auto &w: v) {
+            if (auto sp = w.lock(); sp && sp.get() == raw) return true;
+        }
+        return false;
+    }
+
+
+    void GameLogicManager::applySelectedToGroup(uint16_t num, bool assign) {
+        auto &group = m_groups[num];
+
+        // 선택 목록에서 expired 제거 (선택)
+        eraseExpired(m_selectedElements);
+
+        // 그룹에서도 expired 제거 (선택)
+        eraseExpired(group);
+
+        const auto selCount = m_selectedElements.size();
+
+        if (assign) {
+            group.clear();
+            group.reserve(selCount);
+        } else {
+            group.reserve(group.size() + selCount); // 재할당 최소화
+        }
+
+        for (auto &w: m_selectedElements) {
+            if (auto sp = w.lock()) {
+                if (!assign) {
+                    // 중복 방지 필요 없으면 이 if 블록을 통째로 제거
+                    if (containsPtr(group, sp)) continue;
+                }
+                group.emplace_back(sp); // weak_ptr로 저장 (암시적 변환)
+            }
+        }
+    }
+
+    void GameLogicManager::handleMoveCommand(const command::MoveCommand& cmd)
+    {
+        auto& world = di.resolve<world::GameWorld>();
+        world::GameWorldGridQuery query(world);
+        world::GridTransform tf{ .tileSize = world.tileSize() };
+
+        auto& pathMgr = di.resolve<path::PathManager>();
+
+        for (auto id : cmd.unitIds) {
+            auto* unit = world.tryGetUnit(id);
+            if (!unit) continue;
+
+            auto start = tf.worldToGrid(unit->position());
+            auto goal  = tf.worldToGrid(cmd.targetWorld);
+
+            // ✅ 핵심: A* 호출
+            auto gridPath = pathMgr.findPath(query, start, goal);
+
+            // 보통 첫 노드가 start를 포함하니까 제거(선택)
+            if (!gridPath.empty() && gridPath.front() == start)
+                gridPath.erase(gridPath.begin());
+
+            unit->setMoveTargetWithPath(gridPath, cmd.targetWorld);
+        }
     }
 
 }

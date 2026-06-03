@@ -5,7 +5,7 @@
 
 #include "game/lobby/LobbyScene.hpp"
 
-namespace rts::scene {
+namespace rts::core::scene {
     LobbyScene::LobbyScene(const std::shared_ptr<manager::IUIManager> &uiManager,
                            const std::shared_ptr<manager::ILogicManager> &logicManager) : IScene(
         uiManager, logicManager) {

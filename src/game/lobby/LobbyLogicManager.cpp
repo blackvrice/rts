@@ -2,13 +2,9 @@
 //
 //
 #include "game/lobby/LobbyLogicManager.hpp"
-namespace rts::manager {
+namespace rts::core::manager {
     LobbyLogicManager::LobbyLogicManager(command::LogicCommandBus &bus,
                                          command::LogicCommandRouter &router) : ILogicManager(bus, router) {
-    }
-
-    void LobbyLogicManager::start() {
-
     }
 
 

@@ -4,11 +4,8 @@
 
 #pragma once
 #include "IElement.hpp"
-#include "IViewModel.hpp"
 #include "State.hpp"
 #include "Vector2D.hpp"
-#include "core/render/RenderQueue.hpp"
-#include "game/game/GameLogicManager.hpp"
 
 namespace rts::core::model {
     enum class ActionType {
@@ -25,17 +22,13 @@ namespace rts::core::model {
     };
 
 
-    class IGameElement : public IElement {
+    class IGameElement : public IElement, public std::enable_shared_from_this<IGameElement>  {
     public:
         virtual ~IGameElement() = default;
 
         // ⏱ 로직
         virtual void tick(float dt) = 0;
         virtual const GameState& state() const = 0;
-
-        // 📍 위치
-        virtual Vector2D getPosition() const = 0;
-        virtual void setPosition(const Vector2D& pos) = 0;
 
         // ===============================
         // 🎮 Action Interface
@@ -65,8 +58,6 @@ namespace rts::core::model {
 
         // 상태
         virtual ActionType getAction() const = 0;
-
-    protected:
     };
 
 }

@@ -8,7 +8,7 @@
 #include "LogicCommand.hpp"
 #include "UICommand.hpp"
 
-namespace rts::command {
+namespace rts::core::command {
 
     template<typename BaseCommand>
     class CommandRouterBase {

@@ -7,7 +7,7 @@
 #include <memory>
 #include <core/command/UICommand.hpp>
 
-namespace rts::command {
+namespace rts::core::command {
 
     class UICommandBus {
     public:

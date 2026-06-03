@@ -5,12 +5,9 @@
 #pragma once
 #include <core/command/CommandRouterBase.hpp>
 #include <core/command/LogicCommandBus.hpp>
-
-#include "ILogicManger.hpp"
-#include "core/model/IElement.hpp"
 #include "core/render/RenderQueue.hpp"
 
-namespace rts::manager {
+namespace rts::core::manager {
     class IUIManager {
     public:
         IUIManager(
@@ -35,9 +32,7 @@ namespace rts::manager {
         //    - 실제 그리기는 RenderThread or Window 에서 실행됨
         virtual void render() = 0;
 
-        virtual void syncWithLogic() = 0;
-
-        virtual void setLogicSource(ILogicManager& logic) = 0;
+        virtual void syncWithWorld() = 0;
     protected:
         command::UICommandRouter &m_uiRouter; // UI 이벤트 라우팅
         command::LogicCommandBus &m_logicBus; // LogicThread 에게 이벤트 전달용

@@ -3,7 +3,7 @@
 //
 
 #pragma once
-#include "core/render/RenderQueue.hpp"
+#include "core/model/Vector2D.hpp"
 
 namespace rts::core::model {
     class IElement {
@@ -15,10 +15,14 @@ namespace rts::core::model {
         virtual void update() = 0;   // 상태 갱신
         virtual void destroy() {}    // 해제
 
+        // 📍 위치
+        virtual Vector2D getPosition() const = 0;
+        virtual void setPosition(const Vector2D& pos) = 0;
+
         // 렌더 명령 생성
-        virtual void buildRenderCommands(render::RenderQueue& out) const = 0;
 
         // 상태
         virtual bool visible() const { return true; }
+
     };
 }

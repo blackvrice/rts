@@ -4,7 +4,7 @@
 #pragma once
 
 namespace rts::core::model {
-    enum class Key : unsigned short {
+    enum class Key : uint16_t {
         // =================================================
         // 알파벳 (26)
         // =================================================
@@ -16,8 +16,8 @@ namespace rts::core::model {
         // =================================================
         // 숫자 (상단 숫자열 10)
         // =================================================
-        Num0, Num1, Num2, Num3, Num4,
-        Num5, Num6, Num7, Num8, Num9,
+        Num1, Num2, Num3, Num4, Num5,
+        Num6, Num7, Num8, Num9, Num0,
 
         // =================================================
         // 기호 키 (미국/ISO 공통 기준)
@@ -118,8 +118,17 @@ namespace rts::core::model {
         // =================================================
         Unknown
     };
+    constexpr Key operator+(Key a, Key b) {
+        using U = std::underlying_type_t<Key>;
+        return static_cast<Key>(static_cast<U>(a) + static_cast<U>(b));
+    }
 
-        enum class Scan : int16_t {
+    constexpr Key operator-(Key a, Key b) {
+        using U = std::underlying_type_t<Key>;
+        return static_cast<Key>(static_cast<U>(a) - static_cast<U>(b));
+    }
+
+    enum class Scan : int16_t {
         Unknown = -1, //!< Unknown or unsupported scancode
 
         // --- Alphabet ---
@@ -153,8 +162,8 @@ namespace rts::core::model {
         Slash,
 
         // --- Function keys ---
-        F1,  F2,  F3,  F4,  F5,  F6,
-        F7,  F8,  F9,  F10, F11, F12,
+        F1, F2, F3, F4, F5, F6,
+        F7, F8, F9, F10, F11, F12,
         F13, F14, F15, F16, F17, F18,
         F19, F20, F21, F22, F23, F24,
 
@@ -247,6 +256,7 @@ namespace rts::core::model {
         LaunchMediaSelect
     };
 
+
     enum class KeyModifier : uint8_t { None = 0, Shift = 1 << 0, Ctrl = 1 << 1, Alt = 1 << 2, System = 1 << 3, };
 
     enum class KeyAction : uint8_t {
@@ -270,6 +280,4 @@ namespace rts::core::model {
     inline bool has(KeyModifier m, KeyModifier f) {
         return (static_cast<uint8_t>(m) & static_cast<uint8_t>(f)) != 0;
     }
-
-
 }

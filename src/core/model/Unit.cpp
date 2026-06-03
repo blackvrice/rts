@@ -1,10 +1,11 @@
 ﻿#include <cmath>
+#include <iostream>
 #include <core/model/Unit.hpp>
 #include <core/viewmodel/UnitViewModel.hpp>
 
+
 namespace rts::core::model {
-    Unit::Unit(manager::GameLogicManager& logic)
-        : m_logic(logic)
+    Unit::Unit()
     {
         // ===== 기본 스탯 초기화 =====
         m_position = { 0.f, 0.f };
@@ -51,20 +52,28 @@ namespace rts::core::model {
         }
     }
 
-    void Unit::updateMove(float dt) {
-        if (m_action != ActionType::Move)
-            return;
+    void Unit::updateMove(float dt, const world::GridTransform& tf)
+    {
+        if (m_action != ActionType::Move) return;
 
-        Vector2D delta{
-            m_moveTarget.x - m_position.x,
-            m_moveTarget.y - m_position.y
-        };
+        Vector2D target;
 
-        float distSq = delta.x * delta.x + delta.y * delta.y;
-        constexpr float ARRIVE_EPSILON = 0.5f;
+        if (!m_gridPath.empty()) {
+            target = tf.gridToWorldCenter(m_gridPath.front());
+        } else {
+            target = m_finalTargetWorld;
+        }
 
-        if (distSq <= ARRIVE_EPSILON * ARRIVE_EPSILON) {
-            m_position = m_moveTarget;
+        Vector2D delta{ target.x - m_position.x, target.y - m_position.y };
+        float distSq = delta.x*delta.x + delta.y*delta.y;
+
+        constexpr float ARRIVE_EPS = 1.0f; // 타일 중심으로 붙는 오차
+        if (distSq <= ARRIVE_EPS*ARRIVE_EPS) {
+            if (!m_gridPath.empty()) {
+                m_gridPath.pop_front();
+                return; // 다음 노드로 계속
+            }
+            m_position = target;
             m_action = ActionType::Idle;
             return;
         }
@@ -72,36 +81,16 @@ namespace rts::core::model {
         float dist = std::sqrt(distSq);
         Vector2D dir{ delta.x / dist, delta.y / dist };
 
-        float moveDist = moveSpeed * dt;
-        Vector2D step{ dir.x * moveDist, dir.y * moveDist };
-
-        Vector2D nextPos{
-            m_position.x + step.x,
-            m_position.y + step.y
-        };
-
-        if (m_logic.canMoveUnitTo(*this, nextPos)) {
-            m_position = nextPos;
+        float step = moveSpeed * dt;
+        if (step >= dist) {
+            m_position = target;
         } else {
-            Vector2D slideX{ m_position.x + step.x, m_position.y };
-            Vector2D slideY{ m_position.x, m_position.y + step.y };
-
-            bool moved = false;
-
-            if (m_logic.canMoveUnitTo(*this, slideX)) {
-                m_position = slideX;
-                moved = true;
-            }
-            else if (m_logic.canMoveUnitTo(*this, slideY)) { // ✅ 수정
-                m_position = slideY;
-                moved = true;
-            }
-
-            if (!moved) {
-                m_action = ActionType::Idle;
-            }
+            m_position.x += dir.x * step;
+            m_position.y += dir.y * step;
         }
     }
+
+
 
     void Unit::updateAttack(float dt) {
         if (m_action != ActionType::Attack)
@@ -179,8 +168,25 @@ namespace rts::core::model {
     }
 
     void Unit::holdPosition() {
-        m_action = ActionType::Idle;
+        m_action = ActionType::Hold;
     }
+
+    void Unit::setPath(path::Path p) {
+        m_path = std::move(p);
+        m_pathIndex = 0;
+        // 상태 Move로 전환 등...
+    }
+
+    void Unit::setMoveTargetWithPath(const std::vector<path::GridPos>& gridPath,
+                                 const Vector2D& finalWorldTarget)
+    {
+        m_gridPath.clear();
+        for (auto& n : gridPath) m_gridPath.push_back(n);
+
+        m_finalTargetWorld = finalWorldTarget;
+        m_action = ActionType::Move;
+    }
+
 
     void Unit::stop() {
         m_action = ActionType::Idle;
@@ -188,10 +194,6 @@ namespace rts::core::model {
 
     const GameState& Unit::state() const {
         return m_state;
-    }
-
-    void Unit::buildRenderCommands(render::RenderQueue& out) const {
-        // TODO: UnitRenderCommand 추가
     }
 
 }

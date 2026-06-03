@@ -5,40 +5,47 @@
 #pragma once
 #include <vector>
 #include <memory>
-#include "core/command/CommandRouterBase.hpp"
-#include "core/command/LogicCommandBus.hpp"
-#include "core/manager/ILogicManger.hpp"
 
-namespace rts::core::model {
-    class Unit;
-    class IGameElement;
-    struct Vector2D;
-}
+#include "core/manager/ILogicManager.hpp"
+#include "core/model/Unit.hpp"
+#include "core/world/GameWorld.hpp"
 
-namespace rts::manager {
 
-    class GameLogicManager : public ILogicManager {
+namespace rts::core::manager {
+    class GameLogicManager final : public ILogicManager {
     public:
-        GameLogicManager(command::LogicCommandBus& bus,
-                         command::LogicCommandRouter& router);
+        GameLogicManager(command::LogicCommandBus &bus,
+                         command::LogicCommandRouter &router,
+                        core::world::GameWorld &world
+                         );
 
-        void start() override;
         void update() override;
-        void tick(float dt) const;
-        bool canMoveUnitTo(const core::model::Unit& unit, const core::model::Vector2D& pos) const;
 
+        void tick(float dt) override;
+
+        bool canMoveUnitTo(const model::Unit &unit, const model::Vector2D &pos) const;
+
+
+        void addSelectedElement(model::IGameElement &element) { m_selectedElements.push_back(element.weak_from_this());}
         // Logic 전용 API
-        void addElement(std::shared_ptr<core::model::IGameElement> element);
         void clearSelection();
-        void selectElement(const std::shared_ptr<core::model::IGameElement>& element);
-        const std::vector<std::shared_ptr<core::model::IElement>>& getElements() const override;
+
+        void selectElement(model::IGameElement &element);
+        void handleMoveCommand(const command::MoveCommand& cmd);
 
     private:
-        // 모든 게임 오브젝트 (소유)
-        std::vector<std::shared_ptr<core::model::IGameElement>> m_elements;
+        static constexpr int GROUPS = 10;
 
-        // 선택된 유닛 (비소유 View)
-        std::vector<std::weak_ptr<core::model::IGameElement>> m_selectedElements;
+        template<class T>
+        void eraseExpired(std::vector<std::weak_ptr<T> > &v);
+
+        template<class T>
+        bool containsPtr(const std::vector<std::weak_ptr<T> > &v, const std::shared_ptr<T> &p);
+
+        void applySelectedToGroup(uint16_t num, bool assign);
+
+        core::world::GameWorld& m_world;
+        std::vector<std::weak_ptr<model::IGameElement> > m_selectedElements;
+        std::array<std::vector<std::weak_ptr<model::IGameElement> >, GROUPS> m_groups;
     };
-
 } // namespace rts::manager

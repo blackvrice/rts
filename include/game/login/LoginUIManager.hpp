@@ -11,14 +11,14 @@
 #include "core/ui/TextBox.hpp"
 
 
-namespace rts::manager {
+namespace rts::core::manager {
     class LoginUIManager : public IUIManager {
     public:
         explicit LoginUIManager(command::UICommandRouter&, command::LogicCommandBus&, core::render::RenderQueue&);
 
         void update() override;
         void render() override;
-        void syncWithLogic() override;   // ✅ 추가
+        void syncWithWorld() override;   // ✅ 추
 
     private:
         std::vector<std::unique_ptr<core::ui::IUIElement>> m_elements;

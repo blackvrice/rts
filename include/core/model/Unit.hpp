@@ -6,13 +6,13 @@
 #include <memory>
 
 #include "IGameElement.hpp"
-namespace rts::manager {
-    class GameLogicManager;
-}
+#include "core/world/GridTransform.hpp"
+#include "game/game/GameLogicManager.hpp"
+
 namespace rts::core::model {
-    class Unit : public IGameElement, public std::enable_shared_from_this<Unit>{
+    class Unit : public IGameElement{
     public:
-        explicit Unit(manager::GameLogicManager& logic);
+        explicit Unit();
 
         ActionType getAction() const override;
 
@@ -22,7 +22,7 @@ namespace rts::core::model {
 
         void tick(float dt) override;
 
-        void updateMove(float dt);
+        void updateMove(float dt, const world::GridTransform& tf);
 
         void updateAttack(float dt);
 
@@ -33,7 +33,6 @@ namespace rts::core::model {
         float getMaxHp() const;
 
         void update() override;
-        void buildRenderCommands(render::RenderQueue&) const override;
         const GameState& state() const override;
         Vector2D getPosition() const override;
         void setPosition(const Vector2D&) override;
@@ -46,8 +45,15 @@ namespace rts::core::model {
         void build(int, const Vector2D&) override {}
         void cast(int, const Vector2D&) override {}
 
+        void setPath(path::Path p);
+        void setMoveTargetWithPath(const std::vector<path::GridPos>& gridPath,
+                                   const Vector2D& finalWorldTarget);
+
     private:
-        manager::GameLogicManager& m_logic;
+        std::deque<path::GridPos> m_gridPath; // 다음 노드부터 pop_front
+        Vector2D m_finalTargetWorld{};
+        path::Path m_path;
+        size_t m_pathIndex{0};
 
         ActionType m_action = ActionType::Idle;
 

@@ -10,27 +10,27 @@
 #include "core/model/IViewModel.hpp"
 #include "core/ui/IUIElement.hpp"
 #include "core/ui/SelectBox.hpp"
+#include "core/world/GameWorld.hpp"
 
-namespace rts::manager {
+namespace rts::core::manager {
     class GameUIManager : public IUIManager {
     public:
         GameUIManager(command::UICommandRouter &router, command::LogicCommandBus &logicBus,
-                      core::render::RenderQueue &render_queue);
+                      core::render::RenderQueue &render_queue, core::world::GameWorld &world);
 
         void update() override;
 
-        void addViewModel(std::shared_ptr<core::viewmodel::IViewModel> vm);
-        void setLogicSource(ILogicManager& logic) override;
-        bool hasViewModelFor(const std::shared_ptr<core::model::IGameElement>& element) const;
+        bool hasViewModelFor(const std::shared_ptr<core::model::IElement>& element) const;
 
         void render() override;
 
-        void syncWithLogic() override;
+        void syncWithWorld() override;
     private:
         std::vector<int> unitElement;
         std::vector<std::unique_ptr<core::ui::IUIElement>> m_elements;
         std::vector<std::shared_ptr<core::viewmodel::IViewModel>> m_viewModels;
-        ILogicManager* m_logic;
-
+        core::world::GameWorld& m_world;
+        bool m_shift;
+        bool m_ctrl;
     };
 }

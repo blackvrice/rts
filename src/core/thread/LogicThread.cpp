@@ -9,33 +9,43 @@
 #include <chrono>
 #include <SFML/System/Time.hpp>
 
-#include "../../../include/core/manager/ILogicManger.hpp"
+#include "core/manager/ILogicManager.hpp"
 
 namespace rts::thread {
 
     void LogicThread::run()
     {
         using clock = std::chrono::steady_clock;
-        using namespace std::chrono_literals;
+        using namespace std::chrono;
 
-        constexpr auto TICK = 16ms; // 60Hz (RTS면 20~33ms도 흔함)
+        constexpr auto TICK = 33ms;          // ⭐ RTS: 30Hz
+        float dt = 1.0f / 30.0f;
+        auto nextTick = clock::now();
 
         while (isRunning()) {
-            auto tickStart = clock::now();
-
-            // 1️⃣ 모든 Command 처리
+            // 1️⃣ Command 처리 (이벤트)
             command::LogicCommandBus::CommandPtr cmd;
             while (m_CommandBus.tryPop(cmd)) {
                 m_CommandRouter.dispatch(*cmd);
             }
 
-            // 3️⃣ 틱 고정
-            auto elapsed = clock::now() - tickStart;
-            if (elapsed < TICK) {
-                std::this_thread::sleep_for(TICK - elapsed);
+
+            if (m_logic) {
+                m_inTick.store(true, std::memory_order_release);
+                m_logic->tick(dt);
+                m_inTick.store(false, std::memory_order_release);
+            }
+            // 3️⃣ 다음 tick 시점 계산
+            nextTick += TICK;
+
+            // 4️⃣ 정확한 대기 (드리프트 방지)
+            std::this_thread::sleep_until(nextTick);
+
+            // 5️⃣ 밀린 경우 보정 (폭주 방지)
+            if (clock::now() > nextTick + TICK * 2) {
+                nextTick = clock::now();
             }
         }
     }
-
 
 } // namespace rts::core

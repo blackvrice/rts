@@ -4,13 +4,10 @@
 // include/rts/core/Command.hpp
 #pragma once
 
-namespace rts::command {
+namespace rts::core::command {
 
     class Command {
     public:
         virtual ~Command() = default;
     };
-
-    using CommandPtr = std::unique_ptr<Command>;
-
 }

@@ -7,13 +7,13 @@
 #include <core/Manager/IUIManager.hpp>
 #include <core/command/CommandRouterBase.hpp>
 
-#include "core/manager/ILogicManger.hpp"
+#include "core/manager/ILogicManager.hpp"
 
-namespace rts::manager {
+namespace rts::core::manager {
     class LoginLogicManager : public ILogicManager {
     public:
         LoginLogicManager(command::LogicCommandBus&, command::LogicCommandRouter&);
-        void start() override;
         void update() override;
+        void tick(float dt) override;
     };
 }

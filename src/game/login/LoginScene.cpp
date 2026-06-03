@@ -5,7 +5,7 @@
 
 #include <game/login/LoginLogicManager.hpp>
 
-namespace rts::scene {
+namespace rts::core::scene {
     LoginScene::LoginScene(const std::shared_ptr<manager::IUIManager> &uiManager,
                            const std::shared_ptr<manager::ILogicManager> &logicManager) :
         IScene(uiManager, logicManager) {}
@@ -16,5 +16,8 @@ namespace rts::scene {
 
     void LoginScene::render() {
         m_uiManager->render();
+    }
+    void LoginScene::tick(float dt) {
+
     }
 }

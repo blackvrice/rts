@@ -10,7 +10,7 @@
 #include "core/model/Key.hpp"
 #include "core/model/Vector2D.hpp"
 
-namespace rts::command {
+namespace rts::core::command {
     // =========================================================
     // Base UICommand
     // =========================================================
@@ -106,6 +106,25 @@ namespace rts::command {
         core::model::KeyModifier m_mods;
     };
 
+    class KeyReleasedCommand final : public UICommand {
+    public:
+        explicit KeyReleasedCommand(
+            core::model::Key code,
+            core::model::Scan scancode,
+            core::model::KeyModifier mods
+        ) : m_code(code), m_scancode(scancode), m_mods(mods) {
+        }
+
+        core::model::Key getCode() const { return m_code; }
+        core::model::Scan getScanCode() const { return m_scancode; }
+        core::model::KeyModifier getMods() const { return m_mods; }
+
+    private:
+        core::model::Key m_code;
+        core::model::Scan m_scancode;
+        core::model::KeyModifier m_mods;
+    };
+
     class TextEnteredCommand final : public UICommand {
     public:
         explicit TextEnteredCommand(char32_t ch)
@@ -116,5 +135,19 @@ namespace rts::command {
 
     private:
         char32_t m_char;
+    };
+
+    class ChangeUILogicSourceCommand final : public UICommand {
+    public:
+        explicit ChangeUILogicSourceCommand(
+            std::shared_ptr<manager::ILogicManager> logicManager)
+            : m_logicManager(std::move(logicManager)) {}
+
+        const std::shared_ptr<manager::ILogicManager>& logic() const {
+            return m_logicManager;
+        }
+
+    private:
+        std::shared_ptr<manager::ILogicManager> m_logicManager;
     };
 } // namespace rts::command

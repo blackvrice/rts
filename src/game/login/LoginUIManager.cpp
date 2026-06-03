@@ -9,7 +9,7 @@
 #include "core/font/FontManager.hpp"
 #include "core/manager/IUIManager.hpp"
 
-namespace rts::manager {
+namespace rts::core::manager {
     LoginUIManager::LoginUIManager(command::UICommandRouter &router, command::LogicCommandBus &logicBus,
                                    core::render::RenderQueue &render_queue) : manager::IUIManager(
         router, logicBus, render_queue) {
@@ -73,7 +73,7 @@ namespace rts::manager {
         }
     }
 
-    void LoginUIManager::syncWithLogic() {
+    void LoginUIManager::syncWithWorld() {
         // Login 화면은 Logic과 동기화할 ViewModel이 보통 없음
         // 필요하면 나중에 연결
     }

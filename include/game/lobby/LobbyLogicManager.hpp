@@ -6,12 +6,11 @@
 
 #include <core/Manager/IUIManager.hpp>
 
-#include "core/manager/ILogicManger.hpp"
+#include "core/manager/ILogicManager.hpp"
 
-namespace rts::manager {
+namespace rts::core::manager {
     class LobbyLogicManager : public ILogicManager {
         LobbyLogicManager(command::LogicCommandBus&, command::LogicCommandRouter&);
-        void start() override;
         void update() override;
     };
 }

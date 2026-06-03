@@ -20,14 +20,13 @@ add_executable(RTS src/main.cpp
         include/core/ecs/Entity.hpp
         include/core/ecs/Registry.hpp
         include/core/ui/IUIElement.hpp
-        include/core/Manager/ILogicManger.hpp
+        include/core/manager/ILogicManager.hpp
         include/platform/IWindow.hpp
         include/platform/sfml/sfmlWindow.hpp
         src/platform/sfml/SfmlWindow.cpp
         include/core/model/Vector2D.hpp
         include/core/Manager/IUIManager.hpp
         include/core/type/SceneType.hpp
-        src/core/app/DIContainer.cpp
         include/core/factory/UnitFactory.hpp
         include/core/prototype/UnitPrototypeLoader.hpp
         include/core/entity/UnitEntity.hpp
@@ -36,7 +35,6 @@ add_executable(RTS src/main.cpp
         include/core/entity/BuildingEntity.hpp
         include/core/factory/BuildingFactory.hpp
         include/core/data/TileStaticData.hpp
-        include/core/map/TileMapInstance.hpp
         include/core/entity/TileInstance.hpp
         include/core/command/UICommandBus.hpp
         include/core/command/UICommand.hpp
@@ -101,6 +99,15 @@ add_executable(RTS src/main.cpp
         include/core/viewmodel/UnitViewModel.hpp
         src/core/model/Unit.cpp
         src/core/viewmodel/UnitViewModel.cpp
+        include/core/map/TileMapSoA.hpp
+        "include/core/world/GameWorld.hpp"
+        include/core/manager/PathManager.hpp
+        include/core/path/GridTypes.hpp
+        include/core/path/IGridQuery.hpp
+        include/core/path/Path.hpp
+        include/core/world/GameWorldGridQuery.hpp
+        src/core/world/GameWorldGridQuery.cpp
+        "include/core/world/GridTransform.hpp"
 )
 
 add_custom_command(TARGET RTS POST_BUILD
@@ -109,5 +116,6 @@ add_custom_command(TARGET RTS POST_BUILD
         $<TARGET_FILE_DIR:RTS>
 )
 
-target_link_libraries(RTS PRIVATE SFML::System SFML::Window SFML::Graphics)
+add_subdirectory(external/tmxlite/tmxlite)
+target_link_libraries(RTS PRIVATE SFML::System SFML::Window SFML::Graphics tmxlite)
 target_include_directories(RTS PRIVATE include)

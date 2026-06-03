@@ -6,7 +6,7 @@
 
 #include "core/ui/TextBox.hpp"
 
-namespace rts::manager {
+namespace rts::core::manager {
     LobbyUIManager::LobbyUIManager(command::UICommandRouter &router, command::LogicCommandBus &logicBus,
                                    core::render::RenderQueue& render_queue) : manager::IUIManager(
         router, logicBus, render_queue) {

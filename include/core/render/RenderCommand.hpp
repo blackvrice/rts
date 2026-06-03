@@ -39,10 +39,19 @@ namespace rts::core::render {
         int textureId;
     };
 
+    struct DrawCircle {
+        float cx;      // center x
+        float cy;      // center y
+        float radius;
+        uint32_t border_color;
+        uint32_t color;
+    };
+
     using RenderCommandData = std::variant<
         DrawRect,
         DrawText,
-        DrawSprite
+        DrawSprite,
+        DrawCircle
     >;
 
     struct RenderCommand {
@@ -50,5 +59,6 @@ namespace rts::core::render {
         int zOrder;
         RenderCommandData data;
     };
+
 
 } // namespace rts::render

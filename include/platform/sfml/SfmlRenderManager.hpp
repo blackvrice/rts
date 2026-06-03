@@ -20,6 +20,7 @@ namespace rts::platform::sfml {
 
         static void draw(sf::RenderWindow& window, const core::render::DrawSprite& s);
 
+        static void draw(sf::RenderWindow& window, const core::render::DrawCircle& c);
 
     };
 }

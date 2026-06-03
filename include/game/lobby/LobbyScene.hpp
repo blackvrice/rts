@@ -6,7 +6,7 @@
 
 #include <core/scene/IScene.hpp>
 
-namespace rts::scene {
+namespace rts::core::scene {
     class LobbyScene : public IScene {
     public:
         LobbyScene(const std::shared_ptr<manager::IUIManager> &uiManager, const std::shared_ptr<manager::ILogicManager> &logicManager);

@@ -5,10 +5,12 @@
 
 #include "game/game/GameScene.hpp"
 
-namespace rts::scene {
+namespace rts::core::scene {
     GameScene::GameScene(const std::shared_ptr<manager::IUIManager> &uiManager,
-                         const std::shared_ptr<manager::ILogicManager> &logicManager) : IScene(
-        uiManager, logicManager) {
+                         const std::shared_ptr<manager::ILogicManager> &logicManager,
+                         const std::shared_ptr<core::world::GameWorld> &world
+                         ) : IScene(
+            uiManager, logicManager), world(world) {
     }
 
     void GameScene::update() {
@@ -16,7 +18,7 @@ namespace rts::scene {
         m_logicManager->update();
 
         // 2️⃣ Logic → UI ViewModel 동기화 (🔥 핵심)
-        m_uiManager->syncWithLogic();
+        m_uiManager->syncWithWorld();
 
         // 3️⃣ UI 업데이트 (ViewModel 기반)
         m_uiManager->update();
@@ -25,5 +27,9 @@ namespace rts::scene {
     void GameScene::render() {
         // 4️⃣ 렌더링
         m_uiManager->render();
+    }
+
+    void GameScene::tick(float dt) {
+        m_logicManager->tick(dt);
     }
 }
