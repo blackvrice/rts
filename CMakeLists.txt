@@ -12,9 +12,16 @@ endif()
 
 # SFML Root Directory 설정
 set(SFML_DIR "D:/Libs/SFML-3.0.2/lib/cmake/SFML")
+set(RTS_TINY_SWORDS_ROOT "${CMAKE_SOURCE_DIR}/Tiny Swords (Free Pack)/Tiny Swords (Free Pack)")
 
 find_package(SFML 3 REQUIRED COMPONENTS System Window Graphics)
 find_package(OpenGL REQUIRED)
+
+configure_file(
+        "${CMAKE_SOURCE_DIR}/include/platform/sfml/SfmlAssetPaths.hpp.in"
+        "${CMAKE_BINARY_DIR}/generated/platform/sfml/SfmlAssetPaths.hpp"
+        @ONLY
+)
 
 include(CheckCXXSourceCompiles)
 
@@ -125,6 +132,7 @@ add_executable(RTS
         src/platform/sfml/SfmlRenderManager.cpp
         include/platform/sfml/SfmlHudOverlay.hpp
         src/platform/sfml/SfmlHudOverlay.cpp
+        include/platform/sfml/SfmlAssetPaths.hpp.in
         include/core/render/RenderContext.hpp
         src/game/login/LoginLogicManager.cpp
         src/game/lobby/LobbyLogicManager.cpp
@@ -176,6 +184,7 @@ endif()
 
 target_include_directories(RTS PRIVATE
         include
+        "${CMAKE_BINARY_DIR}/generated"
 )
 
 target_link_libraries(RTS PRIVATE

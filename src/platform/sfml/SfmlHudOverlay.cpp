@@ -8,12 +8,15 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <filesystem>
 
 #include <SFML/Graphics/RenderWindow.hpp>
+#include <SFML/Graphics/Texture.hpp>
 
 #include "imgui.h"
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_win32.h"
+#include "platform/sfml/SfmlAssetPaths.hpp"
 
 namespace {
     constexpr ImU32 kConsoleFill = IM_COL32(10, 18, 26, 235);
@@ -27,12 +30,44 @@ namespace {
     constexpr ImU32 kGas = IM_COL32(78, 218, 148, 255);
     constexpr ImU32 kWarning = IM_COL32(236, 198, 81, 255);
 
+    constexpr const char* kWoodTable = "UI Elements/UI Elements/Wood Table/WoodTable.png";
+    constexpr const char* kWoodSlots = "UI Elements/UI Elements/Wood Table/WoodTable_Slots.png";
+    constexpr const char* kBanner = "UI Elements/UI Elements/Banners/Banner.png";
+    constexpr const char* kBannerSlots = "UI Elements/UI Elements/Banners/Banner_Slots.png";
+    constexpr const char* kButtonRegular = "UI Elements/UI Elements/Buttons/SmallBlueSquareButton_Regular.png";
+    constexpr const char* kButtonPressed = "UI Elements/UI Elements/Buttons/SmallBlueSquareButton_Pressed.png";
+    constexpr const char* kBarBase = "UI Elements/UI Elements/Bars/BigBar_Base.png";
+    constexpr const char* kBarFill = "UI Elements/UI Elements/Bars/BigBar_Fill.png";
+    constexpr const char* kAvatar = "UI Elements/UI Elements/Human Avatars/Avatars_01.png";
+
+    std::filesystem::path tinySwordsRoot() {
+        return std::filesystem::path(rts::platform::sfml::TinySwordsRoot);
+    }
+
     ImVec2 operator+(const ImVec2& a, const ImVec2& b) {
         return {a.x + b.x, a.y + b.y};
     }
 
-    void drawPanelFrame(ImDrawList& drawList, const ImVec2 min, const ImVec2 max, const char* title) {
-        drawList.AddRectFilled(min, max, kPanelFill, 2.0f);
+    ImTextureRef textureRef(const sf::Texture& texture) {
+        return ImTextureRef(static_cast<ImTextureID>(texture.getNativeHandle()));
+    }
+
+    void drawImage(ImDrawList& drawList, const sf::Texture* texture, const ImVec2 min, const ImVec2 max, const ImU32 tint = IM_COL32_WHITE) {
+        if (!texture) {
+            return;
+        }
+
+        drawList.AddImage(textureRef(*texture), min, max, {0.0f, 0.0f}, {1.0f, 1.0f}, tint);
+    }
+
+    void drawPanelFrame(ImDrawList& drawList, const ImVec2 min, const ImVec2 max, const char* title, const sf::Texture* texture) {
+        if (texture) {
+            drawImage(drawList, texture, min, max, IM_COL32(255, 255, 255, 238));
+            drawList.AddRectFilled(min, max, IM_COL32(12, 11, 8, 72), 2.0f);
+        } else {
+            drawList.AddRectFilled(min, max, kPanelFill, 2.0f);
+        }
+
         drawList.AddRect(min, max, kPanelEdge, 2.0f, 0, 2.0f);
         drawList.AddRect(min + ImVec2{4.0f, 4.0f}, max + ImVec2{-4.0f, -4.0f}, kPanelHigh, 1.0f, 0, 1.0f);
 
@@ -41,11 +76,17 @@ namespace {
         drawList.AddLine({min.x + 8.0f, min.y + 30.0f}, {max.x - 8.0f, min.y + 30.0f}, IM_COL32(70, 120, 132, 180), 1.0f);
     }
 
-    void drawResourcePill(ImDrawList& drawList, const ImVec2 min, const ImVec2 size, const char* label, const char* value, const ImU32 color) {
+    void drawResourcePill(ImDrawList& drawList, const ImVec2 min, const ImVec2 size, const char* label, const char* value, const ImU32 color, const sf::Texture* icon) {
         const ImVec2 max{min.x + size.x, min.y + size.y};
         drawList.AddRectFilled(min, max, IM_COL32(8, 16, 22, 232), 2.0f);
         drawList.AddRect(min, max, IM_COL32(70, 126, 138, 210), 2.0f, 0, 1.0f);
-        drawList.AddCircleFilled({min.x + 18.0f, min.y + size.y * 0.5f}, 6.0f, color, 16);
+
+        if (icon) {
+            drawImage(drawList, icon, {min.x + 8.0f, min.y + 5.0f}, {min.x + 30.0f, min.y + 27.0f});
+        } else {
+            drawList.AddCircleFilled({min.x + 18.0f, min.y + size.y * 0.5f}, 6.0f, color, 16);
+        }
+
         drawList.AddText({min.x + 32.0f, min.y + 7.0f}, kTextDim, label);
 
         const ImVec2 valueSize = ImGui::CalcTextSize(value);
@@ -76,36 +117,37 @@ namespace {
         drawList.AddCircleFilled({mapMin.x + 216.0f, mapMin.y + 50.0f}, 3.0f, kGas, 16);
     }
 
-    void drawPortrait(ImDrawList& drawList, const ImVec2 min, const ImVec2 max) {
+    void drawPortrait(ImDrawList& drawList, const ImVec2 min, const ImVec2 max, const sf::Texture* avatar) {
         drawList.AddRectFilled(min, max, kPanelDark, 1.0f);
         drawList.AddRect(min, max, kPanelHigh, 1.0f, 0, 1.5f);
 
-        const ImVec2 center{(min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f};
-        drawList.AddCircleFilled(center, 42.0f, IM_COL32(42, 98, 108, 255), 32);
-        drawList.AddCircle(center, 50.0f, IM_COL32(123, 220, 215, 180), 32, 2.0f);
-        drawList.AddText({center.x - 28.0f, center.y - 7.0f}, kTextMain, "MARINE");
+        if (avatar) {
+            drawImage(drawList, avatar, min + ImVec2{10.0f, 10.0f}, max + ImVec2{-10.0f, -10.0f});
+        } else {
+            const ImVec2 center{(min.x + max.x) * 0.5f, (min.y + max.y) * 0.5f};
+            drawList.AddCircleFilled(center, 42.0f, IM_COL32(42, 98, 108, 255), 32);
+            drawList.AddCircle(center, 50.0f, IM_COL32(123, 220, 215, 180), 32, 2.0f);
+            drawList.AddText({center.x - 28.0f, center.y - 7.0f}, kTextMain, "HERO");
+        }
     }
 
-    void drawStatusBar(ImDrawList& drawList, const ImVec2 min, const ImVec2 max, const float ratio, const ImU32 color, const char* label) {
-        drawList.AddRectFilled(min, max, IM_COL32(7, 14, 18, 255), 1.0f);
-        drawList.AddRectFilled(min, {min.x + (max.x - min.x) * std::clamp(ratio, 0.0f, 1.0f), max.y}, color, 1.0f);
+    void drawStatusBar(ImDrawList& drawList, const ImVec2 min, const ImVec2 max, const float ratio, const ImU32 color, const char* label, const sf::Texture* base, const sf::Texture* fill) {
+        if (base) {
+            drawImage(drawList, base, min, max);
+        } else {
+            drawList.AddRectFilled(min, max, IM_COL32(7, 14, 18, 255), 1.0f);
+        }
+
+        const float clampedRatio = std::clamp(ratio, 0.0f, 1.0f);
+        const ImVec2 fillMax{min.x + (max.x - min.x) * clampedRatio, max.y};
+        if (fill) {
+            drawList.AddImage(textureRef(*fill), min, fillMax, {0.0f, 0.0f}, {clampedRatio, 1.0f}, IM_COL32(255, 255, 255, 238));
+        } else {
+            drawList.AddRectFilled(min, fillMax, color, 1.0f);
+        }
+
         drawList.AddRect(min, max, IM_COL32(110, 160, 162, 180), 1.0f);
         drawList.AddText({min.x + 8.0f, min.y + 3.0f}, kTextMain, label);
-    }
-
-    void pushCommandButtonStyle() {
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.09f, 0.19f, 0.25f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.14f, 0.35f, 0.42f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.35f, 0.55f, 0.48f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.45f, 0.78f, 0.80f, 0.72f));
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.82f, 0.95f, 0.92f, 1.0f));
-    }
-
-    void popCommandButtonStyle() {
-        ImGui::PopStyleColor(5);
-        ImGui::PopStyleVar(2);
     }
 }
 
@@ -193,6 +235,24 @@ namespace rts::platform::sfml {
         }
     }
 
+    const sf::Texture* SfmlHudOverlay::texture(const std::string& relativePath) {
+        if (const auto it = m_textures.find(relativePath); it != m_textures.end()) {
+            return it->second.get();
+        }
+
+        auto loaded = std::make_unique<sf::Texture>();
+        loaded->setSmooth(false);
+
+        const std::filesystem::path path = tinySwordsRoot() / std::filesystem::path(relativePath);
+        if (!loaded->loadFromFile(path.string())) {
+            return nullptr;
+        }
+
+        const sf::Texture* result = loaded.get();
+        m_textures.emplace(relativePath, std::move(loaded));
+        return result;
+    }
+
     void SfmlHudOverlay::applyStyle() {
         ImGuiStyle& style = ImGui::GetStyle();
         style.WindowRounding = 0.0f;
@@ -231,18 +291,33 @@ namespace rts::platform::sfml {
         ImGui::Begin("##rts_star_command_hud", nullptr, flags);
 
         ImDrawList& drawList = *ImGui::GetWindowDrawList();
+        const sf::Texture* woodTable = texture(kWoodTable);
+        const sf::Texture* woodSlots = texture(kWoodSlots);
+        const sf::Texture* banner = texture(kBanner);
+        const sf::Texture* bannerSlots = texture(kBannerSlots);
+        const sf::Texture* buttonRegular = texture(kButtonRegular);
+        const sf::Texture* buttonPressed = texture(kButtonPressed);
+        const sf::Texture* barBase = texture(kBarBase);
+        const sf::Texture* barFill = texture(kBarFill);
+        const sf::Texture* avatar = texture(kAvatar);
+
         const ImVec2 consoleMin{0.0f, bottomY};
         const ImVec2 consoleMax{width, height};
-        drawList.AddRectFilled(consoleMin, consoleMax, kConsoleFill);
+        if (woodTable) {
+            drawImage(drawList, woodTable, consoleMin, consoleMax, IM_COL32(255, 255, 255, 238));
+            drawList.AddRectFilled(consoleMin, consoleMax, IM_COL32(20, 12, 7, 96));
+        } else {
+            drawList.AddRectFilled(consoleMin, consoleMax, kConsoleFill);
+        }
         drawList.AddLine({0.0f, bottomY}, {width, bottomY}, kPanelEdge, 2.0f);
 
         const ImVec2 resourceSize{142.0f, 34.0f};
         const float resourceTop = 12.0f;
         const float resourceStart = width - (resourceSize.x * 4.0f) - (12.0f * 3.0f) - margin;
-        drawResourcePill(drawList, {resourceStart, resourceTop}, resourceSize, "Minerals", "1,500", kMineral);
-        drawResourcePill(drawList, {resourceStart + 154.0f, resourceTop}, resourceSize, "Gas", "520", kGas);
-        drawResourcePill(drawList, {resourceStart + 308.0f, resourceTop}, resourceSize, "Supply", "24/32", kWarning);
-        drawResourcePill(drawList, {resourceStart + 462.0f, resourceTop}, resourceSize, "APM", "142", kPanelHigh);
+        drawResourcePill(drawList, {resourceStart, resourceTop}, resourceSize, "Gold", "1,500", kMineral, texture("UI Elements/UI Elements/Icons/Icon_01.png"));
+        drawResourcePill(drawList, {resourceStart + 154.0f, resourceTop}, resourceSize, "Wood", "520", kGas, texture("UI Elements/UI Elements/Icons/Icon_02.png"));
+        drawResourcePill(drawList, {resourceStart + 308.0f, resourceTop}, resourceSize, "Food", "24/32", kWarning, texture("UI Elements/UI Elements/Icons/Icon_03.png"));
+        drawResourcePill(drawList, {resourceStart + 462.0f, resourceTop}, resourceSize, "Army", "142", kPanelHigh, texture("UI Elements/UI Elements/Swords/Swords.png"));
 
         const float miniWidth = std::clamp(width * 0.18f, 285.0f, 340.0f);
         const float commandWidth = std::clamp(width * 0.22f, 360.0f, 420.0f);
@@ -253,21 +328,21 @@ namespace rts::platform::sfml {
         const ImVec2 statusMin{miniMax.x + margin, bottomY + margin};
         const ImVec2 statusMax{commandMin.x - margin, height - margin};
 
-        drawPanelFrame(drawList, miniMin, miniMax, "MINI MAP");
-        drawPanelFrame(drawList, statusMin, statusMax, "SELECTION");
-        drawPanelFrame(drawList, commandMin, commandMax, "COMMAND");
+        drawPanelFrame(drawList, miniMin, miniMax, "MINI MAP", bannerSlots);
+        drawPanelFrame(drawList, statusMin, statusMax, "SELECTION", banner);
+        drawPanelFrame(drawList, commandMin, commandMax, "COMMAND", woodSlots);
         drawMiniMap(drawList, miniMin, miniMax);
 
         const ImVec2 portraitMin{statusMin.x + 18.0f, statusMin.y + 44.0f};
         const ImVec2 portraitMax{portraitMin.x + 132.0f, statusMax.y - 18.0f};
-        drawPortrait(drawList, portraitMin, portraitMax);
+        drawPortrait(drawList, portraitMin, portraitMax, avatar);
 
         const ImVec2 infoMin{portraitMax.x + 24.0f, statusMin.y + 48.0f};
-        drawList.AddText(infoMin, kTextMain, "Terran Infantry Squad");
+        drawList.AddText(infoMin, kTextMain, "Tiny Swords Vanguard");
         drawList.AddText({infoMin.x, infoMin.y + 28.0f}, kTextDim, "Selected: 6 units");
         drawList.AddText({infoMin.x, infoMin.y + 56.0f}, kTextDim, "Armor 1   Range 5   Damage 6");
-        drawStatusBar(drawList, {infoMin.x, infoMin.y + 92.0f}, {statusMax.x - 22.0f, infoMin.y + 114.0f}, 0.82f, IM_COL32(75, 205, 116, 255), "HP 492 / 600");
-        drawStatusBar(drawList, {infoMin.x, infoMin.y + 124.0f}, {statusMax.x - 22.0f, infoMin.y + 146.0f}, 0.46f, IM_COL32(73, 153, 232, 255), "Energy 46%");
+        drawStatusBar(drawList, {infoMin.x, infoMin.y + 92.0f}, {statusMax.x - 22.0f, infoMin.y + 114.0f}, 0.82f, IM_COL32(75, 205, 116, 255), "HP 492 / 600", barBase, barFill);
+        drawStatusBar(drawList, {infoMin.x, infoMin.y + 124.0f}, {statusMax.x - 22.0f, infoMin.y + 146.0f}, 0.46f, IM_COL32(73, 153, 232, 255), "Morale 46%", barBase, barFill);
         drawList.AddText({infoMin.x, infoMin.y + 164.0f}, kWarning, ("Last command: " + m_lastCommand).c_str());
 
         const std::array<const char*, 9> commands{
@@ -281,7 +356,6 @@ namespace rts::platform::sfml {
         const float cellW = (commandMax.x - commandMin.x - 28.0f - cellGap * 2.0f) / 3.0f;
         const float cellH = (commandMax.y - gridTop - 16.0f - cellGap * 2.0f) / 3.0f;
 
-        pushCommandButtonStyle();
         for (int i = 0; i < static_cast<int>(commands.size()); ++i) {
             const int col = i % 3;
             const int row = i / 3;
@@ -290,11 +364,24 @@ namespace rts::platform::sfml {
                 gridTop + row * (cellH + cellGap)
             };
             ImGui::SetCursorScreenPos(pos);
-            if (ImGui::Button(commands[i], {cellW, cellH})) {
+            const std::string id = std::string("##command_") + commands[i];
+            const bool clicked = ImGui::InvisibleButton(id.c_str(), {cellW, cellH});
+            const bool active = ImGui::IsItemActive();
+            const bool hovered = ImGui::IsItemHovered();
+
+            drawImage(drawList, active ? buttonPressed : buttonRegular, pos, {pos.x + cellW, pos.y + cellH}, hovered ? IM_COL32(255, 255, 255, 255) : IM_COL32(225, 235, 240, 245));
+            if (const sf::Texture* icon = texture("UI Elements/UI Elements/Icons/Icon_0" + std::to_string((i % 9) + 1) + ".png")) {
+                const ImVec2 iconMin{pos.x + cellW * 0.5f - 15.0f, pos.y + 10.0f};
+                drawImage(drawList, icon, iconMin, {iconMin.x + 30.0f, iconMin.y + 30.0f});
+            }
+
+            const ImVec2 textSize = ImGui::CalcTextSize(commands[i]);
+            drawList.AddText({pos.x + (cellW - textSize.x) * 0.5f, pos.y + cellH - textSize.y - 10.0f}, kTextMain, commands[i]);
+
+            if (clicked) {
                 m_lastCommand = commands[i];
             }
         }
-        popCommandButtonStyle();
 
         ImGui::End();
     }

@@ -1,0 +1,5 @@
+#pragma once
+
+namespace rts::platform::sfml {
+    inline constexpr const char* TinySwordsRoot = R"RTS(@RTS_TINY_SWORDS_ROOT@)RTS";
+}
