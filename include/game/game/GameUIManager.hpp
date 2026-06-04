@@ -26,10 +26,13 @@ namespace rts::core::world {
 }
 
 namespace rts::core::manager {
+    class CameraManager;
+
     class GameUIManager : public IUIManager {
     public:
         GameUIManager(command::UICommandRouter &router, command::LogicCommandBus &logicBus,
-                      core::render::RenderQueue &render_queue, core::world::GameWorld &world);
+                      core::render::RenderQueue &render_queue, core::world::GameWorld &world,
+                      CameraManager &camera);
         ~GameUIManager() override;
 
         void update() override;
@@ -44,7 +47,8 @@ namespace rts::core::manager {
         std::vector<std::unique_ptr<core::ui::IUIElement>> m_elements;
         std::vector<std::shared_ptr<core::viewmodel::IViewModel>> m_viewModels;
         core::world::GameWorld& m_world;
-        bool m_shift;
-        bool m_ctrl;
+        CameraManager& m_camera;
+        bool m_shift { false };
+        bool m_ctrl { false };
     };
 }

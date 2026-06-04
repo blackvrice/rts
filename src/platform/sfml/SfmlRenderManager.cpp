@@ -8,6 +8,7 @@
 #include <SFML/Graphics/Sprite.hpp>
 #include <SFML/Graphics/Text.hpp>
 #include <SFML/Graphics/Texture.hpp>
+#include <SFML/Graphics/View.hpp>
 
 #include <algorithm>
 #include <array>
@@ -16,6 +17,7 @@
 #include <unordered_map>
 
 #include "core/font/FontManager.hpp"
+#include "core/manager/CameraManager.hpp"
 #include "core/render/RenderCommand.hpp"
 #include "core/render/RenderContext.hpp"
 #include "core/render/RenderQueue.hpp"
@@ -99,10 +101,18 @@ namespace {
 
         constexpr int tileSize = 64;
 
-        const auto windowSize = window.getSize();
+        const sf::View view = window.getView();
+        const sf::Vector2f center = view.getCenter();
+        const sf::Vector2f size = view.getSize();
+        const float left = center.x - size.x * 0.5f;
+        const float top = center.y - size.y * 0.5f;
+        const float right = center.x + size.x * 0.5f;
+        const float bottom = center.y + size.y * 0.5f;
 
-        const int columns = static_cast<int>((windowSize.x + tileSize - 1) / tileSize);
-        const int rows = static_cast<int>((windowSize.y + tileSize - 1) / tileSize);
+        const int startColumn = static_cast<int>(std::floor(left / tileSize)) - 1;
+        const int endColumn = static_cast<int>(std::ceil(right / tileSize)) + 1;
+        const int startRow = static_cast<int>(std::floor(top / tileSize)) - 1;
+        const int endRow = static_cast<int>(std::ceil(bottom / tileSize)) + 1;
 
         sf::Sprite tile(*tileset);
 
@@ -115,9 +125,9 @@ namespace {
 
         tile.setTextureRect(grassTileRect);
 
-        for (int y = 0; y < rows; ++y)
+        for (int y = startRow; y <= endRow; ++y)
         {
-            for (int x = 0; x < columns; ++x)
+            for (int x = startColumn; x <= endColumn; ++x)
             {
                 tile.setPosition({
                     static_cast<float>(x * tileSize),
@@ -132,17 +142,17 @@ namespace {
         sf::RectangleShape line;
         line.setFillColor(sf::Color(28, 43, 36, 96));
 
-        line.setSize({1.0f, static_cast<float>(windowSize.y)});
-        for (int x = 0; x <= columns; ++x)
+        line.setSize({1.0f, bottom - top});
+        for (int x = startColumn; x <= endColumn; ++x)
         {
-            line.setPosition({static_cast<float>(x * tileSize), 0.0f});
+            line.setPosition({static_cast<float>(x * tileSize), top});
             window.draw(line);
         }
 
-        line.setSize({static_cast<float>(windowSize.x), 1.0f});
-        for (int y = 0; y <= rows; ++y)
+        line.setSize({right - left, 1.0f});
+        for (int y = startRow; y <= endRow; ++y)
         {
-            line.setPosition({0.0f, static_cast<float>(y * tileSize)});
+            line.setPosition({left, static_cast<float>(y * tileSize)});
             window.draw(line);
         }
     }
@@ -164,9 +174,47 @@ namespace rts::platform::sfml {
         auto* sfWindow = static_cast<sf::RenderWindow*>(windowBase.getNativeHandle());
         if (!sfWindow) return;
 
+        auto& camera = ctx.camera();
+        const auto windowSize = sfWindow->getSize();
+        camera.setViewportSize({
+            static_cast<float>(windowSize.x),
+            static_cast<float>(windowSize.y)
+        });
+
+        const sf::View defaultView = sfWindow->getView();
+        const auto cameraPosition = camera.position();
+        sf::View worldView;
+        worldView.setSize({
+            static_cast<float>(windowSize.x),
+            static_cast<float>(windowSize.y)
+        });
+        worldView.setCenter({
+            cameraPosition.x + static_cast<float>(windowSize.x) * 0.5f,
+            cameraPosition.y + static_cast<float>(windowSize.y) * 0.5f
+        });
+
+        sfWindow->setView(worldView);
         drawTinySwordsTileGrid(*sfWindow);
 
         for (const auto &cmd: queue.commands()) {
+            if (cmd.layer != core::render::RenderLayer::World) {
+                continue;
+            }
+
+            std::visit(
+                [&](auto &&data) {
+                    draw(*sfWindow, data);
+                },
+                cmd.data
+            );
+        }
+
+        sfWindow->setView(defaultView);
+        for (const auto &cmd: queue.commands()) {
+            if (cmd.layer == core::render::RenderLayer::World) {
+                continue;
+            }
+
             std::visit(
                 [&](auto &&data) {
                     draw(*sfWindow, data);

@@ -101,6 +101,8 @@ add_executable(RTS
         include/core/command/UICommandBus.hpp
         include/core/command/UICommand.hpp
         include/core/command/LogicCommand.hpp
+        include/core/manager/CameraManager.hpp
+        src/core/manager/CameraManager.cpp
         include/core/Manager/SceneManager.hpp
         src/core/manager/SceneManager.cpp
         include/core/scene/IScene.hpp

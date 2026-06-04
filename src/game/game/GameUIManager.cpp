@@ -8,6 +8,7 @@
 #include "core/command/LogicCommand.hpp"
 #include "core/command/LogicCommandBus.hpp"
 #include "core/command/UICommand.hpp"
+#include "core/manager/CameraManager.hpp"
 #include "core/model/IElement.hpp"
 #include "core/model/IGameElement.hpp"
 #include "core/model/Unit.hpp"
@@ -21,10 +22,15 @@
 #include "game/game/GameLogicManager.hpp"
 
 namespace rts::core::manager {
+    namespace {
+        constexpr float kCameraStep = 128.0f;
+    }
+
     GameUIManager::~GameUIManager() = default;
 
     GameUIManager::GameUIManager(command::UICommandRouter &router, command::LogicCommandBus &logicBus,
-                                 core::render::RenderQueue &render_queue, world::GameWorld& world) : m_world(world), IUIManager(
+                                 core::render::RenderQueue &render_queue, world::GameWorld& world,
+                                 CameraManager& camera) : m_world(world), m_camera(camera), IUIManager(
         router, logicBus, render_queue) {
 
         router.on<command::MouseLeftPressedCommand>(
@@ -54,8 +60,8 @@ namespace rts::core::manager {
 
         router.on<command::MouseRightPressedCommand>(
             [this](const command::MouseRightPressedCommand &cmd) {
-                const core::model::Vector2D &pos = cmd.position();
-                m_logicBus.push(std::make_unique<command::MoveCommand>(pos));
+                const core::model::Vector2D worldPos = m_camera.screenToWorld(cmd.position());
+                m_logicBus.push(std::make_unique<command::MoveCommand>(worldPos));
             }
         );
 
@@ -67,6 +73,18 @@ namespace rts::core::manager {
                 if (static_cast<bool>(modifier & KM::Ctrl)) m_ctrl = false;
                 if (static_cast<bool>(modifier & KM::Shift)) m_shift = false;
                 switch (key) {
+                    case core::model::Key::Left:
+                        m_camera.moveBy({-kCameraStep, 0.0f});
+                        break;
+                    case core::model::Key::Right:
+                        m_camera.moveBy({kCameraStep, 0.0f});
+                        break;
+                    case core::model::Key::Up:
+                        m_camera.moveBy({0.0f, -kCameraStep});
+                        break;
+                    case core::model::Key::Down:
+                        m_camera.moveBy({0.0f, kCameraStep});
+                        break;
                     case core::model::Key::Num1:
                     case core::model::Key::Num2:
                     case core::model::Key::Num3:
@@ -103,7 +121,7 @@ namespace rts::core::manager {
             if (static_cast<bool>(modifier & KM::Ctrl)) m_ctrl = false;
             if (static_cast<bool>(modifier & KM::Shift)) m_shift = false;
         });
-        m_elements.push_back(std::make_unique<core::ui::SelectBox>(logicBus));
+        m_elements.push_back(std::make_unique<core::ui::SelectBox>(logicBus, m_camera));
     }
 
 

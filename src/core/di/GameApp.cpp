@@ -8,6 +8,7 @@
 #include "core/command/LogicCommandBus.hpp"
 #include "core/command/UICommandBus.hpp"
 #include "core/di/DIContainer.hpp"
+#include "core/manager/CameraManager.hpp"
 #include "game/game/GameLogicManager.hpp"
 #include "game/game/GameScene.hpp"
 #include "game/game/GameUIManager.hpp"
@@ -49,6 +50,10 @@ namespace rts::core {
             [](auto &) { return std::make_shared<render::RenderQueue>(); }
         );
 
+        di.registerSingleton<manager::CameraManager>(
+            [](auto &) { return std::make_shared<manager::CameraManager>(); }
+        );
+
         di.registerSingleton<thread::LogicThread>(
             [](DIContainer &di) {
                 auto &bus = *di.resolve<command::LogicCommandBus>();
@@ -82,7 +87,8 @@ namespace rts::core {
                 auto &logicBus= *di.resolve<command::LogicCommandBus>();
                 auto &queue   = *di.resolve<render::RenderQueue>();
                 auto &world   = *di.resolve<world::GameWorld>();     // ✅ 같은 스코프의 world
-                return std::make_shared<manager::GameUIManager>(router, logicBus, queue, world);
+                auto &camera  = *di.resolve<manager::CameraManager>();
+                return std::make_shared<manager::GameUIManager>(router, logicBus, queue, world, camera);
             }
         );
 
@@ -157,9 +163,11 @@ namespace rts::core {
         di.registerSingleton<render::RenderContext>(
             [](DIContainer &di) {
                 auto &window = *di.resolve<platform::IWindow>();
+                auto &camera = *di.resolve<manager::CameraManager>();
                 return std::make_shared<render::RenderContext>(
                     window,
-                    model::Vector2D(1920, 1080)
+                    model::Vector2D(1920, 1080),
+                    camera
                 );
             }
         );

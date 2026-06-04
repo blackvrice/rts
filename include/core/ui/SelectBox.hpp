@@ -11,10 +11,14 @@
 #include "core/font/FontMetrics.hpp"
 #include "core/render/RenderQueue.hpp"
 
+namespace rts::core::manager {
+    class CameraManager;
+}
+
 namespace rts::core::ui {
     class SelectBox : public IUIElement {
     public:
-        explicit SelectBox(command::LogicCommandBus& bus);
+        explicit SelectBox(command::LogicCommandBus& bus, manager::CameraManager& camera);
 
         void update() override;
 
