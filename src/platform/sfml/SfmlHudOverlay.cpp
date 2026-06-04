@@ -528,8 +528,6 @@ namespace rts::platform::sfml {
         const sf::Texture* bannerSlots = texture(kBannerSlots);
         const sf::Texture* buttonRegular = texture(kButtonRegular);
         const sf::Texture* buttonPressed = texture(kButtonPressed);
-        const sf::Texture* barBase = texture(kBarBase);
-        const sf::Texture* barFill = texture(kBarFill);
         const sf::Texture* avatar = texture(kAvatar);
         const sf::Texture* swords = texture(kSwords);
 
@@ -575,7 +573,7 @@ namespace rts::platform::sfml {
         drawList.AddText({infoMin.x, infoMin.y + 56.0f}, kTextDim, "Armor 1   Range 5   Damage 6");
         // StarCraft-style unit HUD shows health as a compact number instead of a filled bar.
         drawList.AddText({infoMin.x, infoMin.y + 92.0f}, kTextMain, "HP 492 / 600");
-        drawStatusBar(drawList, {infoMin.x, infoMin.y + 124.0f}, {statusMax.x - 22.0f, infoMin.y + 146.0f}, 0.46f, IM_COL32(73, 153, 232, 255), "Morale 46%", barBase, barFill);
+        drawList.AddText({infoMin.x, infoMin.y + 124.0f}, kTextMain, "Morale 46%");
         drawList.AddText({infoMin.x, infoMin.y + 164.0f}, kWarning, ("Last command: " + m_lastCommand).c_str());
 
         const std::array<const char*, 9> commands{
