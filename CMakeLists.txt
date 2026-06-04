@@ -107,6 +107,14 @@ add_executable(RTS
         include/game/game/GameScene.hpp
         src/game/game/GameScene.cpp
         include/game/game/GameLogicManager.hpp
+        include/game/game/systems/CollisionSystem.hpp
+        src/game/game/systems/CollisionSystem.cpp
+        include/game/game/systems/ControlGroupSystem.hpp
+        src/game/game/systems/ControlGroupSystem.cpp
+        include/game/game/systems/MovementSystem.hpp
+        src/game/game/systems/MovementSystem.cpp
+        include/game/game/systems/SelectionSystem.hpp
+        src/game/game/systems/SelectionSystem.cpp
         include/game/game/GameUIManager.hpp
         include/game/login/LoginScene.hpp
         src/game/login/LoginScene.cpp

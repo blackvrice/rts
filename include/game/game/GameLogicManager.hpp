@@ -3,12 +3,13 @@
 //
 
 #pragma once
-#include <array>
 #include <cstdint>
-#include <memory>
-#include <vector>
 
 #include "core/manager/ILogicManager.hpp"
+#include "game/game/systems/CollisionSystem.hpp"
+#include "game/game/systems/ControlGroupSystem.hpp"
+#include "game/game/systems/MovementSystem.hpp"
+#include "game/game/systems/SelectionSystem.hpp"
 
 namespace rts::core::model {
     class IGameElement;
@@ -43,18 +44,10 @@ namespace rts::core::manager {
         void handleMoveCommand(const command::MoveCommand& cmd);
 
     private:
-        static constexpr int GROUPS = 10;
-
-        template<class T>
-        void eraseExpired(std::vector<std::weak_ptr<T> > &v);
-
-        template<class T>
-        bool containsPtr(const std::vector<std::weak_ptr<T> > &v, const std::shared_ptr<T> &p);
-
-        void applySelectedToGroup(uint16_t num, bool assign);
-
         core::world::GameWorld& m_world;
-        std::vector<std::weak_ptr<model::IGameElement> > m_selectedElements;
-        std::array<std::vector<std::weak_ptr<model::IGameElement> >, GROUPS> m_groups;
+        SelectionSystem m_selection;
+        ControlGroupSystem m_controlGroups;
+        CollisionSystem m_collision;
+        MovementSystem m_movement;
     };
 } // namespace rts::manager

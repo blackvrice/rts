@@ -1,20 +1,9 @@
-﻿#include "game/game/GameLogicManager.hpp"
+#include "game/game/GameLogicManager.hpp"
 
-#include <algorithm>
-#include <iostream>
-#include <core/manager/PathManager.hpp>
+#include <memory>
+
 #include <core/model/Unit.hpp>
-#include <core/model/IGameElement.hpp>
 #include <core/world/GameWorld.hpp>
-
-namespace {
-    constexpr float kMapMinX = 0.f;
-    constexpr float kMapMinY = 0.f;
-    constexpr float kMapMaxX = 2000.f;
-    constexpr float kMapMaxY = 2000.f;
-    constexpr float kUnitCollisionRadius = 28.f;
-    constexpr float kMinUnitDistanceSq = kUnitCollisionRadius * kUnitCollisionRadius * 4.f;
-}
 
 namespace rts::core::manager {
     GameLogicManager::GameLogicManager(
@@ -22,7 +11,7 @@ namespace rts::core::manager {
         command::LogicCommandRouter &router,
         core::world::GameWorld &world)
         : m_world(world), ILogicManager(bus, router) {
-        // ===== 테스트용 유닛 생성 =====
+        // Temporary debug units until spawning/production owns initial world population.
         {
             auto lock = m_world.acquireWriteLock();
             auto unit = std::make_shared<core::model::Unit>();
@@ -38,17 +27,7 @@ namespace rts::core::manager {
 
         m_router.on<command::SelectCommand>([this](const command::SelectCommand &cmd) {
             auto lock = m_world.acquireReadLock();
-            clearSelection();
-
-            auto elements = m_world.getElements();
-            for (auto &element: elements) {
-                if (!cmd.area().contains(element->getPosition()))
-                    continue;
-
-                if (auto *game = dynamic_cast<core::model::IGameElement *>(element.get())) {
-                    selectElement(*game);
-                }
-            }
+            m_selection.selectInArea(m_world, cmd.area());
         });
 
         m_router.on<command::MoveCommand>([this](const command::MoveCommand &cmd) {
@@ -61,7 +40,7 @@ namespace rts::core::manager {
 
         m_router.on<command::HoldPositionCommand>([this](const command::HoldPositionCommand &) {
             auto lock = m_world.acquireWriteLock();
-            for (auto &weak: m_selectedElements) {
+            for (auto &weak: m_selection.selected()) {
                 if (auto element = weak.lock()) {
                     element->holdPosition();
                 }
@@ -73,183 +52,47 @@ namespace rts::core::manager {
         });
 
         m_router.on<command::ControlGroupAddCommand>([this](const auto &cmd) {
-            applySelectedToGroup(cmd.groupId(), /*assign=*/false);
+            m_controlGroups.add(cmd.groupId(), m_selection.selected());
         });
 
         m_router.on<command::ControlGroupAssignCommand>([this](const auto &cmd) {
-            applySelectedToGroup(cmd.groupId(), /*assign=*/true);
+            m_controlGroups.assign(cmd.groupId(), m_selection.selected());
         });
 
         m_router.on<command::ControlGroupSelectCommand>([this](const auto &cmd) {
-            const uint16_t num = cmd.groupId();
-            auto &group = m_groups[num];
-            eraseExpired(group); // 여기서 한 번 정리
-            m_selectedElements = group; // 대입
+            m_selection.replaceSelected(m_controlGroups.select(cmd.groupId()));
         });
     }
 
     void GameLogicManager::update() {
-        // Logic-level 업데이트 (AI, 상태 전환 등)
+        // Logic-level update hook for future AI and state transitions.
     }
 
     void GameLogicManager::tick(float dt) {
         auto lock = m_world.acquireWriteLock();
-        auto elements = m_world.getElements();
-        for (auto &element: elements) {
-            if (auto unit = std::dynamic_pointer_cast<core::model::Unit>(element)) {
-                const auto previousPosition = unit->getPosition();
-                if (unit->getAction() == core::model::ActionType::Move) {
-                    unit->updateMove(dt, m_world.gridTransform());
-                } else {
-                    unit->tick(dt);
-                }
-
-                // Moving units are rolled back when their next step overlaps another unit body.
-                if (unit->getAction() != core::model::ActionType::Dead &&
-                    !canMoveUnitTo(*unit, unit->getPosition())) {
-                    unit->setPosition(previousPosition);
-                    unit->stop();
-                }
-
-                const auto currentPosition = unit->getPosition();
-                if (currentPosition.x != previousPosition.x ||
-                    currentPosition.y != previousPosition.y) {
-                    m_world.onCollisionChanged();
-                }
-                continue;
-            }
-
-            if (auto game = std::dynamic_pointer_cast<core::model::IGameElement>(element)) {
-                game->tick(dt);
-            }
-        }
+        m_movement.update(m_world, dt, m_collision);
     }
 
     void GameLogicManager::selectElement(core::model::IGameElement &element) {
-        m_selectedElements.push_back(element.weak_from_this());
+        m_selection.selectElement(element);
     }
 
     void GameLogicManager::addSelectedElement(core::model::IGameElement &element) {
-        m_selectedElements.push_back(element.weak_from_this());
+        m_selection.addSelectedElement(element);
     }
-
 
     void GameLogicManager::clearSelection() {
-        m_selectedElements.clear();
+        m_selection.clear();
     }
 
-    // ===============================
-    // 이동 가능 여부 체크
-    // ===============================
     bool GameLogicManager::canMoveUnitTo(
         const core::model::Unit &unit,
         const core::model::Vector2D &pos) const {
-        // ===== 1. 맵 경계 체크 =====
-        if (pos.x < kMapMinX || pos.y < kMapMinY ||
-            pos.x > kMapMaxX || pos.y > kMapMaxY) {
-            return false;
-        }
-
-        // ===== 2. 다른 유닛과 충돌 체크 =====
-        auto elements = m_world.getElements();
-        for (auto &element: elements) {
-            auto other = std::dynamic_pointer_cast<core::model::Unit>(element);
-            if (!other || other.get() == &unit)
-                continue;
-
-            auto p = other->getPosition();
-            float dx = p.x - pos.x;
-            float dy = p.y - pos.y;
-
-            if ((dx * dx + dy * dy) < kMinUnitDistanceSq) {
-                return false;
-            }
-        }
-
-        return true;
+        return m_collision.canMoveUnitTo(m_world, unit, pos);
     }
 
-    template<class T>
-    void GameLogicManager::eraseExpired(std::vector<std::weak_ptr<T> > &v) {
-        v.erase(std::remove_if(v.begin(), v.end(),
-                               [](const std::weak_ptr<T> &w) { return w.expired(); }),
-                v.end());
-    }
-
-    template<class T>
-    bool GameLogicManager::containsPtr(const std::vector<std::weak_ptr<T> > &v, const std::shared_ptr<T> &p) {
-        const T *raw = p.get();
-        for (auto &w: v) {
-            if (auto sp = w.lock(); sp && sp.get() == raw) return true;
-        }
-        return false;
-    }
-
-
-    void GameLogicManager::applySelectedToGroup(uint16_t num, bool assign) {
-        auto &group = m_groups[num];
-
-        // 선택 목록에서 expired 제거 (선택)
-        eraseExpired(m_selectedElements);
-
-        // 그룹에서도 expired 제거 (선택)
-        eraseExpired(group);
-
-        const auto selCount = m_selectedElements.size();
-
-        if (assign) {
-            group.clear();
-            group.reserve(selCount);
-        } else {
-            group.reserve(group.size() + selCount); // 재할당 최소화
-        }
-
-        for (auto &w: m_selectedElements) {
-            if (auto sp = w.lock()) {
-                if (!assign) {
-                    // 중복 방지 필요 없으면 이 if 블록을 통째로 제거
-                    if (containsPtr(group, sp)) continue;
-                }
-                group.emplace_back(sp); // weak_ptr로 저장 (암시적 변환)
-            }
-        }
-    }
-
-    void GameLogicManager::handleMoveCommand(const command::MoveCommand& cmd)
-    {
+    void GameLogicManager::handleMoveCommand(const command::MoveCommand& cmd) {
         auto lock = m_world.acquireWriteLock();
-        const core::model::Vector2D target = cmd.target();
-        const auto& transform = m_world.gridTransform();
-        const auto goal = transform.worldToGrid(target);
-
-        for (auto &weak: m_selectedElements) {
-            if (auto element = weak.lock()) {
-                auto unit = std::dynamic_pointer_cast<core::model::Unit>(element);
-                if (!unit) {
-                    element->stop();
-                    element->moveTo(target);
-                    continue;
-                }
-
-                core::path::PathOptions options;
-                options.allowDiagonal = false;
-                options.useDynamicBlocking = true;
-
-                const auto start = transform.worldToGrid(unit->getPosition());
-                const auto path = m_world.path().findPath(
-                    m_world.gridQuery(),
-                    m_world.collisionVersion(),
-                    start,
-                    goal,
-                    options
-                );
-
-                unit->stop();
-                if (path && !path->empty()) {
-                    unit->setMoveTargetWithPath(*path, target);
-                }
-            }
-        }
+        m_movement.issueMove(m_world, m_selection.selected(), cmd.target());
     }
-
 }

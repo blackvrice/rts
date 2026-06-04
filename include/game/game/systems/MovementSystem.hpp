@@ -1,0 +1,23 @@
+#pragma once
+
+#include "game/game/systems/SelectionSystem.hpp"
+
+namespace rts::core::model {
+    struct Vector2D;
+}
+
+namespace rts::core::world {
+    class GameWorld;
+}
+
+namespace rts::core::manager {
+    class CollisionSystem;
+
+    class MovementSystem {
+    public:
+        void update(world::GameWorld& world, float dt, const CollisionSystem& collision) const;
+        void issueMove(world::GameWorld& world,
+                       const SelectionSystem::SelectedList& selected,
+                       const model::Vector2D& target) const;
+    };
+}
