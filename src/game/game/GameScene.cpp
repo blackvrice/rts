@@ -21,6 +21,8 @@ namespace rts::core::scene {
         // 1️⃣ Logic 업데이트
         m_logicManager->update();
 
+        auto lock = world->acquireReadLock();
+
         // 2️⃣ Logic → UI ViewModel 동기화 (🔥 핵심)
         m_uiManager->syncWithWorld();
 
@@ -29,6 +31,8 @@ namespace rts::core::scene {
     }
 
     void GameScene::render() {
+        auto lock = world->acquireReadLock();
+
         // 4️⃣ 렌더링
         m_uiManager->render();
     }

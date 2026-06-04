@@ -23,17 +23,21 @@ namespace rts::core::manager {
         core::world::GameWorld &world)
         : m_world(world), ILogicManager(bus, router) {
         // ===== 테스트용 유닛 생성 =====
-        auto unit = std::make_shared<core::model::Unit>();
-        unit->setPosition({300.f, 300.f});
+        {
+            auto lock = m_world.acquireWriteLock();
+            auto unit = std::make_shared<core::model::Unit>();
+            unit->setPosition({300.f, 300.f});
 
-        m_world.addElement(unit);
+            m_world.addElement(unit);
 
-        auto unit2 = std::make_shared<core::model::Unit>();
-        unit2->setPosition({500.f, 500.f});
+            auto unit2 = std::make_shared<core::model::Unit>();
+            unit2->setPosition({500.f, 500.f});
 
-        m_world.addElement(unit2);
+            m_world.addElement(unit2);
+        }
 
         m_router.on<command::SelectCommand>([this](const command::SelectCommand &cmd) {
+            auto lock = m_world.acquireReadLock();
             clearSelection();
 
             auto elements = m_world.getElements();
@@ -56,6 +60,7 @@ namespace rts::core::manager {
         });
 
         m_router.on<command::HoldPositionCommand>([this](const command::HoldPositionCommand &) {
+            auto lock = m_world.acquireWriteLock();
             for (auto &weak: m_selectedElements) {
                 if (auto element = weak.lock()) {
                     element->holdPosition();
@@ -88,6 +93,7 @@ namespace rts::core::manager {
     }
 
     void GameLogicManager::tick(float dt) {
+        auto lock = m_world.acquireWriteLock();
         auto elements = m_world.getElements();
         for (auto &element: elements) {
             if (auto unit = std::dynamic_pointer_cast<core::model::Unit>(element)) {
@@ -211,6 +217,7 @@ namespace rts::core::manager {
 
     void GameLogicManager::handleMoveCommand(const command::MoveCommand& cmd)
     {
+        auto lock = m_world.acquireWriteLock();
         const core::model::Vector2D target = cmd.target();
         const auto& transform = m_world.gridTransform();
         const auto goal = transform.worldToGrid(target);

@@ -17,6 +17,14 @@ namespace rts::core::world {
 
     GameWorld::~GameWorld() = default;
 
+    GameWorld::ReadLock GameWorld::acquireReadLock() const {
+        return ReadLock(m_mutex);
+    }
+
+    GameWorld::WriteLock GameWorld::acquireWriteLock() {
+        return WriteLock(m_mutex);
+    }
+
     void GameWorld::addElement(const std::shared_ptr<model::IElement>& element) {
         m_elements.push_back(element);
         onCollisionChanged();

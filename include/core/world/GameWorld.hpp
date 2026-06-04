@@ -6,6 +6,8 @@
 
 #include <memory>
 #include <cstdint>
+#include <mutex>
+#include <shared_mutex>
 #include <vector>
 
 #include "core/world/GridTransform.hpp"
@@ -31,8 +33,14 @@ namespace rts::core::world {
 
     class GameWorld {
     public:
+        using ReadLock = std::shared_lock<std::shared_mutex>;
+        using WriteLock = std::unique_lock<std::shared_mutex>;
+
         GameWorld();
         ~GameWorld();
+
+        [[nodiscard]] ReadLock acquireReadLock() const;
+        [[nodiscard]] WriteLock acquireWriteLock();
 
         void addElement(const std::shared_ptr<model::IElement>& element);
 
@@ -60,6 +68,7 @@ namespace rts::core::world {
         std::unique_ptr<manager::PathManager> m_pathManager;
         GridTransform m_gridTransform;
         uint64_t m_collisionVersion { 0 };
+        mutable std::shared_mutex m_mutex;
     };
 
 } // namespace rts::core::world
