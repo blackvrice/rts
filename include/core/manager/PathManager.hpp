@@ -34,8 +34,8 @@ namespace rts::core::manager {
             const path::PathOptions& opt = {}
         ) {
             if (!grid.inBounds(start) || !grid.inBounds(goal)) return std::nullopt;
-            if (isBlocked(grid, goal, opt)) return std::nullopt;
             if (start == goal) return path::Path{ start };
+            if (isBlocked(grid, goal, opt)) return std::nullopt;
 
             // ✅ 캐시 키: (gridId + start + goal + collisionVersion)
             if (m_cacheEnabled) {

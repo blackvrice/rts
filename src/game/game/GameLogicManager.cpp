@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <core/manager/PathManager.hpp>
 #include <core/model/Unit.hpp>
 #include <core/model/IGameElement.hpp>
 #include <core/world/GameWorld.hpp>
@@ -91,13 +92,23 @@ namespace rts::core::manager {
         for (auto &element: elements) {
             if (auto unit = std::dynamic_pointer_cast<core::model::Unit>(element)) {
                 const auto previousPosition = unit->getPosition();
-                unit->tick(dt);
+                if (unit->getAction() == core::model::ActionType::Move) {
+                    unit->updateMove(dt, m_world.gridTransform());
+                } else {
+                    unit->tick(dt);
+                }
 
                 // Moving units are rolled back when their next step overlaps another unit body.
                 if (unit->getAction() != core::model::ActionType::Dead &&
                     !canMoveUnitTo(*unit, unit->getPosition())) {
                     unit->setPosition(previousPosition);
                     unit->stop();
+                }
+
+                const auto currentPosition = unit->getPosition();
+                if (currentPosition.x != previousPosition.x ||
+                    currentPosition.y != previousPosition.y) {
+                    m_world.onCollisionChanged();
                 }
                 continue;
             }
@@ -201,10 +212,35 @@ namespace rts::core::manager {
     void GameLogicManager::handleMoveCommand(const command::MoveCommand& cmd)
     {
         const core::model::Vector2D target = cmd.target();
+        const auto& transform = m_world.gridTransform();
+        const auto goal = transform.worldToGrid(target);
+
         for (auto &weak: m_selectedElements) {
             if (auto element = weak.lock()) {
-                element->stop();
-                element->moveTo(target);
+                auto unit = std::dynamic_pointer_cast<core::model::Unit>(element);
+                if (!unit) {
+                    element->stop();
+                    element->moveTo(target);
+                    continue;
+                }
+
+                core::path::PathOptions options;
+                options.allowDiagonal = false;
+                options.useDynamicBlocking = true;
+
+                const auto start = transform.worldToGrid(unit->getPosition());
+                const auto path = m_world.path().findPath(
+                    m_world.gridQuery(),
+                    m_world.collisionVersion(),
+                    start,
+                    goal,
+                    options
+                );
+
+                unit->stop();
+                if (path && !path->empty()) {
+                    unit->setMoveTargetWithPath(*path, target);
+                }
             }
         }
     }

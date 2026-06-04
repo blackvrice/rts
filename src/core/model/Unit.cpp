@@ -29,6 +29,8 @@ namespace rts::core::model {
     void Unit::moveTo(const Vector2D& target) {
         m_action = ActionType::Move;
         m_moveTarget = target;
+        m_finalTargetWorld = target;
+        m_gridPath.clear();
     }
 
     void Unit::attack(IGameElement* target) {
@@ -184,6 +186,7 @@ namespace rts::core::model {
 
     void Unit::idle() {
         m_action = ActionType::Idle;
+        m_gridPath.clear();
     }
 
     Vector2D Unit::getPosition() const {
@@ -196,6 +199,7 @@ namespace rts::core::model {
 
     void Unit::holdPosition() {
         m_action = ActionType::Hold;
+        m_gridPath.clear();
     }
 
     void Unit::setPath(path::Path p) {
@@ -208,7 +212,10 @@ namespace rts::core::model {
                                  const Vector2D& finalWorldTarget)
     {
         m_gridPath.clear();
-        for (auto& n : gridPath) m_gridPath.push_back(n);
+        // PathManager returns the start cell too; movement should begin at the next cell.
+        for (std::size_t i = 1; i < gridPath.size(); ++i) {
+            m_gridPath.push_back(gridPath[i]);
+        }
 
         m_finalTargetWorld = finalWorldTarget;
         m_moveTarget = finalWorldTarget;
@@ -218,6 +225,7 @@ namespace rts::core::model {
 
     void Unit::stop() {
         m_action = ActionType::Idle;
+        m_gridPath.clear();
     }
 
     const GameState& Unit::state() const {

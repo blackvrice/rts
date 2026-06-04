@@ -5,7 +5,10 @@
 #pragma once
 
 #include <memory>
+#include <cstdint>
 #include <vector>
+
+#include "core/world/GridTransform.hpp"
 
 namespace rts::core::map {
     struct TileMapSoA;
@@ -17,6 +20,10 @@ namespace rts::core::manager {
 
 namespace rts::core::model {
     class IElement;
+}
+
+namespace rts::core::path {
+    class IGridQuery;
 }
 
 namespace rts::core::world {
@@ -34,6 +41,9 @@ namespace rts::core::world {
 
         bool isTileBlocked(int x, int y) const noexcept;
         bool isCellOccupied(int x, int y) const noexcept;
+        uint64_t collisionVersion() const noexcept;
+        const path::IGridQuery& gridQuery() const noexcept;
+        const GridTransform& gridTransform() const noexcept;
 
         const std::vector<std::shared_ptr<model::IElement>>& getElements() const;
 
@@ -48,6 +58,8 @@ namespace rts::core::world {
 
         std::unique_ptr<GameWorldGridQuery> m_gridQuery;
         std::unique_ptr<manager::PathManager> m_pathManager;
+        GridTransform m_gridTransform;
+        uint64_t m_collisionVersion { 0 };
     };
 
 } // namespace rts::core::world
