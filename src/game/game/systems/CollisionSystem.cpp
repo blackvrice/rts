@@ -17,9 +17,16 @@ namespace rts::core::manager {
         const world::GameWorld& world,
         const model::Unit& unit,
         const model::Vector2D& pos) const {
+        return !findMoveBlocker(world, unit, pos).has_value();
+    }
+
+    std::optional<CollisionSystem::CollisionHit> CollisionSystem::findMoveBlocker(
+        const world::GameWorld& world,
+        const model::Unit& unit,
+        const model::Vector2D& pos) const {
         if (pos.x < kMapMinX || pos.y < kMapMinY ||
             pos.x > kMapMaxX || pos.y > kMapMaxY) {
-            return false;
+            return CollisionHit {};
         }
 
         for (const auto& element : world.getElements()) {
@@ -33,10 +40,18 @@ namespace rts::core::manager {
             const float dy = otherPosition.y - pos.y;
 
             if ((dx * dx + dy * dy) < kMinUnitDistanceSq) {
-                return false;
+                return CollisionHit {
+                    otherPosition,
+                    kUnitCollisionRadius,
+                    true
+                };
             }
         }
 
-        return true;
+        return std::nullopt;
+    }
+
+    float CollisionSystem::movingUnitRadius() const noexcept {
+        return kUnitCollisionRadius;
     }
 }

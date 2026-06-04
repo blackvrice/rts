@@ -56,6 +56,7 @@ namespace rts::core::model {
         void setPath(path::Path p);
         void setMoveTargetWithPath(const std::vector<path::GridPos>& gridPath,
                                    const Vector2D& finalWorldTarget);
+        const Vector2D& finalTargetWorld() const noexcept;
 
     private:
         std::deque<path::GridPos> m_gridPath; // 다음 노드부터 pop_front

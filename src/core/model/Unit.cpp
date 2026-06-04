@@ -222,6 +222,10 @@ namespace rts::core::model {
         m_action = ActionType::Move;
     }
 
+    const Vector2D& Unit::finalTargetWorld() const noexcept {
+        return m_finalTargetWorld;
+    }
+
 
     void Unit::stop() {
         m_action = ActionType::Idle;
