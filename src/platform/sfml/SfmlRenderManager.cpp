@@ -75,6 +75,7 @@ namespace {
         textures.emplace(textureId, std::move(texture));
         return result;
     }
+
     sf::IntRect tileSourceRect(const sf::Texture& texture, const int tileIndex) {
         const auto textureSize = texture.getSize();
         const int columns = static_cast<int>(textureSize.x) / kWorldTileSize;
@@ -88,44 +89,60 @@ namespace {
         );
     }
 
-    void drawTinySwordsTileGrid(sf::RenderWindow& window) {
+    void drawTinySwordsTileGrid(sf::RenderWindow& window)
+    {
         const sf::Texture* tileset = tinySwordsWorldTileset();
-        if (!tileset) {
+        if (!tileset)
+        {
             return;
         }
 
-        const auto windowSize = window.getSize();
-        const int columns = static_cast<int>((windowSize.x + kWorldTileSize - 1) / kWorldTileSize);
-        const int rows = static_cast<int>((windowSize.y + kWorldTileSize - 1) / kWorldTileSize);
+        constexpr int tileSize = 64;
 
-        // Tilemap_color1.png은 64px 타일 시트라서 잔디/흙 변형을 반복 배치한다.
-        constexpr std::array<int, 8> tilePattern{0, 1, 2, 9, 10, 11, 18, 19};
+        const auto windowSize = window.getSize();
+
+        const int columns = static_cast<int>((windowSize.x + tileSize - 1) / tileSize);
+        const int rows = static_cast<int>((windowSize.y + tileSize - 1) / tileSize);
+
         sf::Sprite tile(*tileset);
 
-        for (int y = 0; y < rows; ++y) {
-            for (int x = 0; x < columns; ++x) {
-                const int patternIndex = (x * 3 + y * 5 + (x + y) % 2) % static_cast<int>(tilePattern.size());
-                tile.setTextureRect(tileSourceRect(*tileset, tilePattern[patternIndex]));
+        // Tilemap_color1.png 기준
+        // 10번 타일 = x: 1칸, y: 1칸 위치의 64x64 잔디 내부 타일
+        const sf::IntRect grassTileRect(
+            {1 * tileSize, 1 * tileSize},
+            {tileSize, tileSize}
+        );
+
+        tile.setTextureRect(grassTileRect);
+
+        for (int y = 0; y < rows; ++y)
+        {
+            for (int x = 0; x < columns; ++x)
+            {
                 tile.setPosition({
-                    static_cast<float>(x * kWorldTileSize),
-                    static_cast<float>(y * kWorldTileSize)
+                    static_cast<float>(x * tileSize),
+                    static_cast<float>(y * tileSize)
                 });
+
                 window.draw(tile);
             }
         }
 
+        // 디버그용 격자선
         sf::RectangleShape line;
         line.setFillColor(sf::Color(28, 43, 36, 96));
 
         line.setSize({1.0f, static_cast<float>(windowSize.y)});
-        for (int x = 0; x <= columns; ++x) {
-            line.setPosition({static_cast<float>(x * kWorldTileSize), 0.0f});
+        for (int x = 0; x <= columns; ++x)
+        {
+            line.setPosition({static_cast<float>(x * tileSize), 0.0f});
             window.draw(line);
         }
 
         line.setSize({static_cast<float>(windowSize.x), 1.0f});
-        for (int y = 0; y <= rows; ++y) {
-            line.setPosition({0.0f, static_cast<float>(y * kWorldTileSize)});
+        for (int y = 0; y <= rows; ++y)
+        {
+            line.setPosition({0.0f, static_cast<float>(y * tileSize)});
             window.draw(line);
         }
     }

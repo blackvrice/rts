@@ -536,12 +536,7 @@ namespace rts::platform::sfml {
         const ImVec2 consoleMin{0.0f, bottomY};
         const ImVec2 consoleMax{width, height};
         // HUD ADJUST: this is the full-width bottom console background png.
-        if (woodTable) {
-            drawNineSlice(drawList, woodTable, consoleMin, consoleMax, 128.0f, 72.0f, IM_COL32(255, 255, 255, 238));
-            drawList.AddRectFilled(consoleMin, consoleMax, IM_COL32(20, 12, 7, 96));
-        } else {
-            drawList.AddRectFilled(consoleMin, consoleMax, kConsoleFill);
-        }
+        drawList.AddRectFilled(consoleMin, consoleMax, kConsoleFill);
         drawList.AddLine({0.0f, bottomY}, {width, bottomY}, kPanelEdge, 2.0f);
 
         const ImVec2 resourceSize{142.0f, 34.0f};
@@ -565,7 +560,7 @@ namespace rts::platform::sfml {
 
         // HUD ADJUST: last two numbers are sourceEdge and targetEdge for each repeated png slice.
         drawPanelFrame(drawList, miniMin, miniMax, "MINI MAP", bannerSlots, 64.0f, 32.0f);
-        drawPanelFrame(drawList, statusMin, statusMax, "SELECTION", banner, 128.0f, 56.0f);
+        drawPanelFrame(drawList, statusMin, statusMax, "SELECTION", woodTable, 128.0f, 56.0f);
         drawPanelFrame(drawList, commandMin, commandMax, "COMMAND", woodSlots, 64.0f, 32.0f);
         drawMiniMap(drawList, miniMin, miniMax);
 
