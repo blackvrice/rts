@@ -30,6 +30,14 @@ namespace {
         return a.x == b.x && a.y == b.y;
     }
 
+    rts::core::path::PathOptions movementPathOptions() {
+        rts::core::path::PathOptions options;
+        options.allowDiagonal = true;
+        options.useDynamicBlocking = true;
+        options.preventDiagonalCornerCutting = true;
+        return options;
+    }
+
     std::optional<rts::core::path::GridPos> findAvoidanceCell(
         GameWorld& world,
         const Unit& unit,
@@ -110,9 +118,7 @@ namespace {
         path.push_back(startCell);
         path.push_back(*avoidCell);
 
-        rts::core::path::PathOptions options;
-        options.allowDiagonal = false;
-        options.useDynamicBlocking = true;
+        auto options = movementPathOptions();
 
         if (auto tail = world.path().findPath(
                 world.gridQuery(),
@@ -183,9 +189,7 @@ namespace rts::core::manager {
                     continue;
                 }
 
-                path::PathOptions options;
-                options.allowDiagonal = false;
-                options.useDynamicBlocking = true;
+                auto options = movementPathOptions();
 
                 const auto start = transform.worldToGrid(unit->getPosition());
                 const auto path = world.path().findPath(

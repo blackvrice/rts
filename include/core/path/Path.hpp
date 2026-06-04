@@ -10,6 +10,7 @@ namespace rts::core::path {
     struct PathOptions {
         bool allowDiagonal = false;
         bool useDynamicBlocking = true; // 동적 점유 체크 여부
+        bool preventDiagonalCornerCutting = true;
         int maxExpand = 20000; // 안전장치(노드 확장 제한)
     };
 

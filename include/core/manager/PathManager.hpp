@@ -39,14 +39,30 @@ namespace rts::core::manager {
 
             // ✅ 캐시 키: (gridId + start + goal + collisionVersion)
             if (m_cacheEnabled) {
-                CacheKeyEx key{ gridId(grid), start, goal, collisionVersion };
+                CacheKeyEx key{
+                    gridId(grid),
+                    start,
+                    goal,
+                    collisionVersion,
+                    opt.allowDiagonal,
+                    opt.useDynamicBlocking,
+                    opt.preventDiagonalCornerCutting
+                };
                 auto it = m_cache.find(key);
                 if (it != m_cache.end()) return it->second;
             }
 
             auto result = aStar(grid, start, goal, opt);
             if (result && m_cacheEnabled) {
-                CacheKeyEx key{ gridId(grid), start, goal, collisionVersion };
+                CacheKeyEx key{
+                    gridId(grid),
+                    start,
+                    goal,
+                    collisionVersion,
+                    opt.allowDiagonal,
+                    opt.useDynamicBlocking,
+                    opt.preventDiagonalCornerCutting
+                };
                 m_cache.emplace(key, *result);
             }
             return result;
@@ -61,11 +77,17 @@ namespace rts::core::manager {
             path::GridPos start{};
             path::GridPos goal{};
             uint64_t collisionVersion{};
+            bool allowDiagonal{};
+            bool useDynamicBlocking{};
+            bool preventDiagonalCornerCutting{};
             bool operator==(const CacheKeyEx& o) const noexcept {
                 return gridId == o.gridId
                     && start == o.start
                     && goal == o.goal
-                    && collisionVersion == o.collisionVersion;
+                    && collisionVersion == o.collisionVersion
+                    && allowDiagonal == o.allowDiagonal
+                    && useDynamicBlocking == o.useDynamicBlocking
+                    && preventDiagonalCornerCutting == o.preventDiagonalCornerCutting;
             }
         };
 
@@ -80,6 +102,9 @@ namespace rts::core::manager {
                 mix(path::GridPosHash{}(k.start));
                 mix(path::GridPosHash{}(k.goal));
                 mix(std::hash<uint64_t>{}(k.collisionVersion));
+                mix(std::hash<bool>{}(k.allowDiagonal));
+                mix(std::hash<bool>{}(k.useDynamicBlocking));
+                mix(std::hash<bool>{}(k.preventDiagonalCornerCutting));
                 return h;
             }
         };
@@ -104,6 +129,32 @@ namespace rts::core::manager {
             if (grid.isBlockedStatic(p)) return true;
             if (opt.useDynamicBlocking && grid.isBlockedDynamic(p)) return true;
             return false;
+        }
+
+        static bool isDiagonalStep(path::GridPos from, path::GridPos to) {
+            return std::abs(to.x - from.x) == 1 && std::abs(to.y - from.y) == 1;
+        }
+
+        static bool canEnterNeighbor(
+            const path::IGridQuery& grid,
+            path::GridPos from,
+            path::GridPos to,
+            const path::PathOptions& opt) {
+            if (!grid.inBounds(to)) return false;
+            if (isBlocked(grid, to, opt)) return false;
+
+            if (opt.allowDiagonal &&
+                opt.preventDiagonalCornerCutting &&
+                isDiagonalStep(from, to)) {
+                const path::GridPos sideX{ to.x, from.y };
+                const path::GridPos sideY{ from.x, to.y };
+                // Diagonal movement must not squeeze through two blocking side cells.
+                if (isBlocked(grid, sideX, opt) || isBlocked(grid, sideY, opt)) {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         static float heuristic(path::GridPos a, path::GridPos b, bool diagonal) {
@@ -161,8 +212,7 @@ namespace rts::core::manager {
 
                 neighbors(cur.p, neigh);
                 for (auto n : neigh) {
-                    if (!grid.inBounds(n)) continue;
-                    if (isBlocked(grid, n, opt)) continue;
+                    if (!canEnterNeighbor(grid, cur.p, n, opt)) continue;
                     if (closed.contains(n)) continue;
 
                     float step = 1.0f;
