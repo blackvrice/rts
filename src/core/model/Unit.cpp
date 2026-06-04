@@ -202,6 +202,10 @@ namespace rts::core::model {
         m_gridPath.clear();
     }
 
+    void Unit::setSelected(bool selected) {
+        m_state.selected = selected;
+    }
+
     void Unit::setPath(path::Path p) {
         m_path = std::move(p);
         m_pathIndex = 0;

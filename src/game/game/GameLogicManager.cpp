@@ -26,7 +26,7 @@ namespace rts::core::manager {
         }
 
         m_router.on<command::SelectCommand>([this](const command::SelectCommand &cmd) {
-            auto lock = m_world.acquireReadLock();
+            auto lock = m_world.acquireWriteLock();
             m_selection.selectInArea(m_world, cmd.area());
         });
 
@@ -60,6 +60,7 @@ namespace rts::core::manager {
         });
 
         m_router.on<command::ControlGroupSelectCommand>([this](const auto &cmd) {
+            auto lock = m_world.acquireWriteLock();
             m_selection.replaceSelected(m_controlGroups.select(cmd.groupId()));
         });
     }

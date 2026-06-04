@@ -51,6 +51,19 @@ namespace rts::core::viewmodel {
         if (!unit) return;
 
         model::Vector2D pos = unit->getPosition();
+        if (unit->state().selected) {
+            out.emplace(
+                core::render::RenderLayer::World,
+                9,
+                render::DrawCircle{
+                    .cx = pos.x,
+                    .cy = pos.y,
+                    .radius = 34.0f,
+                    .border_color = 0xFF45F6B2,
+                    .color = 0x3045F6B2
+                });
+        }
+
         // Keep the model position near the unit's feet while drawing the 192px sprite frame.
         out.emplace(
             core::render::RenderLayer::World,

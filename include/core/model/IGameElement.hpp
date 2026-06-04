@@ -58,6 +58,7 @@ namespace rts::core::model {
 
         // 상태
         virtual ActionType getAction() const = 0;
+        virtual void setSelected(bool selected) = 0;
     };
 
 }

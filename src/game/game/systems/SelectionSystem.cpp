@@ -6,10 +6,17 @@
 
 namespace rts::core::manager {
     void SelectionSystem::clear() {
+        for (const auto& weak : m_selectedElements) {
+            if (auto element = weak.lock()) {
+                element->setSelected(false);
+            }
+        }
+
         m_selectedElements.clear();
     }
 
     void SelectionSystem::selectElement(model::IGameElement& element) {
+        element.setSelected(true);
         m_selectedElements.push_back(element.weak_from_this());
     }
 
@@ -32,7 +39,14 @@ namespace rts::core::manager {
     }
 
     void SelectionSystem::replaceSelected(SelectedList selected) {
+        clear();
+
         m_selectedElements = std::move(selected);
+        for (const auto& weak : m_selectedElements) {
+            if (auto element = weak.lock()) {
+                element->setSelected(true);
+            }
+        }
     }
 
     const SelectionSystem::SelectedList& SelectionSystem::selected() const noexcept {

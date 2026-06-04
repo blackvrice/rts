@@ -52,6 +52,7 @@ namespace rts::core::model {
         void gather(IGameElement*) override {}
         void build(int, const Vector2D&) override {}
         void cast(int, const Vector2D&) override {}
+        void setSelected(bool selected) override;
 
         void setPath(path::Path p);
         void setMoveTargetWithPath(const std::vector<path::GridPos>& gridPath,
