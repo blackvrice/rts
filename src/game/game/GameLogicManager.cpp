@@ -6,6 +6,15 @@
 #include <core/model/IGameElement.hpp>
 #include <core/world/GameWorld.hpp>
 
+namespace {
+    constexpr float kMapMinX = 0.f;
+    constexpr float kMapMinY = 0.f;
+    constexpr float kMapMaxX = 2000.f;
+    constexpr float kMapMaxY = 2000.f;
+    constexpr float kUnitCollisionRadius = 28.f;
+    constexpr float kMinUnitDistanceSq = kUnitCollisionRadius * kUnitCollisionRadius * 4.f;
+}
+
 namespace rts::core::manager {
     GameLogicManager::GameLogicManager(
         command::LogicCommandBus &bus,
@@ -80,7 +89,20 @@ namespace rts::core::manager {
     void GameLogicManager::tick(float dt) {
         auto elements = m_world.getElements();
         for (auto &element: elements) {
-            if (auto *game = dynamic_cast<core::model::IGameElement *>(element.get())) {
+            if (auto unit = std::dynamic_pointer_cast<core::model::Unit>(element)) {
+                const auto previousPosition = unit->getPosition();
+                unit->tick(dt);
+
+                // Moving units are rolled back when their next step overlaps another unit body.
+                if (unit->getAction() != core::model::ActionType::Dead &&
+                    !canMoveUnitTo(*unit, unit->getPosition())) {
+                    unit->setPosition(previousPosition);
+                    unit->stop();
+                }
+                continue;
+            }
+
+            if (auto game = std::dynamic_pointer_cast<core::model::IGameElement>(element)) {
                 game->tick(dt);
             }
         }
@@ -106,19 +128,12 @@ namespace rts::core::manager {
         const core::model::Unit &unit,
         const core::model::Vector2D &pos) const {
         // ===== 1. 맵 경계 체크 =====
-        constexpr float MAP_MIN_X = 0.f;
-        constexpr float MAP_MIN_Y = 0.f;
-        constexpr float MAP_MAX_X = 2000.f;
-        constexpr float MAP_MAX_Y = 2000.f;
-
-        if (pos.x < MAP_MIN_X || pos.y < MAP_MIN_Y ||
-            pos.x > MAP_MAX_X || pos.y > MAP_MAX_Y) {
+        if (pos.x < kMapMinX || pos.y < kMapMinY ||
+            pos.x > kMapMaxX || pos.y > kMapMaxY) {
             return false;
         }
 
         // ===== 2. 다른 유닛과 충돌 체크 =====
-        constexpr float UNIT_RADIUS = 12.f;
-        constexpr float MIN_DIST_SQ = UNIT_RADIUS * UNIT_RADIUS * 4.f;
         auto elements = m_world.getElements();
         for (auto &element: elements) {
             auto other = std::dynamic_pointer_cast<core::model::Unit>(element);
@@ -129,7 +144,7 @@ namespace rts::core::manager {
             float dx = p.x - pos.x;
             float dy = p.y - pos.y;
 
-            if ((dx * dx + dy * dy) < MIN_DIST_SQ) {
+            if ((dx * dx + dy * dy) < kMinUnitDistanceSq) {
                 return false;
             }
         }
