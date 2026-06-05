@@ -109,7 +109,8 @@ namespace rts::core::viewmodel {
                 .sourceH = 192,
                 .frameCount = clip.frameCount,
                 .framesPerSecond = clip.framesPerSecond,
-                .trimTransparent = true
+                .trimTransparent = true,
+                .showInHud = unit->state().selected
             });
     }
 }

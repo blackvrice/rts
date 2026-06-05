@@ -1,5 +1,12 @@
 # Development Log
 
+## 2026-06-05 - HUD Selected Unit Portrait
+
+- Added a selected-unit HUD portrait path that reuses the chosen unit's current sprite texture, animation frame, and transparent-trim bounds.
+- The SFML renderer now scans world sprite commands for the selected unit, draws the ImGui HUD, then overlays the unit sprite inside the existing selection portrait panel before drawing the custom cursor.
+- Verification: built `RTS` with the CLion-bundled CMake/Ninja using `C:\msys64\ucrt64\bin` on `PATH`, then launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
+- Follow-up: the HUD text is still placeholder data and can be wired to real selection stats next.
+
 ## 2026-06-05 - Sprite Mouse Cursor
 
 - Replaced the native OS cursor with a Tiny Swords cursor sprite rendered by the SFML renderer.

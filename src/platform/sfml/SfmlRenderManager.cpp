@@ -19,7 +19,9 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <unordered_map>
+#include <variant>
 
 #include <SFML/Graphics/Image.hpp>
 
@@ -183,6 +185,23 @@ namespace {
         );
     }
 
+    std::optional<rts::core::render::DrawSprite> selectedHudSprite(
+        const rts::core::render::RenderQueue& queue
+    ) {
+        for (const auto& command : queue.commands()) {
+            if (command.layer != rts::core::render::RenderLayer::World) {
+                continue;
+            }
+
+            const auto* sprite = std::get_if<rts::core::render::DrawSprite>(&command.data);
+            if (sprite && sprite->showInHud) {
+                return *sprite;
+            }
+        }
+
+        return std::nullopt;
+    }
+
     const sf::Texture* tinySwordsSpriteTexture(const int textureId) {
         static std::unordered_map<int, std::unique_ptr<sf::Texture>> textures;
 
@@ -323,6 +342,72 @@ namespace {
 
         window.draw(cursor);
     }
+
+    void drawSelectedHudSprite(
+        sf::RenderWindow& window,
+        const std::optional<rts::core::render::DrawSprite>& selected
+    ) {
+        if (!selected) {
+            return;
+        }
+
+        const sf::Texture* texture = tinySwordsSpriteTexture(selected->textureId);
+        if (!texture) {
+            return;
+        }
+
+        const sf::Vector2u windowSize = window.getSize();
+        const float width = std::max(static_cast<float>(windowSize.x), 1280.0f);
+        const float height = std::max(static_cast<float>(windowSize.y), 720.0f);
+        const float bottomHeight = std::clamp(height * 0.24f, 220.0f, 270.0f);
+        const float margin = 16.0f;
+        const float bottomY = height - bottomHeight;
+        const float miniWidth = std::clamp(width * 0.18f, 285.0f, 340.0f);
+        const float commandWidth = std::clamp(width * 0.22f, 360.0f, 420.0f);
+
+        const sf::Vector2f miniMin{margin, bottomY + margin};
+        const sf::Vector2f miniMax{miniMin.x + miniWidth, height - margin};
+        const sf::Vector2f commandMin{width - commandWidth - margin, bottomY + margin};
+        const sf::Vector2f statusMin{miniMax.x + margin, bottomY + margin};
+        const sf::Vector2f statusMax{commandMin.x - margin, height - margin};
+        const sf::Vector2f portraitMin{statusMin.x + 18.0f, statusMin.y + 44.0f};
+        const sf::Vector2f portraitMax{portraitMin.x + 132.0f, statusMax.y - 18.0f};
+        const sf::Vector2f innerMin{portraitMin.x + 14.0f, portraitMin.y + 12.0f};
+        const sf::Vector2f innerMax{portraitMax.x - 14.0f, portraitMax.y - 10.0f};
+
+        sf::IntRect sourceRect = animatedSourceRect(*texture, *selected);
+        if (selected->trimTransparent) {
+            sourceRect = trimTransparentSourceRect(*texture, sourceRect);
+        }
+
+        if (sourceRect.size.x <= 0 || sourceRect.size.y <= 0) {
+            return;
+        }
+
+        const float innerW = innerMax.x - innerMin.x;
+        const float innerH = innerMax.y - innerMin.y;
+        const float scale = std::min(
+            innerW / static_cast<float>(sourceRect.size.x),
+            innerH / static_cast<float>(sourceRect.size.y)
+        );
+        const float drawW = static_cast<float>(sourceRect.size.x) * scale;
+        const float drawH = static_cast<float>(sourceRect.size.y) * scale;
+
+        sf::RectangleShape backing({innerW, innerH});
+        backing.setPosition(innerMin);
+        backing.setFillColor(sf::Color(5, 10, 15, 230));
+        window.draw(backing);
+
+        sf::Sprite sprite(*texture);
+        sprite.setTextureRect(sourceRect);
+        // HUD portrait reuses the selected unit's current frame so action state matches the world sprite.
+        sprite.setScale({scale, scale});
+        sprite.setPosition({
+            innerMin.x + (innerW - drawW) * 0.5f,
+            innerMax.y - drawH
+        });
+        window.draw(sprite);
+    }
 }
 
 namespace rts::platform::sfml {
@@ -349,6 +434,7 @@ namespace rts::platform::sfml {
         });
 
         const sf::View defaultView = sfWindow->getView();
+        const auto selectedHudUnit = selectedHudSprite(queue);
         const auto cameraPosition = camera.position();
         sf::View worldView;
         worldView.setSize({
@@ -391,6 +477,7 @@ namespace rts::platform::sfml {
         }
 
         m_hud->render(*sfWindow);
+        drawSelectedHudSprite(*sfWindow, selectedHudUnit);
         drawMouseCursor(*sfWindow);
     }
 

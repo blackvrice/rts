@@ -44,6 +44,7 @@ namespace rts::core::render {
         int frameCount { 1 };
         float framesPerSecond { 0.0f };
         bool trimTransparent { false };
+        bool showInHud { false };
     };
 
     struct DrawCircle {
