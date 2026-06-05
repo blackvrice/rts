@@ -12,6 +12,8 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
@@ -33,7 +35,13 @@ namespace {
     constexpr int kWorldTileSize = 64;
     constexpr const char* kWorldTilesetPath = "Terrain/Tileset/Tilemap_color1.png";
     constexpr int kBlueWarriorIdleTextureId = 1;
+    constexpr int kBlueWarriorRunTextureId = 2;
+    constexpr int kBlueWarriorAttackTextureId = 3;
+    constexpr int kBlueWarriorGuardTextureId = 4;
     constexpr const char* kBlueWarriorIdlePath = "Units/Blue Units/Warrior/Warrior_Idle.png";
+    constexpr const char* kBlueWarriorRunPath = "Units/Blue Units/Warrior/Warrior_Run.png";
+    constexpr const char* kBlueWarriorAttackPath = "Units/Blue Units/Warrior/Warrior_Attack1.png";
+    constexpr const char* kBlueWarriorGuardPath = "Units/Blue Units/Warrior/Warrior_Guard.png";
 
     struct SpriteTrimCacheKey {
         const sf::Texture* texture;
@@ -141,6 +149,37 @@ namespace {
         return trimmed;
     }
 
+    float animationSeconds() {
+        static const auto start = std::chrono::steady_clock::now();
+        const auto elapsed = std::chrono::steady_clock::now() - start;
+        return std::chrono::duration<float>(elapsed).count();
+    }
+
+    sf::IntRect animatedSourceRect(const sf::Texture& texture, const rts::core::render::DrawSprite& r) {
+        if (r.sourceW <= 0 || r.sourceH <= 0) {
+            return sf::IntRect({0, 0}, {
+                static_cast<int>(texture.getSize().x),
+                static_cast<int>(texture.getSize().y)
+            });
+        }
+
+        const auto textureSize = texture.getSize();
+        const int availableFrames = std::max(
+            1,
+            (static_cast<int>(textureSize.x) - r.sourceX) / r.sourceW
+        );
+        const int frameCount = std::clamp(r.frameCount, 1, availableFrames);
+        const int frameIndex = r.framesPerSecond > 0.0f
+            ? static_cast<int>(std::floor(animationSeconds() * r.framesPerSecond)) % frameCount
+            : 0;
+
+        // Tiny Swords unit sheets are laid out as a single horizontal row of 192px frames.
+        return sf::IntRect(
+            {r.sourceX + frameIndex * r.sourceW, r.sourceY},
+            {r.sourceW, r.sourceH}
+        );
+    }
+
     const sf::Texture* tinySwordsSpriteTexture(const int textureId) {
         static std::unordered_map<int, std::unique_ptr<sf::Texture>> textures;
 
@@ -152,6 +191,15 @@ namespace {
         switch (textureId) {
             case kBlueWarriorIdleTextureId:
                 relativePath = kBlueWarriorIdlePath;
+                break;
+            case kBlueWarriorRunTextureId:
+                relativePath = kBlueWarriorRunPath;
+                break;
+            case kBlueWarriorAttackTextureId:
+                relativePath = kBlueWarriorAttackPath;
+                break;
+            case kBlueWarriorGuardTextureId:
+                relativePath = kBlueWarriorGuardPath;
                 break;
             default:
                 return nullptr;
@@ -371,14 +419,8 @@ namespace rts::platform::sfml {
         }
 
         sf::Sprite sprite(*texture);
-        if (r.sourceW > 0 && r.sourceH > 0) {
-            sprite.setTextureRect(sf::IntRect(
-                {r.sourceX, r.sourceY},
-                {r.sourceW, r.sourceH}
-            ));
-        }
-
-        sf::IntRect sourceRect = sprite.getTextureRect();
+        sf::IntRect sourceRect = animatedSourceRect(*texture, r);
+        sprite.setTextureRect(sourceRect);
         if (r.trimTransparent) {
             sourceRect = trimTransparentSourceRect(*texture, sourceRect);
             sprite.setTextureRect(sourceRect);

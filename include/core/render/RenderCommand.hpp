@@ -41,6 +41,8 @@ namespace rts::core::render {
         int sourceY { 0 };
         int sourceW { 0 };
         int sourceH { 0 };
+        int frameCount { 1 };
+        float framesPerSecond { 0.0f };
         bool trimTransparent { false };
     };
 

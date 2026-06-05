@@ -1,6 +1,32 @@
 ﻿#include "core/viewmodel/UnitViewModel.hpp"
 #include "core/model/Unit.hpp"
 
+namespace {
+    constexpr int kBlueWarriorIdleTextureId = 1;
+    constexpr int kBlueWarriorRunTextureId = 2;
+    constexpr int kBlueWarriorAttackTextureId = 3;
+    constexpr int kBlueWarriorGuardTextureId = 4;
+
+    struct UnitSpriteClip {
+        int textureId;
+        int frameCount;
+        float framesPerSecond;
+    };
+
+    UnitSpriteClip spriteClipFor(const rts::core::model::ActionType action) {
+        switch (action) {
+            case rts::core::model::ActionType::Move:
+                return {kBlueWarriorRunTextureId, 6, 10.0f};
+            case rts::core::model::ActionType::Attack:
+                return {kBlueWarriorAttackTextureId, 4, 8.0f};
+            case rts::core::model::ActionType::Hold:
+                return {kBlueWarriorGuardTextureId, 6, 6.0f};
+            default:
+                return {kBlueWarriorIdleTextureId, 8, 6.0f};
+        }
+    }
+}
+
 namespace rts::core::viewmodel {
     UnitViewModel::UnitViewModel(std::shared_ptr<model::Unit> unit)
         : m_unit(unit) {
@@ -64,6 +90,8 @@ namespace rts::core::viewmodel {
                 });
         }
 
+        const UnitSpriteClip clip = spriteClipFor(m_action);
+
         // Trimmed unit sprites are bottom-centered so the model position stays at the feet.
         out.emplace(
             core::render::RenderLayer::World,
@@ -73,11 +101,13 @@ namespace rts::core::viewmodel {
                 .y = pos.y - 96.0f,
                 .w = 96.0f,
                 .h = 96.0f,
-                .textureId = 1,
+                .textureId = clip.textureId,
                 .sourceX = 0,
                 .sourceY = 0,
                 .sourceW = 192,
                 .sourceH = 192,
+                .frameCount = clip.frameCount,
+                .framesPerSecond = clip.framesPerSecond,
                 .trimTransparent = true
             });
     }
