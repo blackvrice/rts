@@ -65,7 +65,7 @@ namespace rts::core::manager {
         router.on<command::MouseRightPressedCommand>(
             [this](const command::MouseRightPressedCommand &cmd) {
                 const core::model::Vector2D worldPos = m_camera.screenToWorld(cmd.position());
-                m_logicBus.push(std::make_unique<command::MoveCommand>(worldPos));
+                m_logicBus.push(std::make_unique<command::AttackCommand>(worldPos));
             }
         );
 

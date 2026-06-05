@@ -182,6 +182,10 @@ namespace rts::core::manager {
 
         for (const auto& weak : selected) {
             if (auto element = weak.lock()) {
+                if (element->getAction() == model::ActionType::Dead) {
+                    continue;
+                }
+
                 auto unit = std::dynamic_pointer_cast<model::Unit>(element);
                 if (!unit) {
                     element->stop();

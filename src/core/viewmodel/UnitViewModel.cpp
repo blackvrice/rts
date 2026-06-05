@@ -75,6 +75,7 @@ namespace rts::core::viewmodel {
     void UnitViewModel::buildRenderCommands(render::RenderQueue &out) const {
         auto unit = m_unit.lock();
         if (!unit) return;
+        if (unit->getAction() == model::ActionType::Dead) return;
 
         model::Vector2D pos = unit->getPosition();
         if (unit->state().selected) {

@@ -120,16 +120,24 @@ namespace rts::core::command {
 
     class AttackCommand final : public LogicCommand {
     public:
+        explicit AttackCommand(core::model::Vector2D target)
+            : m_target(target), m_hasWorldTarget(true) {
+        }
+
         AttackCommand(int unitId, int targetId)
             : m_unitId(unitId), m_targetId(targetId) {
         }
 
         int unitId() const noexcept { return m_unitId; }
         int targetId() const noexcept { return m_targetId; }
+        core::model::Vector2D target() const noexcept { return m_target; }
+        bool hasWorldTarget() const noexcept { return m_hasWorldTarget; }
 
     private:
-        int m_unitId;
-        int m_targetId;
+        int m_unitId { -1 };
+        int m_targetId { -1 };
+        core::model::Vector2D m_target {};
+        bool m_hasWorldTarget { false };
     };
 
     class AttackMoveCommand final : public LogicCommand {

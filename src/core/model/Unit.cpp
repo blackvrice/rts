@@ -4,6 +4,16 @@
 #include <core/viewmodel/UnitViewModel.hpp>
 #include <core/world/GridTransform.hpp>
 
+namespace {
+    float distanceSq(
+        const rts::core::model::Vector2D& a,
+        const rts::core::model::Vector2D& b) {
+        const float dx = a.x - b.x;
+        const float dy = a.y - b.y;
+        return dx * dx + dy * dy;
+    }
+}
+
 
 namespace rts::core::model {
     Unit::Unit()
@@ -27,6 +37,7 @@ namespace rts::core::model {
     }
 
     void Unit::moveTo(const Vector2D& target) {
+        if (m_action == ActionType::Dead) return;
         m_action = ActionType::Move;
         m_moveTarget = target;
         m_finalTargetWorld = target;
@@ -34,9 +45,14 @@ namespace rts::core::model {
     }
 
     void Unit::attack(IGameElement* target) {
+        if (m_action == ActionType::Dead) return;
         if (!target) return;
+        if (target->getAction() == ActionType::Dead) return;
         m_action = ActionType::Attack;
         m_attackTarget = target;
+        m_moveTarget = target->getPosition();
+        m_finalTargetWorld = m_moveTarget;
+        m_gridPath.clear();
     }
 
     void Unit::tick(float dt) {
@@ -132,15 +148,30 @@ namespace rts::core::model {
         }
 
         Vector2D targetPos = m_attackTarget->getPosition();
-        float dx = targetPos.x - m_position.x;
-        float dy = targetPos.y - m_position.y;
+        m_moveTarget = targetPos;
+        m_finalTargetWorld = targetPos;
 
-        float distSq = dx * dx + dy * dy;
+        float distSq = distanceSq(targetPos, m_position);
         float rangeSq = attackRange * attackRange;
 
         if (distSq > rangeSq) {
-            m_moveTarget = targetPos;
-            updateMove(dt);
+            const float dist = std::sqrt(distSq);
+            if (dist <= 0.0f) {
+                return;
+            }
+
+            const Vector2D dir{(targetPos.x - m_position.x) / dist, (targetPos.y - m_position.y) / dist};
+            float advance = moveSpeed * dt;
+            const float maxAdvance = dist - attackRange;
+            if (advance > maxAdvance) {
+                advance = maxAdvance;
+            }
+
+            // Attack chase stops at weapon range instead of entering the target collision radius.
+            if (advance > 0.0f) {
+                m_position.x += dir.x * advance;
+                m_position.y += dir.y * advance;
+            }
             return;
         }
 
@@ -165,8 +196,7 @@ namespace rts::core::model {
         }
 
         if (attacker && m_action != ActionType::Attack) {
-            m_attackTarget = attacker;
-            m_action = ActionType::Attack;
+            attack(attacker);
         }
     }
 
@@ -185,6 +215,7 @@ namespace rts::core::model {
     }
 
     void Unit::idle() {
+        if (m_action == ActionType::Dead) return;
         m_action = ActionType::Idle;
         m_gridPath.clear();
     }
@@ -198,6 +229,7 @@ namespace rts::core::model {
     }
 
     void Unit::holdPosition() {
+        if (m_action == ActionType::Dead) return;
         m_action = ActionType::Hold;
         m_gridPath.clear();
     }
@@ -215,6 +247,7 @@ namespace rts::core::model {
     void Unit::setMoveTargetWithPath(const std::vector<path::GridPos>& gridPath,
                                  const Vector2D& finalWorldTarget)
     {
+        if (m_action == ActionType::Dead) return;
         m_gridPath.clear();
         // PathManager returns the start cell too; movement should begin at the next cell.
         for (std::size_t i = 1; i < gridPath.size(); ++i) {
@@ -232,6 +265,7 @@ namespace rts::core::model {
 
 
     void Unit::stop() {
+        if (m_action == ActionType::Dead) return;
         m_action = ActionType::Idle;
         m_gridPath.clear();
     }

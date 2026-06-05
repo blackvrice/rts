@@ -4,6 +4,7 @@
 
 #pragma once
 #include <cstdint>
+#include <memory>
 
 #include "core/manager/ILogicManager.hpp"
 #include "game/game/systems/CollisionSystem.hpp"
@@ -42,8 +43,13 @@ namespace rts::core::manager {
 
         void selectElement(model::IGameElement &element);
         void handleMoveCommand(const command::MoveCommand& cmd);
+        void handleAttackCommand(const command::AttackCommand& cmd);
 
     private:
+        std::shared_ptr<model::IGameElement> findAttackTargetAt(
+            const model::Vector2D& target,
+            const SelectionSystem::SelectedList& selected) const;
+
         core::world::GameWorld& m_world;
         SelectionSystem m_selection;
         ControlGroupSystem m_controlGroups;

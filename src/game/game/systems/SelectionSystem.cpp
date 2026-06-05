@@ -32,7 +32,8 @@ namespace rts::core::manager {
                 continue;
             }
 
-            if (auto gameElement = std::dynamic_pointer_cast<model::IGameElement>(element)) {
+            if (auto gameElement = std::dynamic_pointer_cast<model::IGameElement>(element);
+                gameElement && gameElement->getAction() != model::ActionType::Dead) {
                 selectElement(*gameElement);
             }
         }
