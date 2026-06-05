@@ -16,6 +16,8 @@ namespace rts::platform::sfml {
     SfmlWindow::SfmlWindow(core::command::UICommandBus &bus)
         : IWindow(bus),
           m_window(sf::VideoMode::getDesktopMode(), "RTS", sf::Style::None, sf::State::Fullscreen) {
+        m_window.setMouseCursorVisible(false);
+
         auto &fm = core::font::FontManager::instance();
         fm.setMetricsProvider(
             std::make_unique<SfmlFontMetrics>()

@@ -9,6 +9,7 @@
 #include <SFML/Graphics/Text.hpp>
 #include <SFML/Graphics/Texture.hpp>
 #include <SFML/Graphics/View.hpp>
+#include <SFML/Window/Mouse.hpp>
 
 #include <algorithm>
 #include <array>
@@ -38,10 +39,12 @@ namespace {
     constexpr int kBlueWarriorRunTextureId = 2;
     constexpr int kBlueWarriorAttackTextureId = 3;
     constexpr int kBlueWarriorGuardTextureId = 4;
+    constexpr int kCursorTextureId = 100;
     constexpr const char* kBlueWarriorIdlePath = "Units/Blue Units/Warrior/Warrior_Idle.png";
     constexpr const char* kBlueWarriorRunPath = "Units/Blue Units/Warrior/Warrior_Run.png";
     constexpr const char* kBlueWarriorAttackPath = "Units/Blue Units/Warrior/Warrior_Attack1.png";
     constexpr const char* kBlueWarriorGuardPath = "Units/Blue Units/Warrior/Warrior_Guard.png";
+    constexpr const char* kCursorPath = "UI Elements/UI Elements/Cursors/Cursor_01.png";
 
     struct SpriteTrimCacheKey {
         const sf::Texture* texture;
@@ -201,6 +204,9 @@ namespace {
             case kBlueWarriorGuardTextureId:
                 relativePath = kBlueWarriorGuardPath;
                 break;
+            case kCursorTextureId:
+                relativePath = kCursorPath;
+                break;
             default:
                 return nullptr;
         }
@@ -297,6 +303,26 @@ namespace {
             window.draw(line);
         }
     }
+
+    void drawMouseCursor(sf::RenderWindow& window) {
+        const sf::Texture* texture = tinySwordsSpriteTexture(kCursorTextureId);
+        if (!texture) {
+            return;
+        }
+
+        const sf::Vector2i mouse = sf::Mouse::getPosition(window);
+        sf::Sprite cursor(*texture);
+        cursor.setTextureRect(sf::IntRect({0, 0}, {64, 64}));
+        cursor.setScale({0.5f, 0.5f});
+
+        // Cursor_01's arrow tip sits inside transparent padding, so offset it to the mouse hotspot.
+        cursor.setPosition({
+            static_cast<float>(mouse.x) - 11.0f,
+            static_cast<float>(mouse.y) - 9.0f
+        });
+
+        window.draw(cursor);
+    }
 }
 
 namespace rts::platform::sfml {
@@ -365,6 +391,7 @@ namespace rts::platform::sfml {
         }
 
         m_hud->render(*sfWindow);
+        drawMouseCursor(*sfWindow);
     }
 
     void SfmlRenderManager::draw(sf::RenderWindow &window, const core::render::DrawRect &r) {

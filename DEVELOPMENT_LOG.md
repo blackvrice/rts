@@ -1,5 +1,12 @@
 # Development Log
 
+## 2026-06-05 - Sprite Mouse Cursor
+
+- Replaced the native OS cursor with a Tiny Swords cursor sprite rendered by the SFML renderer.
+- The cursor now uses `UI Elements/UI Elements/Cursors/Cursor_01.png`, is drawn after the HUD so it remains visible over UI, and applies a hotspot offset so the arrow tip tracks the actual mouse position.
+- Verification: built `RTS` with the CLion-bundled CMake/Ninja using `C:\msys64\ucrt64\bin` on `PATH`, then launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
+- Follow-up: cursor state variants such as attack/selection can be mapped later to `Cursor_02.png` through `Cursor_04.png`.
+
 ## 2026-06-05 - Unit Attack Orders And Combat Tick
 
 - Added right-click attack intent: game UI now sends an attack order with the clicked world position, and game logic attacks a living unselected unit near that point or falls back to normal movement on empty ground.
