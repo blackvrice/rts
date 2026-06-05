@@ -5,6 +5,7 @@
 #pragma once
 
 #include <core/Manager/IUIManager.hpp>
+#include "core/model/Vector2D.hpp"
 
 #include <memory>
 #include <vector>
@@ -50,5 +51,7 @@ namespace rts::core::manager {
         CameraManager& m_camera;
         bool m_shift { false };
         bool m_ctrl { false };
+        core::model::Vector2D m_mousePos {};
+        bool m_hasMousePos { false };
     };
 }

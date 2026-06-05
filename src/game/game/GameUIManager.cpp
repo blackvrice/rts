@@ -24,6 +24,8 @@
 namespace rts::core::manager {
     namespace {
         constexpr float kCameraStep = 128.0f;
+        constexpr float kEdgeThreshold = 20.0f;
+        constexpr float kEdgeScrollSpeed = 8.0f;
     }
 
     GameUIManager::~GameUIManager() = default;
@@ -44,6 +46,8 @@ namespace rts::core::manager {
         router.on<command::MouseMoveCommand>(
             [this](const command::MouseMoveCommand &cmd) {
                 const core::model::Vector2D &pos = cmd.position();
+                m_mousePos = pos;
+                m_hasMousePos = true;
                 for (const auto &element: m_elements) {
                     element->MouseMove(pos);
                 }
@@ -126,6 +130,19 @@ namespace rts::core::manager {
 
 
     void GameUIManager::update() {
+        if (m_hasMousePos) {
+            const auto& vp = m_camera.viewportSize();
+            core::model::Vector2D delta{0.0f, 0.0f};
+
+            // Edge-scroll continues while the cursor rests near the viewport border.
+            if (m_mousePos.x <= kEdgeThreshold)          delta.x -= kEdgeScrollSpeed;
+            if (m_mousePos.x >= vp.x - kEdgeThreshold)   delta.x += kEdgeScrollSpeed;
+            if (m_mousePos.y <= kEdgeThreshold)          delta.y -= kEdgeScrollSpeed;
+            if (m_mousePos.y >= vp.y - kEdgeThreshold)   delta.y += kEdgeScrollSpeed;
+            if (delta.x != 0.0f || delta.y != 0.0f)
+                m_camera.moveBy(delta);
+        }
+
         for (auto it = m_viewModels.begin(); it != m_viewModels.end();) {
             auto &vm = *it;
 
