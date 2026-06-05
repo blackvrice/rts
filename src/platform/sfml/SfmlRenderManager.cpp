@@ -12,9 +12,13 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <unordered_map>
+
+#include <SFML/Graphics/Image.hpp>
 
 #include "core/font/FontManager.hpp"
 #include "core/manager/CameraManager.hpp"
@@ -31,6 +35,39 @@ namespace {
     constexpr int kBlueWarriorIdleTextureId = 1;
     constexpr const char* kBlueWarriorIdlePath = "Units/Blue Units/Warrior/Warrior_Idle.png";
 
+    struct SpriteTrimCacheKey {
+        const sf::Texture* texture;
+        int x;
+        int y;
+        int w;
+        int h;
+
+        bool operator==(const SpriteTrimCacheKey& other) const {
+            return texture == other.texture &&
+                   x == other.x &&
+                   y == other.y &&
+                   w == other.w &&
+                   h == other.h;
+        }
+    };
+
+    struct SpriteTrimCacheKeyHash {
+        std::size_t operator()(const SpriteTrimCacheKey& key) const {
+            std::size_t result = std::hash<const sf::Texture*>{}(key.texture);
+            const auto combine = [&result](const std::size_t value) {
+                result ^= value + 0x9e3779b97f4a7c15ULL + (result << 6) + (result >> 2);
+            };
+            combine(std::hash<int>{}(key.x));
+            combine(std::hash<int>{}(key.y));
+            combine(std::hash<int>{}(key.w));
+            combine(std::hash<int>{}(key.h));
+            return result;
+        }
+    };
+
+    std::unordered_map<const sf::Texture*, sf::Image> g_spriteTrimImages;
+    std::unordered_map<SpriteTrimCacheKey, sf::IntRect, SpriteTrimCacheKeyHash> g_spriteTrimCache;
+
     const sf::Texture* tinySwordsWorldTileset() {
         static sf::Texture texture;
         static bool attemptedLoad = false;
@@ -46,6 +83,62 @@ namespace {
         }
 
         return loaded ? &texture : nullptr;
+    }
+
+    const sf::Image& spriteTrimImageFor(const sf::Texture& texture) {
+        if (const auto it = g_spriteTrimImages.find(&texture); it != g_spriteTrimImages.end()) {
+            return it->second;
+        }
+
+        auto [it, _] = g_spriteTrimImages.emplace(&texture, texture.copyToImage());
+        return it->second;
+    }
+
+    sf::IntRect trimTransparentSourceRect(const sf::Texture& texture, const sf::IntRect& sourceRect) {
+        const auto textureSize = texture.getSize();
+        const int x0 = std::clamp(sourceRect.position.x, 0, static_cast<int>(textureSize.x));
+        const int y0 = std::clamp(sourceRect.position.y, 0, static_cast<int>(textureSize.y));
+        const int x1 = std::clamp(sourceRect.position.x + sourceRect.size.x, x0, static_cast<int>(textureSize.x));
+        const int y1 = std::clamp(sourceRect.position.y + sourceRect.size.y, y0, static_cast<int>(textureSize.y));
+
+        if (x0 >= x1 || y0 >= y1) {
+            return sourceRect;
+        }
+
+        const SpriteTrimCacheKey key{&texture, x0, y0, x1 - x0, y1 - y0};
+        if (const auto it = g_spriteTrimCache.find(key); it != g_spriteTrimCache.end()) {
+            return it->second;
+        }
+
+        const sf::Image& image = spriteTrimImageFor(texture);
+        const auto imageSize = image.getSize();
+        const std::uint8_t* pixels = image.getPixelsPtr();
+
+        int minX = x1;
+        int minY = y1;
+        int maxX = x0 - 1;
+        int maxY = y0 - 1;
+
+        for (int y = y0; y < y1; ++y) {
+            for (int x = x0; x < x1; ++x) {
+                const std::size_t alphaIndex =
+                    (static_cast<std::size_t>(y) * imageSize.x + static_cast<std::size_t>(x)) * 4U + 3U;
+                if (pixels[alphaIndex] == 0U) {
+                    continue;
+                }
+
+                minX = std::min(minX, x);
+                minY = std::min(minY, y);
+                maxX = std::max(maxX, x);
+                maxY = std::max(maxY, y);
+            }
+        }
+
+        const sf::IntRect trimmed = maxX < minX || maxY < minY
+            ? sourceRect
+            : sf::IntRect({minX, minY}, {maxX - minX + 1, maxY - minY + 1});
+        g_spriteTrimCache.emplace(key, trimmed);
+        return trimmed;
     }
 
     const sf::Texture* tinySwordsSpriteTexture(const int textureId) {
@@ -273,6 +366,10 @@ namespace rts::platform::sfml {
             return;
         }
 
+        if (r.w <= 0.0f || r.h <= 0.0f) {
+            return;
+        }
+
         sf::Sprite sprite(*texture);
         if (r.sourceW > 0 && r.sourceH > 0) {
             sprite.setTextureRect(sf::IntRect(
@@ -281,18 +378,39 @@ namespace rts::platform::sfml {
             ));
         }
 
-        const sf::IntRect sourceRect = sprite.getTextureRect();
+        sf::IntRect sourceRect = sprite.getTextureRect();
+        if (r.trimTransparent) {
+            sourceRect = trimTransparentSourceRect(*texture, sourceRect);
+            sprite.setTextureRect(sourceRect);
+        }
+
         if (sourceRect.size.x <= 0 || sourceRect.size.y <= 0) {
             return;
         }
 
-        sprite.setPosition({r.x, r.y});
-        sprite.setScale(
-            {
+        if (r.trimTransparent) {
+            // Trimmed unit frames stay bottom-centered so the model position can remain at the feet.
+            const float scale = std::min(
                 r.w / static_cast<float>(sourceRect.size.x),
                 r.h / static_cast<float>(sourceRect.size.y)
-            }
-        );
+            );
+            const float drawW = static_cast<float>(sourceRect.size.x) * scale;
+            const float drawH = static_cast<float>(sourceRect.size.y) * scale;
+
+            sprite.setPosition({
+                r.x + (r.w - drawW) * 0.5f,
+                r.y + (r.h - drawH)
+            });
+            sprite.setScale({scale, scale});
+        } else {
+            sprite.setPosition({r.x, r.y});
+            sprite.setScale(
+                {
+                    r.w / static_cast<float>(sourceRect.size.x),
+                    r.h / static_cast<float>(sourceRect.size.y)
+                }
+            );
+        }
 
         window.draw(sprite);
     }

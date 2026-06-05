@@ -64,20 +64,21 @@ namespace rts::core::viewmodel {
                 });
         }
 
-        // Keep the model position near the unit's feet while drawing the 192px sprite frame.
+        // Trimmed unit sprites are bottom-centered so the model position stays at the feet.
         out.emplace(
             core::render::RenderLayer::World,
             10,
             render::DrawSprite{
                 .x = pos.x - 48.0f,
-                .y = pos.y - 72.0f,
+                .y = pos.y - 96.0f,
                 .w = 96.0f,
                 .h = 96.0f,
                 .textureId = 1,
                 .sourceX = 0,
                 .sourceY = 0,
                 .sourceW = 192,
-                .sourceH = 192
+                .sourceH = 192,
+                .trimTransparent = true
             });
     }
 }
