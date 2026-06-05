@@ -275,6 +275,20 @@ namespace rts::core::command {
         int m_workerId;
     };
 
+    class RepairCommand final : public LogicCommand {
+    public:
+        RepairCommand(int workerId, int targetId)
+            : m_workerId(workerId), m_targetId(targetId) {
+        }
+
+        int workerId() const noexcept { return m_workerId; }
+        int targetId() const noexcept { return m_targetId; }
+
+    private:
+        int m_workerId;
+        int m_targetId;
+    };
+
     // =========================================================
     // Ability
     // =========================================================

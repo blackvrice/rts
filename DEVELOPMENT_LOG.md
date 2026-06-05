@@ -1,5 +1,11 @@
 # Development Log
 
+## 2026-06-05 - Repair Logic Command
+
+- Added `RepairCommand` so the logic command set now covers the HUD command list's repair action.
+- Verification: built `RTS` with the CLion-bundled CMake/Ninja using `C:\msys64\ucrt64\bin` on `PATH`, then launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
+- Follow-up: repair still needs gameplay handling once workers, repairable targets, and command UI dispatch are implemented.
+
 ## 2026-06-05 - HUD Selected Unit Portrait
 
 - Added a selected-unit HUD portrait path that reuses the chosen unit's current sprite texture, animation frame, and transparent-trim bounds.
