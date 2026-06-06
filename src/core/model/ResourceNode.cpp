@@ -1,5 +1,6 @@
 #include "core/model/ResourceNode.hpp"
 #include <algorithm>
+#include <string>
 
 namespace rts::core::model {
     ResourceNode::ResourceNode(Vector2D pos, ResourceType type, int totalAmount, int gatherAmount)

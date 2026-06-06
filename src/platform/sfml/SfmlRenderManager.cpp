@@ -1,4 +1,4 @@
-﻿//
+//
 // Created by black on 25. 12. 27..
 //
 #include <platform/sfml/SfmlRenderManager.hpp>
@@ -572,7 +572,21 @@ namespace rts::platform::sfml {
             return;
         }
 
-        if (r.trimTransparent) {
+        if (r.rotation != 0.f) {
+            sprite.setOrigin({
+                static_cast<float>(sourceRect.size.x) * 0.5f,
+                static_cast<float>(sourceRect.size.y) * 0.5f
+            });
+            sprite.setPosition({
+                r.x + r.w * 0.5f,
+                r.y + r.h * 0.5f
+            });
+            sprite.setScale({
+                r.w / static_cast<float>(sourceRect.size.x),
+                r.h / static_cast<float>(sourceRect.size.y)
+            });
+            sprite.setRotation(sf::degrees(r.rotation));
+        } else if (r.trimTransparent) {
             // Trimmed unit frames stay bottom-centered so the model position can remain at the feet.
             const float scale = std::min(
                 r.w / static_cast<float>(sourceRect.size.x),

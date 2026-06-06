@@ -55,7 +55,6 @@ add_library(imgui STATIC
         ${IMGUI_DIR}/imgui_tables.cpp
         ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
         ${IMGUI_DIR}/backends/imgui_impl_win32.cpp
-        src/core/model/Building.cpp
 )
 
 target_include_directories(imgui PUBLIC

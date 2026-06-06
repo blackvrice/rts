@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 #include "core/model/IGameElement.hpp"
 
 namespace rts::core::model {

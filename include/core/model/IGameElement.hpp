@@ -1,8 +1,10 @@
-﻿//
+//
 // Created by black on 26. 1. 4..
 //
 
 #pragma once
+#include <memory>
+#include <string>
 #include "IElement.hpp"
 #include "State.hpp"
 #include "Vector2D.hpp"
@@ -64,6 +66,11 @@ namespace rts::core::model {
         // 상태
         virtual ActionType getAction() const = 0;
         virtual void setSelected(bool selected) = 0;
+
+        // 이름 및 자원
+        virtual std::string displayName() const { return "Element"; }
+        virtual bool tryGather(int&) { return false; }
+        virtual int resourceType() const { return -1; }
 
         // 팀
         virtual int getTeamId() const { return TeamId::Neutral; }

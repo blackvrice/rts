@@ -1,4 +1,4 @@
-﻿//
+//
 // Created by black on 25. 12. 27..
 //
 // render/RenderCommand.hpp
@@ -46,6 +46,7 @@ namespace rts::core::render {
         float framesPerSecond { 0.0f };
         bool trimTransparent { false };
         bool showInHud { false };
+        float rotation { 0.0f };
     };
 
     struct DrawCircle {

@@ -46,7 +46,7 @@ namespace rts::core::model {
 
         // ===== Custom members =====
         BuildingType buildingType() const { return m_type; }
-        std::string displayName() const;
+        std::string displayName() const override;
         float getHp() const { return m_hp; }
         float getMaxHp() const { return m_maxHp; }
         bool trainUnit(UnitType type);
