@@ -57,6 +57,52 @@ namespace rts::core::manager {
 
             return "Unknown";
         }
+
+        bool usesCommandModifier(const core::model::KeyModifier modifier) {
+            using KM = core::model::KeyModifier;
+            return static_cast<bool>(modifier & KM::Ctrl) ||
+                   static_cast<bool>(modifier & KM::Alt) ||
+                   static_cast<bool>(modifier & KM::System);
+        }
+
+        bool starCraftHotkeyAction(
+            const core::model::Key key,
+            command::GameplayInputAction& action) {
+            using core::model::Key;
+            using command::GameplayInputAction;
+
+            switch (key) {
+                case Key::M:
+                    action = GameplayInputAction::Move;
+                    return true;
+                case Key::A:
+                    action = GameplayInputAction::Attack;
+                    return true;
+                case Key::S:
+                    action = GameplayInputAction::Stop;
+                    return true;
+                case Key::H:
+                    action = GameplayInputAction::HoldPosition;
+                    return true;
+                case Key::P:
+                    action = GameplayInputAction::Patrol;
+                    return true;
+                case Key::G:
+                    action = GameplayInputAction::Gather;
+                    return true;
+                case Key::B:
+                    action = GameplayInputAction::Build;
+                    return true;
+                case Key::R:
+                    action = GameplayInputAction::Repair;
+                    return true;
+                case Key::Escape:
+                    action = GameplayInputAction::CancelProduction;
+                    return true;
+                default:
+                    return false;
+            }
+        }
     }
 
     GameUIManager::~GameUIManager() = default;
@@ -112,6 +158,16 @@ namespace rts::core::manager {
                 const KM &modifier = cmd.getMods();
                 if (static_cast<bool>(modifier & KM::Ctrl)) m_ctrl = false;
                 if (static_cast<bool>(modifier & KM::Shift)) m_shift = false;
+
+                command::GameplayInputAction hotkeyAction {};
+                // StarCraft-style command hotkeys mirror the HUD command buttons
+                // so both input paths stay aligned with the same LogicCommand bridge.
+                if (!usesCommandModifier(modifier) && starCraftHotkeyAction(key, hotkeyAction)) {
+                    const command::GameplayInputCommand hotkeyCommand(hotkeyAction);
+                    handleGameplayInput(hotkeyCommand);
+                    return;
+                }
+
                 switch (key) {
                     case core::model::Key::Left:
                         m_camera.moveBy({-kCameraStep, 0.0f});
