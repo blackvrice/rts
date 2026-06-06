@@ -4,6 +4,8 @@
 #include <memory>
 
 #include <core/model/Unit.hpp>
+#include <core/model/Building.hpp>
+#include <core/model/ResourceNode.hpp>
 #include <core/world/GameWorld.hpp>
 
 namespace {
@@ -46,15 +48,58 @@ namespace rts::core::manager {
         // Temporary debug units until spawning/production owns initial world population.
         {
             auto lock = m_world.acquireWriteLock();
+            
+            // --- Player Units ---
             auto unit = std::make_shared<core::model::Unit>();
             unit->setPosition({300.f, 300.f});
             unit->setTeamId(core::model::TeamId::Player);
             m_world.addElement(unit);
 
+            auto unit3 = std::make_shared<core::model::Unit>();
+            unit3->setPosition({350.f, 300.f});
+            unit3->setTeamId(core::model::TeamId::Player);
+            m_world.addElement(unit3);
+
+            // --- Enemy Units ---
             auto unit2 = std::make_shared<core::model::Unit>();
-            unit2->setPosition({500.f, 500.f});
+            unit2->setPosition({600.f, 500.f});
             unit2->setTeamId(core::model::TeamId::Enemy);
             m_world.addElement(unit2);
+
+            auto unit4 = std::make_shared<core::model::Unit>();
+            unit4->setPosition({650.f, 500.f});
+            unit4->setTeamId(core::model::TeamId::Enemy);
+            m_world.addElement(unit4);
+
+            // --- Buildings ---
+            auto townHall = std::make_shared<core::model::Building>(
+                core::model::BuildingType::TownHall,
+                core::model::Vector2D{200.f, 200.f},
+                core::model::TeamId::Player
+            );
+            m_world.addElement(townHall);
+
+            auto enemyBarracks = std::make_shared<core::model::Building>(
+                core::model::BuildingType::Barracks,
+                core::model::Vector2D{700.f, 600.f},
+                core::model::TeamId::Enemy
+            );
+            m_world.addElement(enemyBarracks);
+
+            // --- Resources ---
+            auto goldMine = std::make_shared<core::model::ResourceNode>(
+                core::model::Vector2D{100.f, 100.f},
+                core::model::ResourceNode::ResourceType::Gold,
+                5000
+            );
+            m_world.addElement(goldMine);
+
+            auto woodForest = std::make_shared<core::model::ResourceNode>(
+                core::model::Vector2D{100.f, 400.f},
+                core::model::ResourceNode::ResourceType::Wood,
+                2000
+            );
+            m_world.addElement(woodForest);
         }
 
         m_router.on<command::SelectCommand>([this](const command::SelectCommand &cmd) {

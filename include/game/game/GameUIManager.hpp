@@ -1,4 +1,4 @@
-﻿//
+//
 // Created by black on 25. 12. 25..
 //
 
@@ -66,5 +66,6 @@ namespace rts::core::manager {
         bool m_ctrl { false };
         core::model::Vector2D m_mousePos {};
         bool m_hasMousePos { false };
+        bool m_isDragging { false };
     };
 }

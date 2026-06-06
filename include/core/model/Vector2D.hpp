@@ -1,4 +1,4 @@
-﻿//
+//
 // Created by black on 25. 12. 22..
 //
 #pragma once
@@ -33,6 +33,10 @@ namespace rts::core::model {
             constexpr float EPS = 1e-5f;
             return std::fabs(x - o.x) < EPS &&
                    std::fabs(y - o.y) < EPS;
+        }
+
+        float distanceTo(const Vector2D& o) const {
+            return std::hypot(x - o.x, y - o.y);
         }
     };
 }

@@ -9,6 +9,14 @@
 - Marked `DEVELOPMENT_PLAN.md` Phase 1-1 as complete while leaving factory/type registry integration under Phase 2-1.
 - Verification: built `RTS` with `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j1`, then launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
 
+## 2026-06-07 - Cursor State Variation
+
+- Implemented dynamic cursor state variations for different UI contexts (`Cursor_02.png` for attack, `Cursor_03.png` for dragging, `Cursor_04.png` for move).
+- Updated `GameUIManager` to track drag state via mouse events and determine the correct cursor texture ID based on order mode (Move vs Attack) and hovering enemy units.
+- Added `distanceTo` to `Vector2D` to support distance calculations when hovering over enemies.
+- Added `UpdateHudCursor` to `RenderCommandData` to propagate cursor state to `SfmlRenderManager`.
+- Verification: User requested to verify the build manually.
+
 ## 2026-06-06 - Team-Aware Right Click Attack Orders
 
 - Added team ownership to gameplay elements and debug units so command resolution can distinguish local player units from enemy units.

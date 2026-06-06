@@ -1,406 +1,2009 @@
-# Development Plan
+# RTS 개발 마스터 로드맵 상세 분할안
 
-현재 체크아웃과 작업 트리 기준으로 이미 개발된 것과 추가 개발이 필요한 것을 함께 표시한 RTS 개발 계획.
-
-## 상태 표기
-
-- `[완료]`: 현재 코드 경로에서 기능이 연결되어 실제 런타임 동작으로 사용 가능.
-- `[부분 완료]`: 모델, 명령, UI, 렌더, 또는 데이터 골격은 있으나 게임 루프까지 완성되지 않음.
-- `[필요]`: 아직 구현이 없거나 TODO/placeholder 수준.
+> 본 문서는 `RTS_GAME_BLUEPRINT.md` 아키텍처를 기준으로 RTS 게임 개발 로드맵을 실제 개발 티켓 단위까지 세분화한 문서입니다.  
+> 각 항목은 GitHub Issue, GitHub Project, Notion, Jira 등에 바로 옮길 수 있도록 **Epic → Feature → Task → 완료 기준** 형태로 구성합니다.
 
 ---
 
-## 현재 이미 개발된 핵심 기반
+# 0. 문서 목적
 
-- `[완료]` `LogicCommandBus`, `UICommandBus`, `GameplayInputCommand` 기반 UI 입력 -> 로직 명령 흐름.
-- `[완료]` 드래그 선택, 컨트롤 그룹, 우클릭 이동/공격 명령, 스타식 명령 단축키.
-- `[완료]` 카메라 매니저, 월드 렌더 뷰, screen/world 좌표 변환, 방향키/화면 가장자리 스크롤.
-- `[완료]` 유닛 이동, pathfinding, 동적 충돌, 점유된 목적지 근처 접근/정지 처리.
-- `[완료]` 기본 전투 틱: 공격 대상 추적, 사거리 진입 후 공격, 쿨다운 피해, 사망 처리.
-- `[완료]` 팀 기반 우클릭 판정: 같은 팀은 이동, 상대 팀은 공격.
-- `[완료]` 공격 추격 중 move 애니메이션, 사거리 진입 후 attack 애니메이션 전환.
-- `[완료]` 플레이어 자원 상태 저장 모델과 HUD 자원 표시 파이프라인.
-- `[완료]` 선택 유닛 HUD 기본 정보: 선택 수, 이름, 행동, HP, 위치.
-- `[부분 완료]` 커서 상태 변형: 작업 트리 기준으로 attack/drag/move 커서 경로가 추가됨. 자동 빌드 검증과 커밋 여부는 별도 확인 필요.
-- `[부분 완료]` `ResourceNode`, `Building`, `FogOfWar`, `BuildingViewModel`, `ResourceNodeViewModel` 골격 존재.
+본 문서의 목적은 다음과 같습니다.
+
+```text
+1. 현재 개발 상태를 명확히 정리한다.
+2. 앞으로 구현할 기능을 작은 작업 단위로 분할한다.
+3. 우선순위가 높은 Vertical Slice를 먼저 완성한다.
+4. RTS 핵심 루프를 실제 런타임에서 동작하게 만든다.
+5. 추후 AI, Fog of War, Save/Replay, Network 확장 기반을 마련한다.
+```
 
 ---
 
-## Phase 1 - 전투 완성 (Combat Polish)
+# 1. 전체 우선순위
 
-현재 전투는 기본 동작이 있지만 데이터 주도 스탯, 커맨드 다양성, 피드백이 더 필요하다.
+현재 가장 중요한 개발 순서는 다음과 같습니다.
 
-### 1-1. `[완료]` 유닛 정적 데이터 (`UnitStaticData`) 실용화
+```text
+1. 자원 채집 루프 완성
+2. 자원 소비 + 생산 큐 완성
+3. 건물 배치 + 건설 루프 완성
+4. 단순 AI 완성
+5. 승패 조건 완성
+6. Command Queue / AttackMove / Hold 추가
+7. Fog of War / Minimap / Command Card 추가
+8. Save / Replay / World Hash 추가
+```
 
-이미 개발된 것:
-- `UnitStaticData`에 `displayName`, `maxHp`, `attackDamage`, `attackRange`, `attackCooldown`, `moveSpeed`, `armor`, 비용 필드가 정리됨.
-- `Warrior`, `Archer`, `Worker`, `Marine` 기본 정적 데이터 프리셋이 있음.
-- `Unit` 생성 시 하드코딩 스탯 대신 `UnitStaticData`를 적용함.
-- 전투 피해 계산에 `armor`가 반영됨.
-- HUD 선택 패널에 실제 유닛 이름, 공격력, 방어력, 사거리, HP, 행동, 위치가 표시됨.
-
-추가 개발 필요:
-- 타입별 생산/스폰 경로 전체를 `UnitFactory`와 정적 데이터 레지스트리로 통합하는 작업은 Phase 2-1에서 진행.
-
-관련 파일:
-- `include/core/data/UnitStaticData.hpp`
-- `include/core/model/Unit.hpp`
-- `src/core/model/Unit.cpp`
-- `src/game/game/GameUIManager.cpp`
-
-### 1-2. `[부분 완료]` 커서 상태 변형
-
-이미 개발된 것:
-- 작업 트리 기준 `UpdateHudCursor`, `Cursor_02.png`, `Cursor_03.png`, `Cursor_04.png` 연결 코드가 있음.
-- `GameUIManager`가 드래그 상태, 이동 명령 모드, 적 hover 상태에 따라 커서 ID를 고르는 코드가 있음.
-
-추가 개발 필요:
-- 현재 변경분의 빌드/실행 검증 및 커밋 상태 확정.
-- 적 hover 판정을 유닛뿐 아니라 공격 가능한 건물까지 확장.
-- HUD/월드 위 커서 우선순위와 UI hover 예외 처리 정리.
-
-관련 파일:
-- `include/core/render/RenderCommand.hpp`
-- `src/game/game/GameUIManager.cpp`
-- `src/platform/sfml/SfmlRenderManager.cpp`
-
-### 1-3. `[필요]` Patrol 커맨드 구현
-
-이미 개발된 것:
-- `PatrolCommand`와 UI 입력/단축키 액션은 존재함.
-- `GameLogicManager`에 `PatrolCommand` 라우터는 있으나 현재 TODO.
-
-추가 개발 필요:
-- `PatrolCommand` 로직 연결: A <-> B 사이 반복 이동.
-- 경로상 적 발견 시 공격 후 순찰 복귀.
-- 순찰 상태의 애니메이션/HUD 상태 표시.
-
-관련 파일:
-- `include/core/command/LogicCommand.hpp`
-- `src/game/game/GameLogicManager.cpp`
-- `src/game/game/systems/MovementSystem.cpp`
-
-### 1-4. `[필요]` Attack-Move 커맨드 구현
-
-이미 개발된 것:
-- `AttackMoveCommand`와 `GameplayInputAction::AttackMove` 골격은 있음.
-- 기본 우클릭 공격과 타겟 추격 전투는 구현됨.
-
-추가 개발 필요:
-- 이동 중 시야/탐색 범위 안 적을 자동 공격.
-- 적 처치 후 원래 이동 목표로 복귀.
-- 경로 탐색, 타겟 스캔, 공격 상태 전환 규칙 정리.
-
-관련 파일:
-- `include/core/model/IGameElement.hpp`
-- `src/core/model/Unit.cpp`
-- `src/game/game/systems/MovementSystem.cpp`
+현재 목표는 모든 RTS 기능을 한 번에 만드는 것이 아니라,  
+**작은 RTS 한 판이 끝까지 플레이되는 Vertical Slice**를 먼저 완성하는 것입니다.
 
 ---
 
-## Phase 2 - 유닛 다양화 (Unit Variety)
+# 2. 상태 표기 기준
 
-한 종류 유닛만으로는 전략이 부족하다.
-
-### 2-1. `[부분 완료]` 복수 유닛 타입
-
-이미 개발된 것:
-- `UnitType`에 `Warrior`, `Archer`, `Worker`가 존재함.
-- `UnitFactory`와 프로토타입 로더 골격이 존재함.
-
-추가 개발 필요:
-- `UnitType` 네임스페이스와 factory/prototype 코드 정리.
-- 타입별 `UnitStaticData` 등록.
-- `UnitFactory`가 실제 `core::model::Unit` 생성 경로에 연결되도록 수정.
-- 타입별 스프라이트/애니메이션 클립 선택.
-
-관련 파일:
-- `include/core/model/UnitType.hpp`
-- `include/core/factory/UnitFactory.hpp`
-- `include/core/prototype/UnitPrototypeLoader.hpp`
-
-### 2-2. `[필요]` Worker 유닛 기초
-
-이미 개발된 것:
-- `UnitType::Worker`와 `GatherCommand` 골격이 있음.
-- `ResourceNode::tryGather(...)` 모델은 있음.
-
-추가 개발 필요:
-- `Unit::gather(IGameElement*)` 실제 구현.
-- Worker가 자원 노드로 이동 -> 채집 -> 마을회관 복귀하는 루프.
-- Worker 전용 HUD 명령 활성화.
-
-관련 파일:
-- `src/core/model/Unit.cpp`
-- `src/core/model/ResourceNode.cpp`
-- `src/game/game/GameLogicManager.cpp`
-
-### 2-3. `[부분 완료]` 원거리 공격 지원
-
-이미 개발된 것:
-- `Unit`은 `attackRange` 기반으로 사거리 밖 추격, 사거리 안 공격을 수행함.
-
-추가 개발 필요:
-- `Archer` 타입에 긴 사거리와 별도 스프라이트/스탯 적용.
-- 투사체 또는 원거리 피격 피드백.
-- 근접/원거리 공격 타입 분리.
-
-관련 파일:
-- `src/core/model/Unit.cpp`
-- `src/core/viewmodel/UnitViewModel.cpp`
+```text
+[100%] : 기능이 실제 런타임 동작으로 연결되어 사용 가능
+[1~99%] : 일부 모델, 명령, UI, 렌더링은 있으나 전체 로직이 연결되지 않음
+[0%] : 아직 구현이 없거나 핵심 시스템에 연결되지 않음
+```
 
 ---
 
-## Phase 3 - 자원 & 경제 (Economy)
+# 3. Phase 0. Vertical Slice
 
-자원 표시 기반은 있으나 실제 채집, 소비, 공급 루프가 필요하다.
+## 목표
 
-### 3-1. `[부분 완료]` 자원 노드 엔티티
-
-이미 개발된 것:
-- `ResourceNode` 클래스가 `IGameElement`로 구현됨.
-- 금/나무 타입, 잔량, `tryGather(...)`가 있음.
-- `ResourceNodeViewModel` 골격이 있음.
-- `GameLogicManager`가 디버그 자원 노드를 생성함.
-
-추가 개발 필요:
-- `GameUIManager::syncWithWorld()`에서 `ResourceNodeViewModel` 생성 연결.
-- 맵 로딩 또는 배치 데이터로 자원 노드 배치.
-- 자원 노드 선택 HUD 표시.
-
-관련 파일:
-- `include/core/model/ResourceNode.hpp`
-- `src/core/model/ResourceNode.cpp`
-- `src/core/viewmodel/ResourceNodeViewModel.cpp`
-- `src/game/game/GameUIManager.cpp`
-
-### 3-2. `[필요]` 채집 루프 완성
-
-이미 개발된 것:
-- `PlayerResourceState` 저장/조회와 HUD 표시 파이프라인이 있음.
-- `GatherCommand`와 `ResourceNode::tryGather(...)` 골격이 있음.
-
-추가 개발 필요:
-- Worker가 자원 클릭 시 `GatherCommand`를 발행하고 처리.
-- 채집량 누적, 운반량, 복귀 위치, 입금 조건 구현.
-- `GameWorld::setPlayerResources(...)`를 통해 골드/나무 증가.
-- `GatherSystem` 또는 Worker 상태 머신 도입.
-
-관련 파일:
-- `include/core/model/PlayerResourceState.hpp`
-- `src/core/world/GameWorld.cpp`
-- `src/game/game/GameLogicManager.cpp`
-- `src/game/game/systems/`
-
-### 3-3. `[필요]` 자원 소비 (생산/건설 비용)
-
-이미 개발된 것:
-- HUD 자원 표시와 `PlayerResourceState` 저장소가 있음.
-- `TrainUnitCommand`, `BuildCommand`, `CancelProductionCommand` 골격이 있음.
-
-추가 개발 필요:
-- 유닛/건물 데이터에 `goldCost`, `woodCost`, `foodCost` 추가.
-- 훈련/건설 시작 시 자원 차감.
-- 잔액 부족 시 명령 거부와 HUD 피드백.
-- 식량 사용량/최대치 갱신.
-
-관련 파일:
-- `include/core/data/UnitStaticData.hpp`
-- `include/core/data/BuildingStaticData.hpp`
-- `include/core/model/PlayerResourceState.hpp`
+```text
+일꾼이 자원을 캐고,
+건물을 짓고,
+병사를 생산하고,
+적 기지를 공격해서,
+승리/패배가 발생하는 최소 RTS 완성
+```
 
 ---
 
-## Phase 4 - 건물 (Buildings)
+## Epic 0.1 유닛 기본 제어
 
-건물 모델은 생겼지만 배치, 렌더 연결, 생산/건설 게임 루프가 더 필요하다.
+현재 상태: `[100%]`
 
-### 4-1. `[부분 완료]` 건물 엔티티 기초
+### 완료된 항목
 
-이미 개발된 것:
-- `Building` 클래스가 `IGameElement`로 구현됨.
-- `TownHall`, `Barracks`, HP, 팀 ID, 생산 큐 골격이 있음.
-- `BuildingViewModel`과 건물 텍스처 ID 경로가 있음.
-- 디버그 TownHall/Barracks 생성 코드가 있음.
+```text
+- 마우스 드래그 선택
+- 단일 선택
+- 우클릭 이동
+- 선택 UI 동기화
+- 기본 부대 지정
+```
 
-추가 개발 필요:
-- `GameUIManager::syncWithWorld()`에서 `BuildingViewModel` 생성 연결.
-- NxM 타일 풋프린트와 건물 크기 기반 충돌.
-- `BuildingStaticData` 실용화.
+### 추가 점검 Task
 
-관련 파일:
-- `include/core/model/Building.hpp`
-- `src/core/model/Building.cpp`
-- `src/core/viewmodel/BuildingViewModel.cpp`
-- `src/game/game/systems/CollisionSystem.cpp`
+```text
+[x] 선택된 유닛 사망 시 선택 목록에서 자동 제거
+[ ] 선택 중인 유닛이 맵 밖/비활성 상태가 되면 선택 해제
+[ ] 드래그 선택 시 건물/유닛 우선순위 적용
+[ ] 같은 타입 더블클릭 선택 준비
+[ ] Ctrl + 번호 부대 지정 안정성 테스트
+```
 
-### 4-2. `[필요]` 건물 배치 (Build 명령)
+### 완료 기준
 
-이미 개발된 것:
-- `BuildCommand`와 HUD Build 버튼/단축키 골격은 있음.
-
-추가 개발 필요:
-- Worker `build(int buildingType, Vector2D pos)` 실제 구현.
-- HUD Build 버튼 -> 배치 모드 -> 위치 클릭 -> 건물 생성.
-- 자원 차감, 빈 타일 검증, 건설 시간 처리.
-
-관련 파일:
-- `src/game/game/GameLogicManager.cpp`
-- `src/game/game/GameUIManager.cpp`
-- `src/platform/sfml/SfmlHudOverlay.cpp`
-
-### 4-3. `[부분 완료]` 건물 선택 & HUD
-
-이미 개발된 것:
-- `SelectionSystem`은 모든 `IGameElement`를 선택 대상으로 볼 수 있음.
-- `Building`은 `displayName()`, HP, selected 상태를 제공함.
-- `BuildingViewModel`은 선택 링과 HP 바 렌더 명령을 만들 수 있음.
-
-추가 개발 필요:
-- `GameUIManager`가 건물 viewmodel을 생성하도록 연결.
-- 선택 HUD가 유닛뿐 아니라 건물 정보를 표시하도록 확장.
-- 건물 선택 시 Train/Cancel 등 건물 전용 버튼 표시.
-
-관련 파일:
-- `src/game/game/systems/SelectionSystem.cpp`
-- `src/game/game/GameUIManager.cpp`
-- `src/platform/sfml/SfmlHudOverlay.cpp`
-
-### 4-4. `[부분 완료]` 유닛 생산 큐
-
-이미 개발된 것:
-- `Building`에 생산 큐, 생산 시간, progress, spawn callback 골격이 있음.
-- `BuildingViewModel`에 생산 progress bar 렌더 코드가 있음.
-
-추가 개발 필요:
-- `TrainUnitCommand` 처리 연결.
-- 건물 타입별 생산 가능 유닛 제한.
-- 생산 완료 시 실제 `Unit` 스폰과 `GameWorld` 추가.
-- HUD 생산 큐 아이콘 및 cancel 처리.
-
-관련 파일:
-- `src/core/model/Building.cpp`
-- `src/game/game/GameLogicManager.cpp`
-- `src/platform/sfml/SfmlHudOverlay.cpp`
+```text
+- 유닛 1기 선택 가능
+- 유닛 다중 선택 가능
+- 선택된 유닛만 명령을 받음
+- 죽은 유닛은 더 이상 선택/명령 불가
+```
 
 ---
 
-## Phase 5 - 맵 & 시야 (Map & Vision)
+## Epic 0.2 기본 전투
 
-맵/시야 기반 타입은 있으나 실제 게임 렌더링과 규칙에 더 깊게 연결해야 한다.
+현재 상태: `[100%]`
 
-### 5-1. `[부분 완료]` 맵 로딩
+### 완료된 항목
 
-이미 개발된 것:
-- `tmxlite`가 CMake에 연결되어 있음.
-- `TileMapSoA`, `GameWorldGridQuery`, pathfinding grid 기반이 있음.
-- 월드 타일 렌더링용 타일셋 경로가 있음.
+```text
+- 사거리 내 적 인지
+- 적 추격
+- 데미지 적용
+- HP 감소
+- 사망 처리
+- 기본 공격 애니메이션 연동
+```
 
-추가 개발 필요:
-- `.tmx` 파일 로딩.
-- 타일 레이어 렌더링 데이터 변환.
-- 충돌 레이어를 이동 불가 타일로 반영.
-- 자원/건물/시작 위치를 맵 데이터에서 생성.
+### 추가 점검 Task
 
-관련 파일:
-- `external/tmxlite/`
-- `src/core/world/`
-- `include/core/map/TileMapSoA.hpp`
-- `src/platform/sfml/SfmlRenderManager.cpp`
+```text
+[ ] 공격 대상이 죽었을 때 다음 대상 탐색
+[ ] 공격 대상이 시야/사거리 밖으로 나갔을 때 추격/중단 처리
+[ ] 공격 불가능 대상 필터링
+[ ] 아군 오인 공격 방지
+[ ] 사망한 유닛의 충돌 제거
+[ ] 사망한 유닛의 렌더 오브젝트 제거
+[ ] 공격 중 Stop 명령 처리
+[ ] 공격 중 Move 명령 처리
+```
 
-### 5-2. `[부분 완료]` 카메라 이동
+### 완료 기준
 
-이미 개발된 것:
-- `CameraManager`가 위치/뷰포트/world size와 `screenToWorld`/`worldToScreen`을 제공함.
-- 방향키 이동, 화면 가장자리 스크롤, 월드 레이어 SFML view 적용이 있음.
-
-추가 개발 필요:
-- 미니맵 클릭 이동.
-- 카메라 bounds/속도 설정 데이터화.
-- 마우스 휠 줌이 필요하다면 별도 정책 결정.
-
-관련 파일:
-- `include/core/manager/CameraManager.hpp`
-- `src/core/manager/CameraManager.cpp`
-- `src/game/game/GameUIManager.cpp`
-- `src/platform/sfml/SfmlRenderManager.cpp`
-
-### 5-3. `[부분 완료]` 전장의 안개 (Fog of War)
-
-이미 개발된 것:
-- `FogOfWar` 클래스가 셀 상태(`Unexplored`, `Explored`, `Visible`)와 원형 reveal 기능을 제공함.
-
-추가 개발 필요:
-- `GameWorld` 또는 별도 vision system에 Fog 상태 보관.
-- 유닛/건물 시야 반경으로 매 틱 reveal.
-- 렌더러에서 미탐색/탐색됨/시야 안 상태를 시각화.
-- 적 유닛/건물을 시야 안에서만 렌더링.
-
-관련 파일:
-- `include/core/map/FogOfWar.hpp`
-- `src/core/map/FogOfWar.cpp`
-- `src/platform/sfml/SfmlRenderManager.cpp`
+```text
+- 유닛 A가 유닛 B를 공격 가능
+- HP가 0 이하가 되면 사망
+- 사망한 유닛은 더 이상 타겟팅되지 않음
+- 전투 중 이동/정지 명령이 정상 작동
+```
 
 ---
 
-## Phase 6 - 게임 규칙 & AI
+## Epic 0.3 자원 채집 루프
 
-### 6-1. `[필요]` 승패 조건
+현재 상태: `[20%]`
 
-이미 개발된 것:
-- 팀 ID와 `TownHall` 건물 타입은 존재함.
+### 현재 구현된 항목
 
-추가 개발 필요:
-- 상대 TownHall 파괴 시 승리.
-- 내 TownHall 파괴 시 패배.
-- 게임 종료 화면과 재시작/메인메뉴 흐름.
+```text
+- ResourceNode 모델 존재
+- ResourceNode 렌더링 존재
+```
 
-### 6-2. `[필요]` 간단한 AI 플레이어
+### 부족한 항목
 
-이미 개발된 것:
-- Enemy 팀 유닛/건물 디버그 배치가 가능함.
-
-추가 개발 필요:
-- Enemy 팀 AI: 초기 유닛으로 플레이어 TownHall 공격.
-- Worker AI: 자원 채집 루프.
-- 생산 AI와 공격 타이밍 확장.
-
-### 6-3. `[부분 완료]` 씬 전환 완성
-
-이미 개발된 것:
-- Login/Lobby/Game 씬 매니저 골격이 있음.
-
-추가 개발 필요:
-- Login -> Lobby -> Game -> Game Over 흐름 완성.
-- Game Over scene 또는 overlay 구현.
-- 재시작/메인메뉴 버튼 처리.
+```text
+- Worker Gather FSM
+- 자원 예약
+- 채집 시간
+- 운반량
+- Drop-off 건물 탐색
+- 자원 증가
+- 자동 반복 채집
+```
 
 ---
 
-## Phase 7 - 폴리싱
+### Feature 0.3.1 ResourceNode 데이터 확장
 
-- `[필요]` 유닛 피격/사망 애니메이션.
-- `[필요]` 공격 효과음, 이동 효과음.
-- `[부분 완료]` 선택 링: 유닛 선택 링은 있음. 건물/자원 선택 링은 viewmodel 연결 후 확인 필요.
-- `[부분 완료]` 체력바: 건물 viewmodel에는 HP bar 코드가 있음. 유닛 HP bar와 HUD 확장은 필요.
-- `[필요]` Repair 명령 실제 구현: Worker가 건물 수리.
-- `[필요]` HUD/world 스냅샷 API 정리: 렌더 스레드 lock 아키텍처 개선.
+#### Task
+
+```text
+[ ] ResourceType 추가
+[ ] ResourceAmount 추가
+[ ] GatherAmountPerTrip 추가
+[ ] GatherDurationTick 추가
+[ ] MaxGatherers 추가
+[ ] ReservedWorkers 목록 추가
+[ ] IsDepleted 상태 추가
+```
+
+#### 예시 구조
+
+```cpp
+struct ResourceNode
+{
+    EntityId id;
+    ResourceType type;
+    int amount;
+    int gatherAmountPerTrip;
+    int gatherDurationTick;
+    int maxGatherers;
+    std::vector<EntityId> reservedWorkers;
+};
+```
+
+#### 완료 기준
+
+```text
+- 자원 노드가 남은 자원량을 가진다.
+- 자원량이 0이 되면 고갈 상태가 된다.
+- 고갈된 자원은 채집 대상이 될 수 없다.
+```
 
 ---
 
-## 현재 미완성 Follow-up 요약
+### Feature 0.3.2 Worker 자원 운반 데이터 추가
 
-| 상태 | 항목 | 출처 | 해당 Phase |
-|------|------|------|------------|
-| `[부분 완료]` | 커서 상태 변형 검증/확정 및 공격 가능 건물 hover 확장 | Cursor State Variation | Phase 1-2 |
-| `[완료]` | 유닛 실제 스탯 데이터화 및 HUD 공격력/방어력/사거리 표시 | Selected Unit HUD Details | Phase 1-1 |
-| `[필요]` | Patrol 커맨드 로직 | StarCraft Hotkeys | Phase 1-3 |
-| `[필요]` | Attack-Move 커맨드 로직 | LogicCommand set | Phase 1-4 |
-| `[필요]` | Worker 채집 루프와 경제 명령 | Player Resource HUD, ResourceNode | Phase 2-2, 3-2 |
-| `[필요]` | 자원 소비와 공급 갱신 | Player Resource HUD | Phase 3-3 |
-| `[부분 완료]` | 건물 엔티티 렌더/선택/HUD 연결과 풋프린트 충돌 | Building model, Movement Stops | Phase 4-1, 4-3 |
-| `[필요]` | Build/Train UI -> LogicCommand 완성 | HUD Gameplay Input | Phase 4-2, 4-4 |
-| `[부분 완료]` | tmxlite 기반 실제 `.tmx` 맵 로딩 | tmxlite linkage | Phase 5-1 |
-| `[부분 완료]` | FogOfWar를 GameWorld/렌더/시야 규칙에 연결 | FogOfWar core | Phase 5-3 |
-| `[필요]` | 승패 조건과 AI 플레이어 | Game rules | Phase 6 |
-| `[필요]` | HUD/World 스냅샷 API 정리 | Render Lock Fix | Phase 7 |
+#### Task
+
+```text
+[ ] Worker가 현재 운반 중인 자원 타입 저장
+[ ] Worker가 현재 운반 중인 자원량 저장
+[ ] Worker의 최대 운반량 저장
+[ ] Worker가 채집 중인 ResourceNode 저장
+[ ] Worker가 돌아갈 Drop-off 건물 저장
+```
+
+#### 예시 구조
+
+```cpp
+struct WorkerGatherState
+{
+    ResourceType carryingType;
+    int carryingAmount;
+    int maxCarryAmount;
+
+    EntityId targetResource;
+    EntityId targetDropOff;
+
+    int gatherProgressTick;
+};
+```
+
+#### 완료 기준
+
+```text
+- Worker가 자원을 들고 있는지 알 수 있다.
+- Worker가 어떤 자원을 채집 중인지 알 수 있다.
+```
+
+---
+
+### Feature 0.3.3 GatherCommand 구현
+
+#### Task
+
+```text
+[ ] 자원 노드 우클릭 시 GatherCommand 생성
+[ ] 선택된 유닛 중 Worker만 필터링
+[ ] Worker가 아니면 명령 무시
+[ ] 고갈된 자원 노드면 명령 거부
+[ ] ResourceNode까지 이동 명령 연결
+```
+
+#### 완료 기준
+
+```text
+- Worker를 선택하고 자원을 우클릭하면 자원 쪽으로 이동한다.
+- 전투 유닛은 GatherCommand를 받지 않는다.
+```
+
+---
+
+### Feature 0.3.4 Worker Gather FSM 구현
+
+#### 상태 흐름
+
+```text
+Idle
+ ↓
+MoveToResource
+ ↓
+ReserveGatherSlot
+ ↓
+Gathering
+ ↓
+CarryResource
+ ↓
+MoveToDropOff
+ ↓
+DropResource
+ ↓
+MoveToResource
+```
+
+#### Task
+
+```text
+[ ] MoveToResource 상태 추가
+[ ] ReserveGatherSlot 상태 추가
+[ ] Gathering 상태 추가
+[ ] CarryResource 상태 추가
+[ ] MoveToDropOff 상태 추가
+[ ] DropResource 상태 추가
+[ ] 자동 반복 채집 처리
+```
+
+#### 완료 기준
+
+```text
+- Worker가 자원으로 이동한다.
+- 일정 시간 채집한다.
+- 자원을 들고 타운홀로 돌아간다.
+- 타운홀 도착 시 PlayerResource가 증가한다.
+- 다시 자원으로 이동한다.
+```
+
+---
+
+### Feature 0.3.5 Drop-off 건물 탐색
+
+#### Task
+
+```text
+[ ] Drop-off 가능한 건물 타입 정의
+[ ] 완성된 아군 건물만 후보로 인정
+[ ] 가장 가까운 Drop-off 건물 탐색
+[ ] Drop-off 건물이 파괴되었을 때 재탐색
+[ ] Drop-off 건물이 없으면 Worker Idle 처리
+```
+
+#### 완료 기준
+
+```text
+- Worker가 가장 가까운 타운홀로 자원을 반납한다.
+- 타운홀이 파괴되면 다른 Drop-off를 찾는다.
+- Drop-off가 없으면 채집을 중단한다.
+```
+
+---
+
+### Feature 0.3.6 자원 예약 시스템
+
+#### Task
+
+```text
+[ ] ResourceNode별 예약 Worker 목록 관리
+[ ] MaxGatherers 초과 시 다른 자원 탐색 또는 대기
+[ ] Worker 사망/명령 변경 시 예약 해제
+[ ] ResourceNode 고갈 시 예약 전체 해제
+```
+
+#### 완료 기준
+
+```text
+- 너무 많은 Worker가 하나의 자원 노드에 몰리지 않는다.
+- 명령 취소 시 예약이 해제된다.
+```
+
+---
+
+## Epic 0.4 유닛 생산 루프
+
+현재 상태: `[30%]`
+
+### 현재 구현된 항목
+
+```text
+- Building 모델 존재
+- HUD 연동 일부 존재
+```
+
+### 부족한 항목
+
+```text
+- 생산 큐
+- 비용 차감
+- 생산 진행도
+- 유닛 스폰 위치 계산
+- RallyPoint 이동
+```
+
+---
+
+### Feature 0.4.1 생산 가능 건물 데이터 추가
+
+#### Task
+
+```text
+[ ] BuildingStaticData에 생산 가능 유닛 목록 추가
+[ ] ProductionQueueSize 추가
+[ ] RallyPoint 기본값 추가
+[ ] 생산 시간 데이터 연결
+```
+
+#### 예시 구조
+
+```cpp
+struct BuildingStaticData
+{
+    BuildingTypeId id;
+    std::vector<UnitTypeId> producibleUnits;
+    int maxQueueSize;
+};
+```
+
+#### 완료 기준
+
+```text
+- 특정 건물이 어떤 유닛을 생산할 수 있는지 데이터로 알 수 있다.
+```
+
+---
+
+### Feature 0.4.2 ProductionQueue 구현
+
+#### Task
+
+```text
+[ ] ProductionQueueComponent 추가
+[ ] ProductionItem 구조 추가
+[ ] Queue 삽입 함수 추가
+[ ] Queue 취소 함수 추가
+[ ] 현재 생산 중인 항목 진행도 증가
+[ ] 생산 완료 이벤트 발생
+```
+
+#### 예시 구조
+
+```cpp
+struct ProductionItem
+{
+    UnitTypeId unitType;
+    int progressTick;
+    int requiredTick;
+};
+
+struct ProductionQueue
+{
+    std::deque<ProductionItem> items;
+    int maxQueueSize;
+};
+```
+
+#### 완료 기준
+
+```text
+- 건물에 생산 명령을 넣으면 큐에 쌓인다.
+- 시간이 지나면 생산이 완료된다.
+```
+
+---
+
+### Feature 0.4.3 생산 비용 처리
+
+#### Task
+
+```text
+[ ] UnitStaticData에 Gold/Wood/Supply 비용 추가
+[ ] 생산 시작 전 자원 검사
+[ ] 자원 부족 시 생산 거부
+[ ] 생산 큐 추가 시 비용 즉시 차감
+[ ] 생산 취소 시 환불
+[ ] 인구수 부족 시 생산 거부
+```
+
+#### 완료 기준
+
+```text
+- 자원이 부족하면 유닛 생산이 되지 않는다.
+- 생산 시 자원이 차감된다.
+- 취소 시 자원이 환불된다.
+```
+
+---
+
+### Feature 0.4.4 유닛 스폰 위치 계산
+
+#### Task
+
+```text
+[ ] 건물 footprint 주변 타일 검색
+[ ] 이동 가능한 타일 필터링
+[ ] RallyPoint 방향 우선 배치
+[ ] 스폰 위치가 없으면 생산 완료 대기
+[ ] 스폰 후 충돌 등록
+```
+
+#### 완료 기준
+
+```text
+- 생산 완료된 유닛이 건물 주변 빈 공간에 생성된다.
+- 건물 내부나 막힌 타일에는 생성되지 않는다.
+```
+
+---
+
+### Feature 0.4.5 RallyPoint
+
+#### Task
+
+```text
+[ ] 건물 선택 후 우클릭으로 RallyPoint 설정
+[ ] RallyPoint UI 표시
+[ ] 생산 완료 유닛에게 MoveCommand 자동 발행
+[ ] RallyPoint가 적이면 AttackMove 또는 AttackTarget 처리 여부 결정
+```
+
+#### 완료 기준
+
+```text
+- 생산된 유닛이 RallyPoint로 자동 이동한다.
+```
+
+---
+
+## Epic 0.5 건설 루프
+
+현재 상태: `[10%]`
+
+### 현재 구현된 항목
+
+```text
+- BuildCommand 기반 구조 일부 존재
+```
+
+### 부족한 항목
+
+```text
+- 건물 배치 프리뷰
+- 배치 가능 여부 검사
+- 자원 차감
+- ConstructionSite
+- Worker 건설 FSM
+- 완성 건물 전환
+```
+
+---
+
+### Feature 0.5.1 BuildCommand 세분화
+
+#### Task
+
+```text
+[ ] BuildCommand에 BuildingTypeId 포함
+[ ] BuildCommand에 targetTile 포함
+[ ] Worker만 BuildCommand 가능하게 제한
+[ ] 건설 비용 검사
+[ ] 건설 위치 검사
+```
+
+#### 완료 기준
+
+```text
+- Worker에게 특정 위치에 특정 건물을 짓는 명령을 내릴 수 있다.
+```
+
+---
+
+### Feature 0.5.2 Build Preview
+
+#### Task
+
+```text
+[ ] 건설 버튼 클릭 시 프리뷰 모드 진입
+[ ] 마우스 위치를 Grid 좌표로 변환
+[ ] 배치 가능하면 초록색 표시
+[ ] 배치 불가능하면 빨간색 표시
+[ ] ESC 또는 우클릭으로 취소
+```
+
+#### 완료 기준
+
+```text
+- 건설 전 배치 위치를 시각적으로 확인할 수 있다.
+```
+
+---
+
+### Feature 0.5.3 PlacementValidator
+
+#### Task
+
+```text
+[ ] 맵 경계 밖인지 검사
+[ ] 타일이 이동 가능한지 검사
+[ ] 다른 건물 footprint와 겹치는지 검사
+[ ] 자원 노드와 겹치는지 검사
+[ ] 유닛과 겹치는지 검사
+[ ] 지형 타입이 건설 가능한지 검사
+[ ] 필요한 경우 아군 건물 근처인지 검사
+```
+
+#### 완료 기준
+
+```text
+- 잘못된 위치에는 건물을 지을 수 없다.
+```
+
+---
+
+### Feature 0.5.4 ConstructionSite 생성
+
+#### Task
+
+```text
+[ ] 건설 명령 승인 시 자원 차감
+[ ] ConstructionSite 엔티티 생성
+[ ] 임시 건물 렌더링
+[ ] HP를 낮은 상태로 시작
+[ ] 진행도 progressTick 관리
+```
+
+#### 예시 구조
+
+```cpp
+struct ConstructionComponent
+{
+    BuildingTypeId buildingType;
+    int progressTick;
+    int requiredTick;
+    std::vector<EntityId> builders;
+};
+```
+
+#### 완료 기준
+
+```text
+- 건설 시작 시 미완성 건물이 맵에 생성된다.
+```
+
+---
+
+### Feature 0.5.5 Worker Build FSM
+
+#### 상태 흐름
+
+```text
+MoveToBuildSite
+ ↓
+Building
+ ↓
+Completed
+ ↓
+Idle
+```
+
+#### Task
+
+```text
+[ ] Worker가 건설 위치로 이동
+[ ] 건설 가능 거리 도달 시 작업 시작
+[ ] 매 Tick 건설 진행도 증가
+[ ] Worker가 멀어지면 진행 정지
+[ ] 건설 완료 시 Building completed 처리
+```
+
+#### 완료 기준
+
+```text
+- Worker가 실제로 건물을 완성시킬 수 있다.
+```
+
+---
+
+### Feature 0.5.6 건물 완성 처리
+
+#### Task
+
+```text
+[ ] ConstructionComponent 제거
+[ ] Building.completed = true 처리
+[ ] 완성된 건물 HP 설정
+[ ] 생산 가능 건물이면 ProductionQueue 활성화
+[ ] Drop-off 건물이면 자원 반납 후보 등록
+[ ] 타일 walkability 최종 반영
+```
+
+#### 완료 기준
+
+```text
+- 미완성 건물이 완성 건물로 전환된다.
+- 완성 후 생산/반납/테크 기능이 작동한다.
+```
+
+---
+
+## Epic 0.6 단순 적 AI
+
+현재 상태: `[0%]`
+
+### 목표
+
+복잡한 AI가 아니라, Vertical Slice에서 게임이 끝날 수 있도록 하는 최소 AI를 구현합니다.
+
+---
+
+### Feature 0.6.1 AI PlayerState 생성
+
+#### Task
+
+```text
+[ ] AI 플레이어 리소스 생성
+[ ] AI 소유 건물 생성
+[ ] AI 소유 유닛 생성
+[ ] AI 업데이트 루프 추가
+```
+
+#### 완료 기준
+
+```text
+- AI가 별도 PlayerId를 가진다.
+```
+
+---
+
+### Feature 0.6.2 Wave Attack AI
+
+#### Task
+
+```text
+[ ] 일정 시간마다 공격 웨이브 생성
+[ ] AI 전투 유닛 목록 수집
+[ ] 플레이어 타운홀 위치 탐색
+[ ] AttackMove 명령 발행
+[ ] 웨이브 쿨다운 적용
+```
+
+#### 초기 구현 추천
+
+```text
+게임 시작 60초 후
+AI 병사 5기 생성
+플레이어 타운홀로 AttackMove
+이후 90초마다 반복
+```
+
+#### 완료 기준
+
+```text
+- AI가 일정 시간 후 플레이어 기지로 공격해온다.
+```
+
+---
+
+### Feature 0.6.3 AI 생산 루프
+
+후순위 작업입니다.
+
+#### Task
+
+```text
+[ ] AI 일꾼 생산
+[ ] AI 자원 채집
+[ ] AI 병영 건설
+[ ] AI 병사 생산
+[ ] 일정 수 이상 모이면 공격
+```
+
+Vertical Slice 단계에서는 Wave Attack AI만 먼저 구현해도 충분합니다.
+
+---
+
+## Epic 0.7 승패 조건
+
+현재 상태: `[0%]`
+
+---
+
+### Feature 0.7.1 주요 건물 등록
+
+#### Task
+
+```text
+[ ] TownHall 타입 정의
+[ ] Player별 주요 건물 목록 관리
+[ ] 건물 사망 이벤트 감지
+```
+
+---
+
+### Feature 0.7.2 패배 조건
+
+#### Task
+
+```text
+[ ] 플레이어의 모든 TownHall 파괴 시 패배
+[ ] 또는 모든 건물 파괴 시 패배
+[ ] 패배 UI 표시
+[ ] 입력 잠금
+```
+
+---
+
+### Feature 0.7.3 승리 조건
+
+#### Task
+
+```text
+[ ] 모든 적 주요 건물 파괴 시 승리
+[ ] 승리 UI 표시
+[ ] 결과 화면 전환
+```
+
+### 완료 기준
+
+```text
+- 적 타운홀을 파괴하면 승리한다.
+- 내 타운홀이 파괴되면 패배한다.
+```
+
+---
+
+# 4. Phase 1. Foundation
+
+## 목표
+
+```text
+결정론적 시뮬레이션과 데이터 주도 설계 기반을 다진다.
+```
+
+---
+
+## Epic 1.1 명령 버스 체계
+
+현재 상태: `[100%]`
+
+### 추가 점검 Task
+
+```text
+[ ] LogicCommandBus와 UICommandBus 책임 분리 문서화
+[ ] UI 명령이 직접 World를 수정하지 않도록 검증
+[ ] Command 처리 순서 고정
+[ ] Tick별 명령 처리 로그 추가
+```
+
+### 완료 기준
+
+```text
+- UI는 명령만 발행한다.
+- Simulation은 정해진 Tick에서 명령을 처리한다.
+```
+
+---
+
+## Epic 1.2 데이터 주도 설계 확장
+
+현재 상태: `[100% 기초]`
+
+---
+
+### Feature 1.2.1 UnitStaticData 확장
+
+#### Task
+
+```text
+[x] maxHp
+[x] attackDamage
+[x] armor
+[x] moveSpeed
+[x] attackRange
+[x] attackCooldown
+[ ] sightRange
+[ ] collisionRadius
+[x] costGold
+[x] costWood
+[x] supplyCost
+[ ] buildTime
+[ ] weaponType
+[ ] armorType
+```
+
+---
+
+### Feature 1.2.2 BuildingStaticData 추가
+
+#### Task
+
+```text
+[ ] maxHp
+[ ] footprintWidth
+[ ] footprintHeight
+[ ] costGold
+[ ] costWood
+[ ] buildTime
+[ ] produces
+[ ] providesSupply
+[ ] isDropOff
+[ ] requirements
+```
+
+---
+
+### Feature 1.2.3 ResourceStaticData 추가
+
+#### Task
+
+```text
+[ ] resourceType
+[ ] initialAmount
+[ ] gatherAmountPerTrip
+[ ] gatherDurationTick
+[ ] maxGatherers
+```
+
+---
+
+### Feature 1.2.4 DataRegistry 도입
+
+#### Task
+
+```text
+[ ] UnitTypeId 관리
+[ ] BuildingTypeId 관리
+[ ] ResourceTypeId 관리
+[ ] 문자열 ID → 내부 ID 변환
+[ ] 데이터 로드 실패 처리
+[ ] 데이터 검증 로그 출력
+```
+
+#### 완료 기준
+
+```text
+- 유닛/건물/자원 데이터가 코드 수정 없이 변경 가능하다.
+```
+
+---
+
+## Epic 1.3 EntityId 시스템
+
+현재 상태: `[30%]`
+
+---
+
+### Feature 1.3.1 EntityId 타입 추가
+
+#### Task
+
+```text
+[ ] EntityId 구조체 추가
+[ ] InvalidEntityId 정의
+[ ] index/generation 구조 결정
+[ ] 비교 연산자 추가
+[ ] Hash 함수 추가
+```
+
+#### 예시 구조
+
+```cpp
+struct EntityId
+{
+    uint32 index;
+    uint32 generation;
+};
+```
+
+---
+
+### Feature 1.3.2 EntityManager 추가
+
+#### Task
+
+```text
+[ ] CreateEntity
+[ ] DestroyEntity
+[ ] IsAlive
+[ ] GetGeneration
+[ ] Reuse index with generation increment
+```
+
+---
+
+### Feature 1.3.3 기존 IGameElement와 연결
+
+#### Task
+
+```text
+[ ] IGameElement에 EntityId 부여
+[ ] 기존 포인터 참조를 EntityId 참조로 점진 교체
+[ ] Target 포인터를 TargetEntityId로 변경
+[ ] Command 대상도 EntityId 사용
+```
+
+#### 완료 기준
+
+```text
+- 죽은 유닛을 참조해도 IsAlive로 검증 가능하다.
+- 명령과 타겟팅이 EntityId 기반으로 동작한다.
+```
+
+---
+
+## Epic 1.4 고정 틱 / 결정론
+
+현재 상태: `[50%]`
+
+---
+
+### Feature 1.4.1 Fixed Tick 정리
+
+#### Task
+
+```text
+[ ] Logic Tick Rate 상수화
+[ ] Render Delta와 Logic Delta 분리
+[ ] Tick 번호 currentTick 관리
+[ ] 모든 Simulation Update가 Tick 기반으로 동작하는지 점검
+```
+
+---
+
+### Feature 1.4.2 Float 사용 구역 분리
+
+#### Task
+
+```text
+[ ] Simulation에서 float 사용 위치 조사
+[ ] Rendering 전용 float와 Simulation float 구분
+[ ] 위치/속도/거리 계산 타입 통일
+```
+
+---
+
+### Feature 1.4.3 FixedPoint 도입 준비
+
+처음부터 전체를 교체하지 말고 단계적으로 적용합니다.
+
+#### Task
+
+```text
+[ ] Fixed 타입 추가
+[ ] FixedVec2 추가
+[ ] Grid 좌표와 World 좌표 변환 함수 추가
+[ ] 이동 계산부터 Fixed 적용
+[ ] 공격 사거리 계산에 Fixed 적용
+[ ] 투사체 계산에 Fixed 적용
+```
+
+#### 완료 기준
+
+```text
+- 같은 입력을 두 번 실행했을 때 결과가 동일하다.
+```
+
+---
+
+# 5. Phase 2. Input / Command
+
+## 목표
+
+```text
+플레이어의 조작을 유닛의 명령 큐로 변환하는 시스템을 완성한다.
+```
+
+---
+
+## Epic 2.1 마우스 선택
+
+현재 상태: `[100%]`
+
+### 추가 Task
+
+```text
+[ ] 선택 우선순위 적용
+[ ] 드래그 시 유닛 우선 / 건물 후순위
+[ ] Shift 선택 추가/제거
+[ ] Ctrl 클릭 동일 타입 선택
+[ ] 더블클릭 동일 타입 선택
+[ ] 선택 가능 최대 개수 제한
+```
+
+---
+
+## Epic 2.2 기본 명령
+
+현재 상태: `[100%]`
+
+### 추가 Task
+
+```text
+[ ] MoveCommand validation
+[ ] AttackTargetCommand validation
+[ ] StopCommand validation
+[ ] 명령 실패 사운드/커서 이벤트
+[ ] 선택 유닛 중 명령 수행 가능 유닛만 필터링
+```
+
+---
+
+## Epic 2.3 Smart Command Resolver
+
+현재 상태: `[70%]`
+
+### Task
+
+```text
+[x] 우클릭 대상이 땅이면 MoveCommand
+[x] 우클릭 대상이 적이면 AttackTargetCommand
+[ ] 우클릭 대상이 자원이면 GatherCommand
+[ ] 우클릭 대상이 미완성 건물이면 Build/RepairCommand
+[ ] 우클릭 대상이 아군 건물이면 RallyPoint 또는 Repair
+[ ] 우클릭 불가 대상이면 InvalidCommand
+```
+
+### 완료 기준
+
+```text
+- 플레이어는 대부분 우클릭만으로 상황에 맞는 명령을 내릴 수 있다.
+```
+
+---
+
+## Epic 2.4 Command Queue
+
+현재 상태: `[0%]`
+
+---
+
+### Feature 2.4.1 UnitOrder 구조 추가
+
+#### Task
+
+```text
+[ ] UnitOrder 타입 정의
+[ ] OrderType 정의
+[ ] TargetEntityId 추가
+[ ] TargetPosition 추가
+[ ] AbilityId 추가
+[ ] BuildingTypeId 추가
+```
+
+---
+
+### Feature 2.4.2 Queue 동작
+
+#### Task
+
+```text
+[ ] 일반 명령 시 기존 Queue Clear
+[ ] Shift 명령 시 Queue 뒤에 추가
+[ ] 현재 명령 완료 시 다음 명령 Pop
+[ ] Stop 시 Queue Clear
+[ ] Hold 시 Queue Clear 후 Hold 상태
+```
+
+#### 완료 기준
+
+```text
+- Shift 우클릭으로 여러 이동 지점을 예약할 수 있다.
+```
+
+---
+
+## Epic 2.5 고급 명령
+
+현재 상태: `[0%]`
+
+---
+
+### Feature 2.5.1 AttackMove
+
+#### Task
+
+```text
+[ ] AttackMoveCommand 추가
+[ ] 목적지로 이동
+[ ] 이동 중 적 발견 시 공격
+[ ] 적 사망 후 원래 목적지로 복귀
+[ ] 목적지 도착 시 Idle 또는 Guard 상태
+```
+
+---
+
+### Feature 2.5.2 Patrol
+
+#### Task
+
+```text
+[ ] PatrolCommand 추가
+[ ] A 지점과 B 지점 저장
+[ ] A↔B 왕복 이동
+[ ] 이동 중 적 발견 시 공격
+[ ] 적 사망 후 순찰 복귀
+```
+
+---
+
+### Feature 2.5.3 Hold
+
+#### Task
+
+```text
+[ ] HoldCommand 추가
+[ ] 위치 고정
+[ ] 사거리 내 적만 공격
+[ ] 사거리 밖 적 추격 금지
+```
+
+---
+
+# 6. Phase 3. Movement
+
+## 목표
+
+```text
+다수의 유닛이 충돌 없이 자연스럽게 목적지에 도달하도록 한다.
+```
+
+---
+
+## Epic 3.1 A* 길찾기
+
+현재 상태: `[100%]`
+
+### 추가 점검 Task
+
+```text
+[ ] 대각선 이동 가능 여부 정책 확정
+[ ] Corner cutting 방지
+[ ] 이동 불가 타일 처리
+[ ] 지형 비용 처리
+[ ] Path 실패 처리
+```
+
+---
+
+## Epic 3.2 PathRequestQueue
+
+현재 상태: `[0% 또는 부분 구현 필요]`
+
+### Task
+
+```text
+[ ] PathRequest 구조 추가
+[ ] 요청 Queue 추가
+[ ] 한 Tick당 처리량 제한
+[ ] 요청 완료 콜백 또는 결과 저장
+[ ] 오래된 요청 취소
+```
+
+### 완료 기준
+
+```text
+- 유닛 100기가 동시에 이동해도 한 프레임이 급격히 멈추지 않는다.
+```
+
+---
+
+## Epic 3.3 기본 충돌/정지
+
+현재 상태: `[100%]`
+
+### 추가 Task
+
+```text
+[x] 목적지 주변 빈 위치 찾기
+[ ] 충돌 반경 기반 겹침 방지
+[x] 사망 유닛 충돌 제거
+[ ] 건물 충돌 반영
+[ ] ResourceNode 충돌 정책 결정
+```
+
+---
+
+## Epic 3.4 Local Avoidance
+
+현재 상태: `[0%]`
+
+### Task
+
+```text
+[ ] 주변 유닛 검색
+[ ] 충돌 예상 검사
+[ ] Push Vector 계산
+[ ] EntityId 순서로 결정론적 처리
+[ ] 이동 중 부드러운 회피 적용
+[ ] 지나치게 밀리는 현상 제한
+```
+
+### 초기 구현 추천
+
+```text
+RVO보다 먼저:
+- 가까운 유닛끼리 살짝 밀어내기
+- 목적지에 가까우면 정지 우선
+- 막혔으면 재경로 요청
+```
+
+---
+
+## Epic 3.5 Formation
+
+현재 상태: `[0%]`
+
+### Task
+
+```text
+[ ] 선택 유닛 정렬
+[ ] 목적지 기준 Grid Slot 생성
+[ ] 각 유닛에 슬롯 할당
+[ ] 슬롯 위치가 막혔으면 근처 위치 검색
+[ ] 유닛별 MoveCommand 발행
+```
+
+### 완료 기준
+
+```text
+- 10기 이상 이동해도 한 점에 뭉치지 않는다.
+```
+
+---
+
+# 7. Phase 4. Combat
+
+## 목표
+
+```text
+상성과 세밀한 마이크로 컨트롤이 가능한 전투 엔진을 구축한다.
+```
+
+---
+
+## Epic 4.1 기본 전투
+
+현재 상태: `[100%]`
+
+### 추가 안정화 Task
+
+```text
+[ ] 타겟 사망 시 재탐색
+[ ] 공격 불가 대상 필터링
+[ ] 공중/지상 공격 가능 여부 추가 준비
+[ ] 사거리 계산 최적화
+```
+
+---
+
+## Epic 4.2 무기/장갑 상성
+
+현재 상태: `[0%]`
+
+### Task
+
+```text
+[ ] WeaponType enum 추가
+[ ] ArmorType enum 추가
+[ ] 상성 테이블 추가
+[ ] UnitStaticData에 armorType 연결
+[ ] WeaponData에 weaponType 연결
+[ ] 데미지 공식에 배율 적용
+```
+
+### 완료 기준
+
+```text
+- 관통 무기는 경장갑에 강하다.
+- 공성 무기는 건물에 강하다.
+```
+
+---
+
+## Epic 4.3 공격 FSM 분리
+
+현재 상태: `[0%]`
+
+### Task
+
+```text
+[ ] AttackState enum 추가
+[ ] Ready 상태
+[ ] PreCast 상태
+[ ] FirePoint 상태
+[ ] Cooldown 상태
+[ ] 공격 중 Move/Stop 입력 처리
+[ ] FirePoint 이전 취소 가능
+[ ] FirePoint 이후 공격 발생 보장
+```
+
+### 완료 기준
+
+```text
+- 선딜/발사/후딜이 분리된다.
+- 무빙샷 구현 기반이 생긴다.
+```
+
+---
+
+## Epic 4.4 Projectile Manager
+
+현재 상태: `[0%]`
+
+### Task
+
+```text
+[ ] Projectile Entity 타입 추가
+[ ] ProjectileData 추가
+[ ] Instant/Homing/Directional 타입 구분
+[ ] 발사 위치 계산
+[ ] 목표 위치/목표 Entity 저장
+[ ] 매 Tick 위치 갱신
+[ ] 충돌 또는 도착 시 데미지 적용
+[ ] 투사체 제거
+```
+
+### 완료 기준
+
+```text
+- 원거리 공격 시 투사체가 생성되고 목표에 도달하면 데미지가 들어간다.
+```
+
+---
+
+## Epic 4.5 AoE / Splash
+
+### Task
+
+```text
+[ ] SplashData 추가
+[ ] 중심/중간/외곽 반경 추가
+[ ] Spatial Query로 범위 내 대상 검색
+[ ] 거리별 데미지 배율 적용
+[ ] 아군 피해 여부 정책 추가
+```
+
+---
+
+# 8. Phase 5. Economy & Tech
+
+## 목표
+
+```text
+자원을 모으고 병력을 양산하는 거시 경제 체계를 완성한다.
+```
+
+---
+
+## Epic 5.1 자원 UI
+
+현재 상태: `[100%]`
+
+### 추가 Task
+
+```text
+[ ] 자원 변경 이벤트 기반 UI 갱신
+[ ] 자원 부족 시 빨간색 표시
+[ ] 인구수 표시 추가
+[ ] 자원 증가/감소 로그 디버그 출력
+```
+
+---
+
+## Epic 5.2 자원 소비
+
+현재 상태: `[0%]`
+
+### Task
+
+```text
+[ ] Cost 구조 추가
+[ ] CanAfford 함수 추가
+[ ] PayCost 함수 추가
+[ ] RefundCost 함수 추가
+[ ] 생산/건설/업그레이드에 연결
+[ ] 자원 부족 시 명령 거부
+```
+
+### 예시 구조
+
+```cpp
+struct Cost
+{
+    int gold;
+    int wood;
+    int supply;
+};
+```
+
+### 완료 기준
+
+```text
+- 자원이 부족하면 생산/건설 불가
+- 성공 시 자원이 차감됨
+```
+
+---
+
+## Epic 5.3 건물 Footprint
+
+현재 상태: `[0%]`
+
+### Task
+
+```text
+[ ] BuildingStaticData에 footprint 크기 추가
+[ ] 건물 생성 시 Grid 점유 처리
+[ ] 건물 파괴 시 Grid 점유 해제
+[ ] Pathfinding walkability 갱신
+[ ] 건설 중인 건물도 막힘 처리할지 정책 결정
+```
+
+### 완료 기준
+
+```text
+- 건물이 차지한 타일을 유닛이 통과하지 못한다.
+```
+
+---
+
+## Epic 5.4 TechTreeValidator
+
+현재 상태: `[0%]`
+
+### Task
+
+```text
+[ ] Requirement 구조 추가
+[ ] requiredBuildings 추가
+[ ] requiredUpgrades 추가
+[ ] CanProduce 검사
+[ ] CanBuild 검사
+[ ] CanResearch 검사
+[ ] UI에서 잠금 표시
+```
+
+### 완료 기준
+
+```text
+- 병영이 없으면 병사를 생산할 수 없다.
+- 선행 건물이 없으면 고급 건물을 지을 수 없다.
+```
+
+---
+
+# 9. Phase 6. UI & Fog of War
+
+## 목표
+
+```text
+상황 파악과 조작을 극대화하는 UI/UX를 완성한다.
+```
+
+---
+
+## Epic 6.1 Wireframe
+
+현재 상태: `[100%]`
+
+### 추가 Task
+
+```text
+[ ] 다중 선택 초상화 표시
+[ ] 선택 유닛 HP 바 표시
+[ ] 생산 중인 건물 진행도 표시
+[ ] 건설 중인 건물 진행도 표시
+[ ] 공격력/방어력 아이콘 표시
+```
+
+---
+
+## Epic 6.2 Minimap
+
+현재 상태: `[10%]`
+
+### Task
+
+```text
+[ ] 맵 지형 축소 렌더링
+[ ] 아군 유닛 점 표시
+[ ] 적군 유닛 점 표시
+[ ] 자원 점 표시
+[ ] 카메라 viewport 사각형 표시
+[ ] 미니맵 좌클릭 시 카메라 이동
+[ ] 미니맵 우클릭 시 선택 유닛 명령 전달
+[ ] Fog of War 반영
+```
+
+### 완료 기준
+
+```text
+- 미니맵으로 카메라 이동 가능
+- 미니맵에서 우클릭 명령 가능
+```
+
+---
+
+## Epic 6.3 Fog of War
+
+현재 상태: `[30%]`
+
+### Task
+
+```text
+[ ] Player별 exploredTiles 추가
+[ ] Player별 visibleTiles 추가
+[ ] 시야 반경별 마스크 캐싱
+[ ] 유닛 이동 시 시야 Dirty 처리
+[ ] Dirty 유닛 기준 visibleTiles 갱신
+[ ] 렌더링 마스크 적용
+[ ] 적 유닛 보임/숨김 처리
+[ ] 건물 마지막 위치 잔상 처리 여부 결정
+```
+
+### 완료 기준
+
+```text
+- 유닛 주변만 현재 시야로 보인다.
+- 한 번 본 지역은 흐리게 유지된다.
+- 시야 밖 적 유닛은 보이지 않는다.
+```
+
+---
+
+## Epic 6.4 Command Card
+
+현재 상태: `[0%]`
+
+### Task
+
+```text
+[ ] 선택 대상 기준 사용 가능한 명령 목록 생성
+[ ] 3x3 버튼 UI 생성
+[ ] Move/Attack/Stop/Hold/Patrol 버튼 연결
+[ ] Worker 선택 시 Build 버튼 표시
+[ ] 생산 건물 선택 시 생산 버튼 표시
+[ ] 버튼 Hotkey 연결
+[ ] 비활성 버튼 잠금 표시
+```
+
+### 완료 기준
+
+```text
+- 선택한 대상에 따라 하단 명령 버튼이 바뀐다.
+```
+
+---
+
+# 10. Phase 7. Map / Save / Replay
+
+## 목표
+
+```text
+맵 로딩, 저장/불러오기, 리플레이 기반을 구축한다.
+```
+
+---
+
+## Epic 7.1 Tiled 맵 로딩
+
+현재 상태: `[50%]`
+
+### Task
+
+```text
+[ ] .tmx 파싱 안정화
+[ ] TileLayer 로딩
+[ ] ObjectLayer 로딩
+[ ] Collision Layer 로딩
+[ ] Resource Spawn Point 로딩
+[ ] Player Start Point 로딩
+[ ] Neutral Object 로딩
+[ ] MapData를 World로 변환
+```
+
+### 완료 기준
+
+```text
+- Tiled에서 만든 맵으로 실제 게임을 시작할 수 있다.
+```
+
+---
+
+## Epic 7.2 Save / Load
+
+현재 상태: `[0%]`
+
+### Task
+
+```text
+[ ] SaveGameData 구조 정의
+[ ] currentTick 저장
+[ ] PlayerState 저장
+[ ] Entity 목록 저장
+[ ] 각 Entity 상태 저장
+[ ] CommandQueue 저장
+[ ] ProductionQueue 저장
+[ ] ResourceNode 상태 저장
+[ ] Fog 상태 저장
+[ ] Load 시 World 복원
+```
+
+### 완료 기준
+
+```text
+- 저장 후 불러오면 같은 상태에서 이어서 플레이 가능하다.
+```
+
+---
+
+## Epic 7.3 World Hash
+
+현재 상태: `[0%]`
+
+### Task
+
+```text
+[ ] WorldHash 함수 추가
+[ ] EntityId 정렬 후 해시
+[ ] 위치/HP/상태/명령 큐 포함
+[ ] PlayerResource 포함
+[ ] ProductionQueue 포함
+[ ] RandomSeed 포함
+[ ] 렌더링/UI 상태 제외
+[ ] DebugOverlay에 Hash 표시
+```
+
+### 완료 기준
+
+```text
+- 같은 상태는 같은 Hash를 가진다.
+```
+
+---
+
+## Epic 7.4 Replay
+
+현재 상태: `[0%]`
+
+### Task
+
+```text
+[ ] PlayerCommand 로그 기록
+[ ] Tick 번호와 함께 저장
+[ ] 초기 맵/시드 저장
+[ ] Replay 재생 모드 추가
+[ ] 입력 대신 로그 명령 실행
+[ ] 재생 속도 조절
+[ ] WorldHash 비교
+```
+
+### 완료 기준
+
+```text
+- 플레이한 경기를 명령 로그만으로 다시 재생할 수 있다.
+```
+
+---
+
+# 11. Phase 8. AI / Polish / Optimization
+
+## 목표
+
+```text
+게임 완성도, 반응성, 성능, 연출 품질을 높인다.
+```
+
+---
+
+## Epic 8.1 전술 AI
+
+현재 상태: `[0%]`
+
+### Task
+
+```text
+[ ] AI 빌드 오더 상태 추가
+[ ] AI 자원 채집 명령
+[ ] AI 생산 명령
+[ ] AI 병력 집결 지점
+[ ] AI 공격 타이밍 판단
+[ ] AI 방어 판단
+```
+
+### 초기 AI 상태
+
+```text
+Opening
+ ↓
+Gather
+ ↓
+BuildBarracks
+ ↓
+ProduceArmy
+ ↓
+Attack
+ ↓
+Rebuild
+```
+
+---
+
+## Epic 8.2 사운드
+
+### Task
+
+```text
+[ ] 선택 사운드
+[ ] 이동 명령 사운드
+[ ] 공격 사운드
+[ ] 피격 사운드
+[ ] 사망 사운드
+[ ] 생산 완료 사운드
+[ ] 건설 완료 사운드
+[ ] 자원 부족 사운드
+```
+
+---
+
+## Epic 8.3 이펙트 / 데칼
+
+### Task
+
+```text
+[ ] 공격 이펙트
+[ ] 피격 이펙트
+[ ] 사망 이펙트
+[ ] 폭발 이펙트
+[ ] 건설 먼지 이펙트
+[ ] 자원 채집 이펙트
+[ ] 혈흔/그을림 데칼
+```
+
+---
+
+## Epic 8.4 성능 최적화
+
+### Task
+
+```text
+[ ] Spatial Grid 도입
+[ ] 타겟 탐색 최적화
+[ ] Pathfinding 요청 제한
+[ ] Projectile Pool
+[ ] Effect Pool
+[ ] Render Batch
+[ ] UI 갱신 빈도 제한
+[ ] DebugOverlay 토글화
+```
+
+---
+
+# 12. Sprint 계획
+
+## Sprint 1. 자원 채집 완성
+
+### 작업 순서
+
+```text
+1. WorkerGatherState 추가
+2. GatherCommand 추가
+3. ResourceNode 예약 추가
+4. Worker Gather FSM 추가
+5. Drop-off 건물 탐색 추가
+6. PlayerResource 증가 연결
+```
+
+### 완료 결과
+
+```text
+Worker가 Gold/Wood를 실제로 채집하고 타운홀에 반납한다.
+```
+
+---
+
+## Sprint 2. 생산 완성
+
+### 작업 순서
+
+```text
+1. Cost 구조 추가
+2. CanAfford / PayCost 추가
+3. ProductionQueue 추가
+4. 생산 진행도 Tick 처리
+5. 유닛 스폰 위치 계산
+6. RallyPoint 이동 연결
+```
+
+### 완료 결과
+
+```text
+건물에서 자원을 소비해서 병사를 생산한다.
+```
+
+---
+
+## Sprint 3. 건설 완성
+
+### 작업 순서
+
+```text
+1. BuildingStaticData 추가
+2. Build Preview 추가
+3. PlacementValidator 추가
+4. ConstructionSite 추가
+5. Worker Build FSM 추가
+6. 완성 건물 전환
+```
+
+### 완료 결과
+
+```text
+Worker가 새 건물을 지을 수 있다.
+```
+
+---
+
+## Sprint 4. 작은 게임 완성
+
+### 작업 순서
+
+```text
+1. AI Wave Attack 추가
+2. TownHall 승패 조건 추가
+3. 결과 UI 추가
+4. 테스트 맵 구성
+5. 밸런스 1차 조정
+```
+
+### 완료 결과
+
+```text
+작은 RTS 한 판이 처음부터 끝까지 플레이된다.
+```
+
+---
+
+# 13. GitHub Issue 구성 예시
+
+```text
+[Epic] Phase 0 - Vertical Slice 완성
+
+[Feature] Worker 자원 채집 FSM 구현
+[Task] ResourceNode 예약 시스템 추가
+[Task] GatherCommand 추가
+[Task] Worker CarryResource 상태 추가
+[Task] Drop-off 건물 탐색 로직 추가
+[Task] 자원 반납 시 PlayerResource 증가 처리
+
+[Feature] Production Queue 구현
+[Task] ProductionQueueComponent 추가
+[Task] 생산 비용 차감 처리
+[Task] 생산 진행도 Tick 업데이트
+[Task] 유닛 스폰 위치 계산
+[Task] RallyPoint 이동 명령 연결
+
+[Feature] Construction Loop 구현
+[Task] BuildPreview UI 추가
+[Task] PlacementValidator 구현
+[Task] ConstructionSite Entity 추가
+[Task] Worker Build FSM 추가
+[Task] 건물 완성 전환 처리
+
+[Feature] Basic AI 구현
+[Task] AI PlayerState 추가
+[Task] Wave Attack 생성
+[Task] Player TownHall 탐색
+[Task] AttackMove 명령 발행
+
+[Feature] Victory / Defeat 구현
+[Task] TownHall 파괴 감지
+[Task] 승리 조건 검사
+[Task] 패배 조건 검사
+[Task] Result UI 표시
+```
+
+---
+
+# 14. 지금 가장 먼저 할 일
+
+현재 개발 우선순위는 다음입니다.
+
+```text
+1. ResourceNodeComponent 확장
+2. WorkerGatherState 추가
+3. GatherCommand 추가
+4. Worker FSM에 MoveToResource / Gathering / MoveToDropOff / DropResource 추가
+5. Drop-off 건물 탐색
+6. 자원 반납 시 PlayerResource 증가
+```
+
+이 작업이 끝나면 RTS 핵심 루프 중 하나인 **자원 채집**이 완성됩니다.
+
+그 다음 순서는 다음과 같습니다.
+
+```text
+ProductionQueue
+ ↓
+BuildingConstruction
+ ↓
+AI
+ ↓
+VictoryCondition
+```
+
+---
+
+# 15. 최종 목표
+
+본 로드맵의 1차 완료 목표는 다음과 같습니다.
+
+```text
+일꾼이 자원을 채집하고,
+자원으로 건물을 짓고,
+건물에서 유닛을 생산하고,
+생산된 유닛으로 적을 공격하고,
+적 타운홀을 파괴하면 승리하는 작은 RTS를 완성한다.
+```
+
+이 목표가 달성되면 이후 다음 시스템을 안정적으로 확장할 수 있습니다.
+
+```text
+- Fog of War
+- Minimap
+- Command Card
+- TechTree
+- Upgrade
+- Projectile
+- Advanced AI
+- Save / Load
+- Replay
+- Multiplayer Lockstep
+```

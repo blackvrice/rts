@@ -1,4 +1,4 @@
-﻿//
+//
 // Created by black on 26. 1. 1..
 //
 
@@ -15,6 +15,8 @@
 #include "core/model/IGameElement.hpp"
 #include "core/model/PlayerResourceState.hpp"
 #include "core/model/Unit.hpp"
+#include "core/model/Building.hpp"
+#include "core/model/ResourceNode.hpp"
 #include "core/render/RenderCommand.hpp"
 #include "core/render/RenderQueue.hpp"
 #include "core/ui/IUIElement.hpp"
@@ -22,6 +24,8 @@
 #include "core/ui/TextBox.hpp"
 #include "core/model/IViewModel.hpp"
 #include "core/viewmodel/UnitViewModel.hpp"
+#include "core/viewmodel/BuildingViewModel.hpp"
+#include "core/viewmodel/ResourceNodeViewModel.hpp"
 #include "core/world/GameWorld.hpp"
 #include "game/game/GameLogicManager.hpp"
 
@@ -114,6 +118,7 @@ namespace rts::core::manager {
 
         router.on<command::MouseLeftPressedCommand>(
             [this](const command::MouseLeftPressedCommand &cmd) {
+                m_isDragging = true;
                 const core::model::Vector2D &pos = cmd.position();
                 for (const auto &element: m_elements) {
                     element->MouseDown(pos);
@@ -132,6 +137,7 @@ namespace rts::core::manager {
         );
         router.on<command::MouseLeftReleasedCommand>(
             [this](const command::MouseLeftReleasedCommand &cmd) {
+                m_isDragging = false;
                 const core::model::Vector2D &pos = cmd.position();
                 for (const auto &element: m_elements) {
                     element->MouseUp(pos);
@@ -312,25 +318,35 @@ namespace rts::core::manager {
         selection.action = "None";
 
         for (const auto& element : m_world.getElements()) {
-            auto unit = std::dynamic_pointer_cast<core::model::Unit>(element);
-            if (!unit ||
-                !unit->state().selected ||
-                unit->getAction() == core::model::ActionType::Dead) {
+            auto gameElement = std::dynamic_pointer_cast<core::model::IGameElement>(element);
+            if (!gameElement ||
+                !gameElement->state().selected ||
+                gameElement->getAction() == core::model::ActionType::Dead) {
                 continue;
             }
 
             ++selection.selectedCount;
             if (!selection.hasPrimaryUnit) {
                 selection.hasPrimaryUnit = true;
-                selection.primaryName = unit->displayName();
-                selection.action = actionText(unit->getAction());
-                selection.hp = unit->getHp();
-                selection.maxHp = unit->getMaxHp();
-                selection.position = unit->getPosition();
-                selection.hasCombatStats = true;
-                selection.attackDamage = unit->getAttackDamage();
-                selection.armor = unit->getArmor();
-                selection.attackRange = unit->getAttackRange();
+                selection.primaryName = gameElement->displayName();
+                selection.action = actionText(gameElement->getAction());
+                
+                if (auto unit = std::dynamic_pointer_cast<core::model::Unit>(element)) {
+                    selection.hp = unit->getHp();
+                    selection.maxHp = unit->getMaxHp();
+                    selection.hasCombatStats = true;
+                    selection.attackDamage = unit->getAttackDamage();
+                    selection.armor = unit->getArmor();
+                    selection.attackRange = unit->getAttackRange();
+                } else if (auto building = std::dynamic_pointer_cast<core::model::Building>(element)) {
+                    selection.hp = building->getHp();
+                    selection.maxHp = building->getMaxHp();
+                } else if (auto resource = std::dynamic_pointer_cast<core::model::ResourceNode>(element)) {
+                    selection.hp = resource->remaining();
+                    selection.maxHp = resource->remaining(); 
+                }
+
+                selection.position = gameElement->getPosition();
             }
         }
 
@@ -338,6 +354,35 @@ namespace rts::core::manager {
             core::render::RenderLayer::UI,
             -99,
             std::move(selection)
+        );
+
+        int cursorId = 100; // Cursor_01
+
+        if (m_isDragging) {
+            cursorId = 102; // Cursor_03
+        } else if (m_worldOrderMode == WorldOrderMode::Move) {
+            cursorId = 103; // Cursor_04
+        } else if (m_worldOrderMode == WorldOrderMode::Attack) {
+            core::model::Vector2D worldPos = m_camera.screenToWorld(m_mousePos);
+            bool hoverEnemy = false;
+            for (const auto& element : m_world.getElements()) {
+                auto unit = std::dynamic_pointer_cast<core::model::Unit>(element);
+                if (unit && unit->getTeamId() != core::model::TeamId::Player && unit->getAction() != core::model::ActionType::Dead) {
+                    if (unit->getPosition().distanceTo(worldPos) < 32.0f) {
+                        hoverEnemy = true;
+                        break;
+                    }
+                }
+            }
+            if (hoverEnemy) {
+                cursorId = 101; // Cursor_02
+            }
+        }
+
+        m_renderQueue.emplace(
+            core::render::RenderLayer::UI,
+            -98,
+            core::render::UpdateHudCursor { cursorId }
         );
 
         for (auto &element: m_elements) {
@@ -360,6 +405,14 @@ namespace rts::core::manager {
                 if (auto unit = std::dynamic_pointer_cast<core::model::Unit>(element)) {
                     m_viewModels.push_back(
                         std::make_shared<core::viewmodel::UnitViewModel>(unit)
+                    );
+                } else if (auto building = std::dynamic_pointer_cast<core::model::Building>(element)) {
+                    m_viewModels.push_back(
+                        std::make_shared<core::viewmodel::BuildingViewModel>(building)
+                    );
+                } else if (auto resource = std::dynamic_pointer_cast<core::model::ResourceNode>(element)) {
+                    m_viewModels.push_back(
+                        std::make_shared<core::viewmodel::ResourceNodeViewModel>(resource)
                     );
                 }
             }

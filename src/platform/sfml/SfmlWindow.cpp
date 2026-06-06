@@ -1,4 +1,4 @@
-﻿//
+//
 // Created by black on 25. 12. 22..
 //
 
@@ -10,6 +10,7 @@
 #include "core/command/UICommandBus.hpp"
 #include "core/font/FontManager.hpp"
 #include "platform/sfml/SfmlFontMetrics.hpp"
+#include <imgui.h>
 
 
 namespace rts::platform::sfml {
@@ -39,6 +40,9 @@ namespace rts::platform::sfml {
             const auto &event = ev.value();
 
             if (event.is<sf::Event::MouseButtonPressed>()) {
+                if (ImGui::GetCurrentContext() && ImGui::GetIO().WantCaptureMouse) {
+                    continue;
+                }
                 const auto *mouse = event.getIf<sf::Event::MouseButtonPressed>();
                 auto position = core::model::Vector2D(mouse->position.x, mouse->position.y);
                 if (mouse->button == sf::Mouse::Button::Left) {
@@ -53,6 +57,9 @@ namespace rts::platform::sfml {
             }
 
             if (event.is<sf::Event::MouseButtonReleased>()) {
+                if (ImGui::GetCurrentContext() && ImGui::GetIO().WantCaptureMouse) {
+                    continue;
+                }
                 const auto *mouse = event.getIf<sf::Event::MouseButtonReleased>();
                 auto position = core::model::Vector2D(mouse->position.x, mouse->position.y);
                 if (mouse->button == sf::Mouse::Button::Left) {
@@ -67,6 +74,9 @@ namespace rts::platform::sfml {
             }
 
             if (event.is<sf::Event::MouseMoved>()) {
+                if (ImGui::GetCurrentContext() && ImGui::GetIO().WantCaptureMouse) {
+                    continue;
+                }
                 const auto *mouse = event.getIf<sf::Event::MouseMoved>();
                 auto position = core::model::Vector2D(mouse->position.x, mouse->position.y);
                 m_bus.push(

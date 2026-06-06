@@ -42,11 +42,17 @@ namespace {
     constexpr int kBlueWarriorAttackTextureId = 3;
     constexpr int kBlueWarriorGuardTextureId = 4;
     constexpr int kCursorTextureId = 100;
+    constexpr int kCursor02TextureId = 101;
+    constexpr int kCursor03TextureId = 102;
+    constexpr int kCursor04TextureId = 103;
     constexpr const char* kBlueWarriorIdlePath = "Units/Blue Units/Warrior/Warrior_Idle.png";
     constexpr const char* kBlueWarriorRunPath = "Units/Blue Units/Warrior/Warrior_Run.png";
     constexpr const char* kBlueWarriorAttackPath = "Units/Blue Units/Warrior/Warrior_Attack1.png";
     constexpr const char* kBlueWarriorGuardPath = "Units/Blue Units/Warrior/Warrior_Guard.png";
     constexpr const char* kCursorPath = "UI Elements/UI Elements/Cursors/Cursor_01.png";
+    constexpr const char* kCursor02Path = "UI Elements/UI Elements/Cursors/Cursor_02.png";
+    constexpr const char* kCursor03Path = "UI Elements/UI Elements/Cursors/Cursor_03.png";
+    constexpr const char* kCursor04Path = "UI Elements/UI Elements/Cursors/Cursor_04.png";
 
     struct SpriteTrimCacheKey {
         const sf::Texture* texture;
@@ -228,6 +234,19 @@ namespace {
         return {};
     }
 
+    int hudCursor(
+        const rts::core::render::RenderQueue& queue
+    ) {
+        int cursorId = 100;
+        for (const auto& command : queue.commands()) {
+            const auto* cursor = std::get_if<rts::core::render::UpdateHudCursor>(&command.data);
+            if (cursor) {
+                cursorId = cursor->cursorTextureId;
+            }
+        }
+        return cursorId;
+    }
+
     const sf::Texture* tinySwordsSpriteTexture(const int textureId) {
         static std::unordered_map<int, std::unique_ptr<sf::Texture>> textures;
 
@@ -251,6 +270,15 @@ namespace {
                 break;
             case kCursorTextureId:
                 relativePath = kCursorPath;
+                break;
+            case kCursor02TextureId:
+                relativePath = kCursor02Path;
+                break;
+            case kCursor03TextureId:
+                relativePath = kCursor03Path;
+                break;
+            case kCursor04TextureId:
+                relativePath = kCursor04Path;
                 break;
             default:
                 return nullptr;
@@ -349,8 +377,8 @@ namespace {
         }
     }
 
-    void drawMouseCursor(sf::RenderWindow& window) {
-        const sf::Texture* texture = tinySwordsSpriteTexture(kCursorTextureId);
+    void drawMouseCursor(sf::RenderWindow& window, int cursorTextureId) {
+        const sf::Texture* texture = tinySwordsSpriteTexture(cursorTextureId);
         if (!texture) {
             return;
         }
@@ -463,6 +491,7 @@ namespace rts::platform::sfml {
         const auto selectedHudUnit = selectedHudSprite(queue);
         const auto resources = hudResources(queue);
         const auto selection = hudSelection(queue);
+        const auto cursorId = hudCursor(queue);
         const auto cameraPosition = camera.position();
         sf::View worldView;
         worldView.setSize({
@@ -506,7 +535,7 @@ namespace rts::platform::sfml {
 
         m_hud->render(*sfWindow, resources, selection);
         drawSelectedHudSprite(*sfWindow, selectedHudUnit);
-        drawMouseCursor(*sfWindow);
+        drawMouseCursor(*sfWindow, cursorId);
     }
 
     void SfmlRenderManager::draw(sf::RenderWindow &window, const core::render::DrawRect &r) {
@@ -652,6 +681,12 @@ namespace rts::platform::sfml {
     void SfmlRenderManager::draw(
         sf::RenderWindow&,
         const core::render::UpdateHudSelection&
+    ) {
+    }
+
+    void SfmlRenderManager::draw(
+        sf::RenderWindow&,
+        const core::render::UpdateHudCursor&
     ) {
     }
 }

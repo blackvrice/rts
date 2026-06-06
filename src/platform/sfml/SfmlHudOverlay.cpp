@@ -556,8 +556,8 @@ namespace rts::platform::sfml {
             ImGuiWindowFlags_NoScrollWithMouse |
             ImGuiWindowFlags_NoBackground;
 
-        ImGui::SetNextWindowPos({0.0f, 0.0f}, ImGuiCond_Always);
-        ImGui::SetNextWindowSize({width, height}, ImGuiCond_Always);
+        ImGui::SetNextWindowPos({0.0f, bottomY}, ImGuiCond_Always);
+        ImGui::SetNextWindowSize({width, bottomHeight}, ImGuiCond_Always);
         ImGui::Begin("##rts_star_command_hud", nullptr, flags);
 
         ImDrawList& drawList = *ImGui::GetWindowDrawList();
@@ -575,6 +575,8 @@ namespace rts::platform::sfml {
         // HUD ADJUST: this is the full-width bottom console background png.
         drawList.AddRectFilled(consoleMin, consoleMax, kConsoleFill);
         drawList.AddLine({0.0f, bottomY}, {width, bottomY}, kPanelEdge, 2.0f);
+
+        drawList.PushClipRectFullScreen();
 
         const ImVec2 resourceSize{142.0f, 34.0f};
         const float resourceTop = 12.0f;
@@ -630,8 +632,8 @@ namespace rts::platform::sfml {
         drawList.AddText(infoMin, kTextMain, selection.primaryName.c_str());
         drawList.AddText({infoMin.x, infoMin.y + 28.0f}, kTextDim, selectedCount.c_str());
         drawList.AddText({infoMin.x, infoMin.y + 56.0f}, kTextDim, action.c_str());
-        // StarCraft-style unit HUD shows health as a compact number instead of a filled bar.
         drawList.AddText({infoMin.x, infoMin.y + 84.0f}, selection.hasCombatStats ? kTextMain : kTextDim, combatStats.c_str());
+        // StarCraft-style unit HUD shows health as a compact number instead of a filled bar.
         drawList.AddText({infoMin.x, infoMin.y + 116.0f}, selection.hasPrimaryUnit ? kTextMain : kTextDim, hp.c_str());
         drawList.AddText({infoMin.x, infoMin.y + 148.0f}, kTextMain, position.c_str());
         drawList.AddText({infoMin.x, infoMin.y + 180.0f}, kWarning, command.c_str());
@@ -685,6 +687,7 @@ namespace rts::platform::sfml {
             }
         }
 
+        drawList.PopClipRect();
         ImGui::End();
     }
 }

@@ -75,13 +75,18 @@ namespace rts::core::render {
         model::Vector2D position {};
     };
 
+    struct UpdateHudCursor {
+        int cursorTextureId { 100 };
+    };
+
     using RenderCommandData = std::variant<
         DrawRect,
         DrawText,
         DrawSprite,
         DrawCircle,
         UpdateHudResources,
-        UpdateHudSelection
+        UpdateHudSelection,
+        UpdateHudCursor
     >;
 
     struct RenderCommand {

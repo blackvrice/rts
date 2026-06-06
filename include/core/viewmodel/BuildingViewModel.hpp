@@ -13,8 +13,14 @@ namespace rts::core::viewmodel {
         const void* modelPtr() const override;
         void buildRenderCommands(render::RenderQueue& out) const override;
 
+        void update() override {}
+        bool visible() const override { return m_visible; }
+        void setVisible(bool v) override { m_visible = v; }
+        const char* name() const override { return "Building"; }
+
     private:
         std::shared_ptr<model::Building> m_building;
+        bool m_visible = true;
     };
 
 }
