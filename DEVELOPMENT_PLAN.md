@@ -316,7 +316,7 @@ MoveToResource
 [x] Drop-off 가능한 건물 타입 정의
 [x] 완성된 아군 건물만 후보로 인정
 [x] 가장 가까운 Drop-off 건물 탐색
-[ ] Drop-off 건물이 파괴되었을 때 재탐색
+[x] Drop-off 건물이 파괴되었을 때 재탐색
 [x] Drop-off 건물이 없으면 Worker Idle 처리
 ```
 
@@ -336,7 +336,7 @@ MoveToResource
 
 ```text
 [x] ResourceNode별 예약 Worker 목록 관리
-[ ] MaxGatherers 초과 시 다른 자원 탐색 또는 대기
+[x] MaxGatherers 초과 시 다른 자원 탐색 또는 대기
 [x] Worker 사망/명령 변경 시 예약 해제
 [x] ResourceNode 고갈 시 예약 전체 해제
 ```
@@ -414,12 +414,12 @@ struct BuildingStaticData
 #### Task
 
 ```text
-[ ] ProductionQueueComponent 추가
-[ ] ProductionItem 구조 추가
-[ ] Queue 삽입 함수 추가
-[ ] Queue 취소 함수 추가
-[ ] 현재 생산 중인 항목 진행도 증가
-[ ] 생산 완료 이벤트 발생
+[x] ProductionQueueComponent 추가 (Building 내장 m_trainQueue로 구현)
+[x] ProductionItem 구조 추가 (UnitType deque + 단일 진행 타이머로 단순화)
+[x] Queue 삽입 함수 추가 (Building::trainUnit)
+[x] Queue 취소 함수 추가 (Building::cancelLastTrain)
+[x] 현재 생산 중인 항목 진행도 증가 (Building::tick m_trainTimer)
+[x] 생산 완료 이벤트 발생 (spawnFn 콜백 호출)
 ```
 
 #### 예시 구조
@@ -453,12 +453,12 @@ struct ProductionQueue
 #### Task
 
 ```text
-[ ] UnitStaticData에 Gold/Wood/Supply 비용 추가
-[ ] 생산 시작 전 자원 검사
-[ ] 자원 부족 시 생산 거부
-[ ] 생산 큐 추가 시 비용 즉시 차감
-[ ] 생산 취소 시 환불
-[ ] 인구수 부족 시 생산 거부
+[x] UnitStaticData에 Gold/Wood/Supply 비용 추가 (goldCost/woodCost/foodCost + cost())
+[x] 생산 시작 전 자원 검사 (canAfford)
+[x] 자원 부족 시 생산 거부
+[x] 생산 큐 추가 시 비용 즉시 차감 (pay)
+[x] 생산 취소 시 환불 (refund)
+[x] 인구수 부족 시 생산 거부 (canAfford가 foodUsed+cost <= foodCapacity 검사)
 ```
 
 #### 완료 기준
@@ -476,11 +476,11 @@ struct ProductionQueue
 #### Task
 
 ```text
-[ ] 건물 footprint 주변 타일 검색
-[ ] 이동 가능한 타일 필터링
+[x] 건물 footprint 주변 타일 검색 (findFreeSpawnPosition 링 탐색)
+[x] 이동 가능한 타일 필터링 (isTileBlocked/isCellOccupied)
 [ ] RallyPoint 방향 우선 배치
-[ ] 스폰 위치가 없으면 생산 완료 대기
-[ ] 스폰 후 충돌 등록
+[ ] 스폰 위치가 없으면 생산 완료 대기 (현재는 앵커로 폴백)
+[x] 스폰 후 충돌 등록 (addElement → onCollisionChanged)
 ```
 
 #### 완료 기준
@@ -497,9 +497,9 @@ struct ProductionQueue
 #### Task
 
 ```text
-[ ] 건물 선택 후 우클릭으로 RallyPoint 설정
+[x] 건물 선택 후 우클릭으로 RallyPoint 설정
 [ ] RallyPoint UI 표시
-[ ] 생산 완료 유닛에게 MoveCommand 자동 발행
+[x] 생산 완료 유닛에게 MoveCommand 자동 발행 (flushPendingSpawns에서 moveTo)
 [ ] RallyPoint가 적이면 AttackMove 또는 AttackTarget 처리 여부 결정
 ```
 
@@ -544,11 +544,11 @@ struct ProductionQueue
 #### Task
 
 ```text
-[ ] BuildCommand에 BuildingTypeId 포함
-[ ] BuildCommand에 targetTile 포함
-[ ] Worker만 BuildCommand 가능하게 제한
-[ ] 건설 비용 검사
-[ ] 건설 위치 검사
+[x] BuildCommand에 BuildingTypeId 포함
+[x] BuildCommand에 targetTile 포함 (position → 커서 타일 변환)
+[x] Worker만 BuildCommand 가능하게 제한 (firstSelectedWorker)
+[x] 건설 비용 검사 (canAfford)
+[x] 건설 위치 검사 (canPlaceBuilding)
 ```
 
 #### 완료 기준
@@ -584,12 +584,12 @@ struct ProductionQueue
 #### Task
 
 ```text
-[ ] 맵 경계 밖인지 검사
-[ ] 타일이 이동 가능한지 검사
-[ ] 다른 건물 footprint와 겹치는지 검사
-[ ] 자원 노드와 겹치는지 검사
-[ ] 유닛과 겹치는지 검사
-[ ] 지형 타입이 건설 가능한지 검사
+[x] 맵 경계 밖인지 검사 (isTileBlocked가 경계 포함)
+[x] 타일이 이동 가능한지 검사 (isTileBlocked moveCost)
+[x] 다른 건물 footprint와 겹치는지 검사 (isCellOccupied, 단일 점유 셀 기준)
+[x] 자원 노드와 겹치는지 검사 (isCellOccupied)
+[x] 유닛과 겹치는지 검사 (isCellOccupied)
+[ ] 지형 타입이 건설 가능한지 검사 (현재 walkability로 근사)
 [ ] 필요한 경우 아군 건물 근처인지 검사
 ```
 
@@ -606,11 +606,11 @@ struct ProductionQueue
 #### Task
 
 ```text
-[ ] 건설 명령 승인 시 자원 차감
-[ ] ConstructionSite 엔티티 생성
-[ ] 임시 건물 렌더링
-[ ] HP를 낮은 상태로 시작
-[ ] 진행도 progressTick 관리
+[x] 건설 명령 승인 시 자원 차감 (pay)
+[x] ConstructionSite 엔티티 생성 (beginConstruction한 Building)
+[ ] 임시 건물 렌더링 (건설 중 전용 시각화 미구현)
+[x] HP를 낮은 상태로 시작 (startHp = maxHp * 0.1)
+[x] 진행도 progressTick 관리 (m_buildProgress)
 ```
 
 #### 예시 구조
@@ -650,11 +650,11 @@ Idle
 #### Task
 
 ```text
-[ ] Worker가 건설 위치로 이동
-[ ] 건설 가능 거리 도달 시 작업 시작
-[ ] 매 Tick 건설 진행도 증가
-[ ] Worker가 멀어지면 진행 정지
-[ ] 건설 완료 시 Building completed 처리
+[x] Worker가 건설 위치로 이동 (updateBuild moveToward)
+[x] 건설 가능 거리 도달 시 작업 시작 (kBuildInteractRange)
+[x] 매 Tick 건설 진행도 증가 (advanceConstruction)
+[x] Worker가 멀어지면 진행 정지 (범위 밖이면 진행 호출 안 함)
+[x] 건설 완료 시 Building completed 처리
 ```
 
 #### 완료 기준
@@ -670,12 +670,12 @@ Idle
 #### Task
 
 ```text
-[ ] ConstructionComponent 제거
-[ ] Building.completed = true 처리
-[ ] 완성된 건물 HP 설정
-[ ] 생산 가능 건물이면 ProductionQueue 활성화
-[ ] Drop-off 건물이면 자원 반납 후보 등록
-[ ] 타일 walkability 최종 반영
+[x] ConstructionComponent 제거 (m_completed=true 전환으로 대체)
+[x] Building.completed = true 처리
+[x] 완성된 건물 HP 설정 (m_hp = m_maxHp)
+[x] 생산 가능 건물이면 ProductionQueue 활성화 (완성 후 tick에서 train 가능)
+[x] Drop-off 건물이면 자원 반납 후보 등록 (isDropOff = 완성 + TownHall)
+[ ] 타일 walkability 최종 반영 (Epic 5.3 후속)
 ```
 
 #### 완료 기준
@@ -879,15 +879,15 @@ Vertical Slice 단계에서는 Wave Attack AI만 먼저 구현해도 충분합�
 #### Task
 
 ```text
-[ ] maxHp
-[ ] footprintWidth
-[ ] footprintHeight
-[ ] costGold
-[ ] costWood
-[ ] buildTime
-[ ] produces
+[x] maxHp
+[x] footprintWidth
+[x] footprintHeight
+[x] costGold
+[x] costWood
+[x] buildTime (buildTimeSeconds)
+[ ] produces (현재 defaultUnitFor 하드코딩, 데이터 목록 미구현)
 [ ] providesSupply
-[ ] isDropOff
+[ ] isDropOff (Building::isDropOff가 buildingType 기반, 데이터 필드 아님)
 [ ] requirements
 ```
 
@@ -1098,7 +1098,7 @@ struct EntityId
 ```text
 [x] 우클릭 대상이 땅이면 MoveCommand
 [x] 우클릭 대상이 적이면 AttackTargetCommand
-[ ] 우클릭 대상이 자원이면 GatherCommand
+[x] 우클릭 대상이 자원이면 GatherCommand (handleAttackCommand의 resource 분기)
 [ ] 우클릭 대상이 미완성 건물이면 Build/RepairCommand
 [ ] 우클릭 대상이 아군 건물이면 RallyPoint 또는 Repair
 [ ] 우클릭 불가 대상이면 InvalidCommand
@@ -1453,17 +1453,17 @@ RVO보다 먼저:
 
 ## Epic 5.2 자원 소비
 
-현재 상태: `[0%]`
+현재 상태: `[90%]`
 
 ### Task
 
 ```text
-[ ] Cost 구조 추가
-[ ] CanAfford 함수 추가
-[ ] PayCost 함수 추가
-[ ] RefundCost 함수 추가
-[ ] 생산/건설/업그레이드에 연결
-[ ] 자원 부족 시 명령 거부
+[x] Cost 구조 추가 (Cost{gold,wood,food} — supply 대신 food)
+[x] CanAfford 함수 추가 (PlayerResourceState::canAfford)
+[x] PayCost 함수 추가 (pay)
+[x] RefundCost 함수 추가 (refund)
+[x] 생산/건설/업그레이드에 연결 (생산·건설 연결, 업그레이드는 미구현)
+[x] 자원 부족 시 명령 거부
 ```
 
 ### 예시 구조
@@ -1488,13 +1488,13 @@ struct Cost
 
 ## Epic 5.3 건물 Footprint
 
-현재 상태: `[0%]`
+현재 상태: `[20%]`
 
 ### Task
 
 ```text
-[ ] BuildingStaticData에 footprint 크기 추가
-[ ] 건물 생성 시 Grid 점유 처리
+[x] BuildingStaticData에 footprint 크기 추가
+[ ] 건물 생성 시 Grid 점유 처리 (현재 isCellOccupied 단일 셀만)
 [ ] 건물 파괴 시 Grid 점유 해제
 [ ] Pathfinding walkability 갱신
 [ ] 건설 중인 건물도 막힘 처리할지 정책 결정
