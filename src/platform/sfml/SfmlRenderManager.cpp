@@ -58,7 +58,8 @@ namespace {
     constexpr int kCursor03TextureId = 102;
     constexpr int kCursor04TextureId = 103;
     // Resource node texture ids (ResourceNodeViewModel).
-    constexpr int kGoldTextureId = 200;
+    // Gold Stone highlight piles: stage 1..6 -> 210..215 (each a 6-frame sheet).
+    constexpr int kGoldStoneHighlightFirstTextureId = 210;
     constexpr int kWoodTextureId = 201;
     // Building texture ids (BuildingViewModel): Blue 300/301, Red 310/311.
     constexpr int kBlueTownHallTextureId = 300;
@@ -80,7 +81,6 @@ namespace {
     constexpr const char* kRedPawnIdlePath = "Units/Red Units/Pawn/Pawn_Idle.png";
     constexpr const char* kRedPawnRunPath = "Units/Red Units/Pawn/Pawn_Run.png";
     constexpr const char* kRedPawnInteractPath = "Units/Red Units/Pawn/Pawn_Interact Hammer.png";
-    constexpr const char* kGoldPath = "Terrain/Resources/Gold/Gold Resource/Gold_Resource.png";
     constexpr const char* kWoodPath = "Terrain/Resources/Wood/Wood Resource/Wood Resource.png";
     constexpr const char* kBlueTownHallPath = "Buildings/Blue Buildings/Castle.png";
     constexpr const char* kBlueBarracksPath = "Buildings/Blue Buildings/Barracks.png";
@@ -335,9 +335,18 @@ namespace {
             case kRedPawnInteractTextureId:
                 relativePath = kRedPawnInteractPath;
                 break;
-            case kGoldTextureId:
-                relativePath = kGoldPath;
+            case 210: case 211: case 212: case 213: case 214: case 215: {
+                static constexpr const char* kGoldStoneHighlightPaths[] = {
+                    "Terrain/Resources/Gold/Gold Stones/Gold Stone 1_Highlight.png",
+                    "Terrain/Resources/Gold/Gold Stones/Gold Stone 2_Highlight.png",
+                    "Terrain/Resources/Gold/Gold Stones/Gold Stone 3_Highlight.png",
+                    "Terrain/Resources/Gold/Gold Stones/Gold Stone 4_Highlight.png",
+                    "Terrain/Resources/Gold/Gold Stones/Gold Stone 5_Highlight.png",
+                    "Terrain/Resources/Gold/Gold Stones/Gold Stone 6_Highlight.png"
+                };
+                relativePath = kGoldStoneHighlightPaths[textureId - kGoldStoneHighlightFirstTextureId];
                 break;
+            }
             case kWoodTextureId:
                 relativePath = kWoodPath;
                 break;

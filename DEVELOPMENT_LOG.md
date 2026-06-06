@@ -1,5 +1,22 @@
 # Development Log
 
+## 2026-06-07 - Gold 자원: Gold Stone 단계별 스프라이트 + Highlight 애니메이션
+
+### 변경 내용
+- Gold 자원 노드의 스프라이트를 단일 `Gold_Resource.png`에서 **Gold Stone 더미(stage 1~6)** 로 교체.
+- 남은 자원량 비율에 따라 단계 선택: `ceil(remaining/total * 6)`을 1~6로 clamp → 가득 차면 stage 6, 고갈에 가까울수록 stage 1로 더미가 줄어듦.
+- 각 단계는 `Gold Stone N_Highlight.png`(768×128 = 6프레임 시트)를 사용해 **기본 상태에서 반짝이는 Highlight 애니메이션**(6프레임, 8fps)을 재생.
+- Wood 자원은 기존 정적 스프라이트 유지.
+
+### 구현
+- `ResourceNodeViewModel`: `goldStoneStage()`로 단계 계산, Gold면 텍스처 id `210 + (stage-1)`에 sourceW/H=128·frameCount=6·fps=8로 DrawSprite emit. Wood는 종전대로.
+- `SfmlRenderManager`: 텍스처 id 210~215를 `Gold Stones/Gold Stone {1..6}_Highlight.png`에 매핑(경로 배열). 사용하지 않게 된 `Gold_Resource.png`(200) 매핑 제거.
+
+### 검증
+- Gold Stone Highlight 6단계 파일 경로 존재 확인.
+- `cmake.exe --build cmake-build-debug` 빌드 성공, `RTS.exe` 정상 구동.
+- 한계: 실제 단계 전환/반짝임은 수동 플레이로 최종 확인 필요.
+
 ## 2026-06-07 - Fix: 유닛/건물/자원 스프라이트 미표시 (텍스처 매핑 누락)
 
 ### 문제
