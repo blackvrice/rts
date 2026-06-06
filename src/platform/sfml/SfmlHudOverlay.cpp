@@ -617,6 +617,11 @@ namespace rts::platform::sfml {
         const std::string hp = selection.hasPrimaryUnit
             ? "HP " + formatRounded(selection.hp) + " / " + formatRounded(selection.maxHp)
             : "HP -";
+        const std::string combatStats = selection.hasCombatStats
+            ? "Atk " + formatRounded(selection.attackDamage) +
+              "  Armor " + formatRounded(selection.armor) +
+              "  Range " + formatRounded(selection.attackRange)
+            : "Stats -";
         const std::string position = selection.hasPrimaryUnit
             ? "Position " + formatPosition(selection.position)
             : "Position -";
@@ -626,9 +631,10 @@ namespace rts::platform::sfml {
         drawList.AddText({infoMin.x, infoMin.y + 28.0f}, kTextDim, selectedCount.c_str());
         drawList.AddText({infoMin.x, infoMin.y + 56.0f}, kTextDim, action.c_str());
         // StarCraft-style unit HUD shows health as a compact number instead of a filled bar.
-        drawList.AddText({infoMin.x, infoMin.y + 92.0f}, selection.hasPrimaryUnit ? kTextMain : kTextDim, hp.c_str());
-        drawList.AddText({infoMin.x, infoMin.y + 124.0f}, kTextMain, position.c_str());
-        drawList.AddText({infoMin.x, infoMin.y + 164.0f}, kWarning, command.c_str());
+        drawList.AddText({infoMin.x, infoMin.y + 84.0f}, selection.hasCombatStats ? kTextMain : kTextDim, combatStats.c_str());
+        drawList.AddText({infoMin.x, infoMin.y + 116.0f}, selection.hasPrimaryUnit ? kTextMain : kTextDim, hp.c_str());
+        drawList.AddText({infoMin.x, infoMin.y + 148.0f}, kTextMain, position.c_str());
+        drawList.AddText({infoMin.x, infoMin.y + 180.0f}, kWarning, command.c_str());
 
         using core::command::GameplayInputAction;
         const std::array<HudCommandButton, 9> commands{{

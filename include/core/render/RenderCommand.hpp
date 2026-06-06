@@ -68,6 +68,10 @@ namespace rts::core::render {
         std::string action { "None" };
         float hp {};
         float maxHp {};
+        bool hasCombatStats {};
+        float attackDamage {};
+        float armor {};
+        float attackRange {};
         model::Vector2D position {};
     };
 

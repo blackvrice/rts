@@ -1,5 +1,6 @@
 ﻿#include <cmath>
 #include <iostream>
+#include <algorithm>
 #include <core/model/Unit.hpp>
 #include <core/viewmodel/UnitViewModel.hpp>
 #include <core/world/GridTransform.hpp>
@@ -17,21 +18,31 @@ namespace {
 
 namespace rts::core::model {
     Unit::Unit()
+        : Unit(core::data::warriorUnitStaticData())
+    {
+    }
+
+    Unit::Unit(const core::data::UnitStaticData& staticData)
     {
         // ===== 기본 스탯 초기화 =====
         m_position = { 0.f, 0.f };
 
-        m_maxHp = 100.f;
-        m_hp    = m_maxHp;
-
-        moveSpeed = 120.f;
-        attackRange = 80.f;
-        attackDamage = 10.f;
-        attackCooldown = 0.8f;
+        applyStaticData(staticData);
         attackTimer = 0.f;
 
         m_action = ActionType::Idle;
         m_animationAction = ActionType::Idle;
+    }
+
+    void Unit::applyStaticData(const core::data::UnitStaticData& staticData) {
+        m_displayName = staticData.displayName;
+        m_maxHp = staticData.maxHp;
+        m_hp = m_maxHp;
+        moveSpeed = staticData.moveSpeed;
+        attackRange = staticData.attackRange;
+        attackDamage = staticData.attackDamage;
+        attackCooldown = staticData.attackCooldown;
+        m_armor = staticData.armor;
     }
 
     ActionType Unit::getAction() const {
@@ -205,7 +216,9 @@ namespace rts::core::model {
         if (m_action == ActionType::Dead)
             return;
 
-        m_hp -= amount;
+        // Armor is static unit data and mitigates each hit while still allowing chip damage.
+        const float mitigatedAmount = std::max(1.0f, amount - m_armor);
+        m_hp -= mitigatedAmount;
 
         if (m_hp <= 0.f) {
             m_hp = 0.f;
@@ -226,6 +239,30 @@ namespace rts::core::model {
 
     float Unit::getMaxHp() const {
         return m_maxHp;
+    }
+
+    float Unit::getAttackDamage() const {
+        return attackDamage;
+    }
+
+    float Unit::getAttackRange() const {
+        return attackRange;
+    }
+
+    float Unit::getAttackCooldown() const {
+        return attackCooldown;
+    }
+
+    float Unit::getMoveSpeed() const {
+        return moveSpeed;
+    }
+
+    float Unit::getArmor() const {
+        return m_armor;
+    }
+
+    std::string Unit::displayName() const {
+        return m_displayName;
     }
 
     // ===== IElement / IGameElement 구현 =====

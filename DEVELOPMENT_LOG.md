@@ -1,5 +1,14 @@
 # Development Log
 
+## 2026-06-07 - Unit Static Data Runtime Stats
+
+- Reworked `UnitStaticData` into a runtime-ready unit stat model with display name, HP, attack damage, range, cooldown, move speed, armor, and basic economy costs.
+- Added default Warrior, Archer, Worker, and Marine stat presets, and changed `Unit` construction to apply static data instead of hardcoded combat stats.
+- Added armor mitigation to unit damage handling and exposed unit stat getters for UI snapshots.
+- Updated the selection HUD snapshot and overlay so selected units show their real name, attack, armor, range, HP, action, and position.
+- Marked `DEVELOPMENT_PLAN.md` Phase 1-1 as complete while leaving factory/type registry integration under Phase 2-1.
+- Verification: built `RTS` with `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j1`, then launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
+
 ## 2026-06-06 - Team-Aware Right Click Attack Orders
 
 - Added team ownership to gameplay elements and debug units so command resolution can distinguish local player units from enemy units.

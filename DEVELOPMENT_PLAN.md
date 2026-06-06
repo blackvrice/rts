@@ -30,17 +30,17 @@
 
 현재 전투는 기본 동작이 있지만 데이터 주도 스탯, 커맨드 다양성, 피드백이 더 필요하다.
 
-### 1-1. `[부분 완료]` 유닛 정적 데이터 (`UnitStaticData`) 실용화
+### 1-1. `[완료]` 유닛 정적 데이터 (`UnitStaticData`) 실용화
 
 이미 개발된 것:
-- `Unit`에 `maxHp`, `attackDamage`, `attackRange`, `attackCooldown`, `moveSpeed` 값이 존재하고 전투에 사용됨.
-- `UnitStaticData` 골격 파일이 있음.
-- HUD 선택 패널은 현재 선택 유닛의 HP, 행동, 위치를 표시함.
+- `UnitStaticData`에 `displayName`, `maxHp`, `attackDamage`, `attackRange`, `attackCooldown`, `moveSpeed`, `armor`, 비용 필드가 정리됨.
+- `Warrior`, `Archer`, `Worker`, `Marine` 기본 정적 데이터 프리셋이 있음.
+- `Unit` 생성 시 하드코딩 스탯 대신 `UnitStaticData`를 적용함.
+- 전투 피해 계산에 `armor`가 반영됨.
+- HUD 선택 패널에 실제 유닛 이름, 공격력, 방어력, 사거리, HP, 행동, 위치가 표시됨.
 
 추가 개발 필요:
-- `UnitStaticData`에 `displayName`, `maxHp`, `attackDamage`, `attackRange`, `attackCooldown`, `moveSpeed`, `armor`, 비용 필드를 정리.
-- `Unit` 생성 시 하드코딩 스탯 대신 `UnitStaticData` 또는 타입별 프로토타입에서 스탯을 읽도록 변경.
-- HUD 선택 패널에 실제 공격력, 방어력, 사거리, 유닛 이름 표시.
+- 타입별 생산/스폰 경로 전체를 `UnitFactory`와 정적 데이터 레지스트리로 통합하는 작업은 Phase 2-1에서 진행.
 
 관련 파일:
 - `include/core/data/UnitStaticData.hpp`
@@ -393,7 +393,7 @@
 | 상태 | 항목 | 출처 | 해당 Phase |
 |------|------|------|------------|
 | `[부분 완료]` | 커서 상태 변형 검증/확정 및 공격 가능 건물 hover 확장 | Cursor State Variation | Phase 1-2 |
-| `[부분 완료]` | 유닛 실제 스탯 데이터화 및 HUD 공격력/방어력/사거리 표시 | Selected Unit HUD Details | Phase 1-1 |
+| `[완료]` | 유닛 실제 스탯 데이터화 및 HUD 공격력/방어력/사거리 표시 | Selected Unit HUD Details | Phase 1-1 |
 | `[필요]` | Patrol 커맨드 로직 | StarCraft Hotkeys | Phase 1-3 |
 | `[필요]` | Attack-Move 커맨드 로직 | LogicCommand set | Phase 1-4 |
 | `[필요]` | Worker 채집 루프와 경제 명령 | Player Resource HUD, ResourceNode | Phase 2-2, 3-2 |

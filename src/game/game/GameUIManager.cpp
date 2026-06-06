@@ -322,11 +322,15 @@ namespace rts::core::manager {
             ++selection.selectedCount;
             if (!selection.hasPrimaryUnit) {
                 selection.hasPrimaryUnit = true;
-                selection.primaryName = "Tiny Swords Vanguard";
+                selection.primaryName = unit->displayName();
                 selection.action = actionText(unit->getAction());
                 selection.hp = unit->getHp();
                 selection.maxHp = unit->getMaxHp();
                 selection.position = unit->getPosition();
+                selection.hasCombatStats = true;
+                selection.attackDamage = unit->getAttackDamage();
+                selection.armor = unit->getArmor();
+                selection.attackRange = unit->getAttackRange();
             }
         }
 
