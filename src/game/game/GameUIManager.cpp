@@ -242,45 +242,43 @@ namespace rts::core::manager {
 
     void GameUIManager::render() {
         m_renderQueue.clear();
-        {
-            const auto lock = m_world.acquireReadLock();
-            m_renderQueue.emplace(
-                core::render::RenderLayer::UI,
-                -100,
-                core::render::UpdateHudResources {
-                    m_world.playerResources(core::model::PlayerId::Local)
-                }
-            );
 
-            core::render::UpdateHudSelection selection {};
-            selection.primaryName = "No unit selected";
-            selection.action = "None";
+        m_renderQueue.emplace(
+            core::render::RenderLayer::UI,
+            -100,
+            core::render::UpdateHudResources {
+                m_world.playerResources(core::model::PlayerId::Local)
+            }
+        );
 
-            for (const auto& element : m_world.getElements()) {
-                auto unit = std::dynamic_pointer_cast<core::model::Unit>(element);
-                if (!unit ||
-                    !unit->state().selected ||
-                    unit->getAction() == core::model::ActionType::Dead) {
-                    continue;
-                }
+        core::render::UpdateHudSelection selection {};
+        selection.primaryName = "No unit selected";
+        selection.action = "None";
 
-                ++selection.selectedCount;
-                if (!selection.hasPrimaryUnit) {
-                    selection.hasPrimaryUnit = true;
-                    selection.primaryName = "Tiny Swords Vanguard";
-                    selection.action = actionText(unit->getAction());
-                    selection.hp = unit->getHp();
-                    selection.maxHp = unit->getMaxHp();
-                    selection.position = unit->getPosition();
-                }
+        for (const auto& element : m_world.getElements()) {
+            auto unit = std::dynamic_pointer_cast<core::model::Unit>(element);
+            if (!unit ||
+                !unit->state().selected ||
+                unit->getAction() == core::model::ActionType::Dead) {
+                continue;
             }
 
-            m_renderQueue.emplace(
-                core::render::RenderLayer::UI,
-                -99,
-                std::move(selection)
-            );
+            ++selection.selectedCount;
+            if (!selection.hasPrimaryUnit) {
+                selection.hasPrimaryUnit = true;
+                selection.primaryName = "Tiny Swords Vanguard";
+                selection.action = actionText(unit->getAction());
+                selection.hp = unit->getHp();
+                selection.maxHp = unit->getMaxHp();
+                selection.position = unit->getPosition();
+            }
         }
+
+        m_renderQueue.emplace(
+            core::render::RenderLayer::UI,
+            -99,
+            std::move(selection)
+        );
 
         for (auto &element: m_elements) {
             element->buildRenderCommands(m_renderQueue);

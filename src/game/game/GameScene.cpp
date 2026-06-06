@@ -21,6 +21,7 @@ namespace rts::core::scene {
         // 1️⃣ Logic 업데이트
         m_logicManager->update();
 
+        // Scene owns the read lock while UI sync/update reads world state.
         auto lock = world->acquireReadLock();
 
         // 2️⃣ Logic → UI ViewModel 동기화 (🔥 핵심)
@@ -31,6 +32,7 @@ namespace rts::core::scene {
     }
 
     void GameScene::render() {
+        // Keep render-side world reads under one non-recursive shared_mutex lock.
         auto lock = world->acquireReadLock();
 
         // 4️⃣ 렌더링
