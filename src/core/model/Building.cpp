@@ -23,6 +23,7 @@ namespace rts::core::model {
 
     ActionType Building::getAction() const {
         if (m_hp <= 0.f) return ActionType::Dead;
+        if (!m_completed) return ActionType::Build;
         return m_trainQueue.empty() ? ActionType::Idle : ActionType::Build;
     }
 
@@ -35,7 +36,39 @@ namespace rts::core::model {
     }
 
     bool Building::isDropOff() const noexcept {
-        return m_type == BuildingType::TownHall;
+        return m_completed && m_type == BuildingType::TownHall;
+    }
+
+    void Building::beginConstruction(float buildTimeSeconds, float startHp) {
+        m_completed = false;
+        m_buildTime = buildTimeSeconds > 0.f ? buildTimeSeconds : 1.f;
+        m_buildProgress = 0.f;
+        m_hp = std::max(1.f, startHp);
+        m_trainQueue.clear();
+        m_trainTimer = 0.f;
+    }
+
+    bool Building::advanceConstruction(float dt) {
+        if (m_completed) return false;
+
+        m_buildProgress += dt;
+        // Health ramps with progress so a half-built structure shows partial HP.
+        const float t = std::min(1.f, m_buildProgress / m_buildTime);
+        m_hp = std::max(m_hp, t * m_maxHp);
+
+        if (m_buildProgress >= m_buildTime) {
+            m_completed = true;
+            m_buildProgress = m_buildTime;
+            m_hp = m_maxHp;
+            return true;
+        }
+        return false;
+    }
+
+    float Building::buildProgress01() const noexcept {
+        if (m_completed) return 1.f;
+        if (m_buildTime <= 0.f) return 0.f;
+        return std::min(1.f, m_buildProgress / m_buildTime);
     }
 
     void Building::takeDamage(float amount, IGameElement*) {
@@ -79,7 +112,9 @@ namespace rts::core::model {
     }
 
     void Building::tick(float dt) {
-        if (m_hp <= 0.f || m_trainQueue.empty()) return;
+        // Construction progress is driven by workers (advanceConstruction), not the
+        // building's own tick. An incomplete building cannot train.
+        if (m_hp <= 0.f || !m_completed || m_trainQueue.empty()) return;
 
         m_trainTimer += dt;
         if (m_trainTimer >= m_trainTime) {

@@ -51,7 +51,8 @@ namespace rts::core::manager {
         enum class WorldOrderMode {
             Move,
             Attack,
-            Gather
+            Gather,
+            Build
         };
 
         void issueWorldOrder(const core::model::Vector2D& screenPosition);

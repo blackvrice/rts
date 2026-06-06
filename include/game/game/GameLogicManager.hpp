@@ -52,6 +52,7 @@ namespace rts::core::manager {
         void handleGatherCommand(const command::GatherCommand& cmd);
         void handleTrainCommand(const command::TrainUnitCommand& cmd);
         void handleCancelProduction(const command::CancelProductionCommand& cmd);
+        void handleBuildCommand(const command::BuildCommand& cmd);
 
     private:
         // Units produced this tick are buffered here and flushed after the element
@@ -80,6 +81,11 @@ namespace rts::core::manager {
         model::Vector2D findFreeSpawnPosition(const model::Vector2D& anchor) const;
         void flushPendingSpawns();
         static ::rts::UnitType defaultUnitFor(model::BuildingType type);
+
+        // Construction helpers
+        std::shared_ptr<model::Unit> firstSelectedWorker() const;
+        // Checks the whole w x h footprint (top-left origin in tiles) is walkable and free.
+        bool canPlaceBuilding(int originX, int originY, int w, int h) const;
 
         core::world::GameWorld& m_world;
         SelectionSystem m_selection;

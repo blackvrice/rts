@@ -513,23 +513,28 @@ struct ProductionQueue
 
 ## Epic 0.5 건설 루프
 
-현재 상태: `[10%]`
+현재 상태: `[75%]`
 
 ### 현재 구현된 항목
 
 ```text
-- BuildCommand 기반 구조 일부 존재
+- BuildCommand (buildingTypeId + position)
+- BuildingStaticData (footprint/cost/buildTime/maxHp)
+- 배치 가능 여부 검사 (canPlaceBuilding: footprint walkable·비점유)
+- 자원 차감 (canAfford/pay)
+- ConstructionSite (Building beginConstruction/advanceConstruction)
+- Worker 건설 FSM (buildAt → updateBuild)
+- 완성 건물 전환 (advanceConstruction 완료 시 production/drop-off 활성화)
+- B 핫키 → 우클릭 배치 (Barracks 고정)
 ```
 
-### 부족한 항목
+### 남은 항목
 
 ```text
-- 건물 배치 프리뷰
-- 배치 가능 여부 검사
-- 자원 차감
-- ConstructionSite
-- Worker 건설 FSM
-- 완성 건물 전환
+- 건물 배치 프리뷰 (초록/빨강 렌더링)
+- 건설 중 진행도 UI
+- footprint를 그리드 walkability에 반영 (Epic 5.3, 현재 단일 점유 셀 기준)
+- 건물 타입 선택 UI (현재 B = Barracks 고정)
 ```
 
 ---

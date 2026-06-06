@@ -79,6 +79,8 @@ namespace rts::core::model {
         void gather(IGameElement*) override;
         void gather(ResourceNode* resource, Building* dropOff);
         void build(int, const Vector2D&) override {}
+        // Sends this worker to construct an existing (under-construction) building site.
+        void buildAt(Building* site);
         void cast(int, const Vector2D&) override {}
         void setSelected(bool selected) override;
 
@@ -114,6 +116,7 @@ namespace rts::core::model {
 
         void applyStaticData(const core::data::UnitStaticData& staticData);
         void updateGather(float dt);
+        void updateBuild(float dt);
         bool moveToward(const Vector2D& target, float stopDistance, float dt);
         void clearGatherState(bool releaseReservation);
 
@@ -132,6 +135,7 @@ namespace rts::core::model {
 
         ::rts::UnitType m_unitType { ::rts::UnitType::Warrior };
         WorkerGatherState m_gatherState {};
+        Building* m_buildTarget { nullptr };
         std::string m_displayName { "Unit" };
         float moveSpeed = 120.f;
 

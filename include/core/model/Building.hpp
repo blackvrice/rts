@@ -55,6 +55,16 @@ namespace rts::core::model {
         std::string displayName() const override;
         float getHp() const { return m_hp; }
         float getMaxHp() const { return m_maxHp; }
+
+        // ===== Construction =====
+        // Puts the building into an under-construction state: workers advance the
+        // progress toward buildTime, and most building features stay disabled until
+        // it completes.
+        void beginConstruction(float buildTimeSeconds, float startHp);
+        // Advances construction by dt; returns true on the tick it completes.
+        bool advanceConstruction(float dt);
+        bool isComplete() const noexcept { return m_completed; }
+        float buildProgress01() const noexcept;
         bool trainUnit(UnitType type);
         // Returns the cancelled unit type so callers can refund its cost, or nullopt
         // when the queue was empty.
@@ -80,6 +90,9 @@ namespace rts::core::model {
         UnitSpawnFn m_spawnFn;
         Vector2D m_rallyPoint{};
         bool m_hasRallyPoint = false;
+        bool m_completed = true;
+        float m_buildTime = 0.f;
+        float m_buildProgress = 0.f;
         GameState m_state{};
     };
 

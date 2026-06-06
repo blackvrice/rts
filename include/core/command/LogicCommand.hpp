@@ -189,15 +189,15 @@ namespace rts::core::command {
 
     class BuildCommand final : public LogicCommand {
     public:
-        BuildCommand(int buildingId, core::model::Vector2D position)
-            : m_buildingId(buildingId), m_position(position) {
+        BuildCommand(int buildingTypeId, core::model::Vector2D position)
+            : m_buildingTypeId(buildingTypeId), m_position(position) {
         }
 
-        int buildingId() const noexcept { return m_buildingId; }
+        int buildingTypeId() const noexcept { return m_buildingTypeId; }
         core::model::Vector2D position() const noexcept { return m_position; }
 
     private:
-        int m_buildingId;
+        int m_buildingTypeId;
         core::model::Vector2D m_position;
     };
 

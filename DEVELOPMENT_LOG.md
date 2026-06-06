@@ -1,5 +1,34 @@
 # Development Log
 
+## 2026-06-07 - Sprint 3: Construction Loop (Placement, ConstructionSite, Worker Build FSM)
+
+### 변경 내용
+- **BuildingStaticData** (`include/core/data/BuildingStaticData.hpp`): 레거시 미사용 스텁을 교체. `buildingType`/`displayName`/`maxHp`/`footprintWidth,Height`(타일)/`buildTimeSeconds`/`goldCost`/`woodCost` + `cost()` 헬퍼. TownHall(4x4, 400g, 30s)·Barracks(3x3, 150g, 20s) 프리셋과 `buildingStaticDataFor()`.
+- **Building 건설 상태**: `m_completed`/`m_buildTime`/`m_buildProgress` 추가. `beginConstruction(buildTime, startHp)`로 미완성 셸 시작, `advanceConstruction(dt)`로 진행(HP가 진행도에 비례해 상승, 완료 시 true 반환), `isComplete()`/`buildProgress01()`. 미완성 건물은 `tick()`에서 train 불가, `isDropOff()`·생산 비활성. `getAction()`은 미완성 시 `Build` 반환.
+- **BuildCommand**: `buildingId` → `buildingTypeId`로 의미 명확화.
+- **Unit Build FSM**: `ActionType::Build` 활용. `buildAt(Building* site)` 진입, `updateBuild(dt)`로 site까지 이동(`kBuildInteractRange=88`) 후 `advanceConstruction(dt)` 호출, 완료/사이트 소멸 시 Idle. `clearGatherState()`에 build target 취소를 통합해 모든 행동 전환점에서 채집/건설이 상호 배타적으로 정리되도록 함.
+- **GameLogicManager 건설 로직**:
+  - `handleBuildCommand()`: 선택 Worker 확인 → buildingType 해석 → 커서 타일 중심으로 footprint origin 계산 → `canPlaceBuilding()`(footprint 전 타일 walkable·비점유) → `canAfford` → 자원 차감 → `beginConstruction`한 Building 생성·`registerBuildingSpawn`·`addElement` → Worker `buildAt()`.
+  - `canPlaceBuilding(originX,originY,w,h)`: PlacementValidator. 맵 경계(isTileBlocked가 경계 포함)·타일 walkability·셀 점유 검사.
+  - `firstSelectedWorker()`: 선택 목록 첫 Worker.
+  - `BuildCommand` 라우터 등록.
+- **GameUIManager**: `WorldOrderMode::Build` 추가. `B` 핫키(기존 매핑)로 Build 모드 진입 → 다음 우클릭 위치에 기본 건물(Barracks) `BuildCommand` 발행. 배치 후 모드 리셋.
+- 완성 시 `registerBuildingSpawn`이 이미 연결돼 있어 production/drop-off가 자동 활성화됨.
+
+### 동작 결과
+- Worker 선택 → `B` → 우클릭 → 배치 가능·자원 충분 시 미완성 건물 생성·자원 차감 → Worker가 이동해 건설 → 완료 시 완성 건물 전환(생산·자원 반납 가능).
+- 잘못된 위치(막힘/점유/경계 밖)나 자원 부족 시 건설 거부.
+
+### 검증
+- `cmake.exe --build cmake-build-debug` 빌드 성공. (참고: GameUIManager.cpp에서 GCC 16.1.0의 std::variant 소멸자 관련 ICE(Segmentation fault)가 1회 발생했으나 동일 명령 재실행으로 통과 — 컴파일러 비결정적 버그이며 소스 문제 아님.)
+- `RTS.exe` 실행 — 정상 구동 확인.
+- 한계: 자동화 환경에서 키 입력·선택 시뮬레이션 불가로 in-game 건설 흐름은 수동 검증 필요.
+
+### Follow-up
+- Build Preview(배치 전 초록/빨강 프리뷰 렌더링), 건설 중 건물 진행도 UI.
+- footprint를 그리드 walkability에 반영(Epic 5.3) — 현재는 단일 점유 셀 기준.
+- 건물 타입 선택 UI(현재 B = Barracks 고정).
+
 ## 2026-06-07 - Sprint 2: Production Loop (Cost, Queue, Spawn Placement, RallyPoint)
 
 ### 변경 내용

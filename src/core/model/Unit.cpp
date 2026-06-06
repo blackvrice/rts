@@ -12,6 +12,7 @@
 namespace {
     constexpr float kGatherInteractRange = 72.0f;
     constexpr float kDropOffInteractRange = 82.0f;
+    constexpr float kBuildInteractRange = 88.0f;
 
     float distanceSq(
         const rts::core::model::Vector2D& a,
@@ -108,6 +109,9 @@ namespace rts::core::model {
             break;
         case ActionType::Gather:
             updateGather(dt);
+            break;
+        case ActionType::Build:
+            updateBuild(dt);
             break;
         default:
             break;
@@ -591,6 +595,59 @@ namespace rts::core::model {
         }
 
         m_gatherState = WorkerGatherState {};
+        // Every action-transition entry point clears gather state, so cancelling an
+        // in-progress build order here keeps the two worker jobs mutually exclusive.
+        // buildAt() reassigns m_buildTarget after its own clearGatherState() call.
+        m_buildTarget = nullptr;
+    }
+
+    void Unit::buildAt(Building* site) {
+        if (m_action == ActionType::Dead) return;
+        clearGatherState(true);
+        if (!isWorker() || !site || site->isComplete() ||
+            site->getAction() == ActionType::Dead) {
+            m_buildTarget = nullptr;
+            m_action = ActionType::Idle;
+            m_animationAction = ActionType::Idle;
+            return;
+        }
+
+        m_buildTarget = site;
+        m_action = ActionType::Build;
+        m_animationAction = ActionType::Move;
+        m_attackTarget = nullptr;
+        m_gridPath.clear();
+        m_moveTarget = site->getPosition();
+        m_finalTargetWorld = m_moveTarget;
+    }
+
+    void Unit::updateBuild(float dt) {
+        auto* site = m_buildTarget;
+        if (!isWorker() || !site || site->getAction() == ActionType::Dead) {
+            m_buildTarget = nullptr;
+            m_action = ActionType::Idle;
+            m_animationAction = ActionType::Idle;
+            return;
+        }
+
+        if (site->isComplete()) {
+            m_buildTarget = nullptr;
+            m_action = ActionType::Idle;
+            m_animationAction = ActionType::Idle;
+            return;
+        }
+
+        m_animationAction = ActionType::Move;
+        if (moveToward(site->getPosition(), kBuildInteractRange, dt)) {
+            // In range: pour work into the site. Construction completes inside
+            // advanceConstruction once accumulated progress reaches build time.
+            m_animationAction = ActionType::Attack;
+            if (site->advanceConstruction(dt)) {
+                m_buildTarget = nullptr;
+                m_action = ActionType::Idle;
+                m_animationAction = ActionType::Idle;
+            }
+        }
     }
 
     bool Unit::isNeedingResourceRedirect() const noexcept {

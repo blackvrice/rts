@@ -12,6 +12,7 @@
 #include <core/model/PlayerResourceState.hpp>
 #include <core/model/ResourceNode.hpp>
 #include <core/data/UnitStaticData.hpp>
+#include <core/data/BuildingStaticData.hpp>
 #include <core/world/GameWorld.hpp>
 
 namespace {
@@ -157,6 +158,10 @@ namespace rts::core::manager {
 
         m_router.on<command::CancelProductionCommand>([this](const command::CancelProductionCommand &cmd) {
             handleCancelProduction(cmd);
+        });
+
+        m_router.on<command::BuildCommand>([this](const command::BuildCommand &cmd) {
+            handleBuildCommand(cmd);
         });
 
         m_router.on<command::StopCommand>([this](const command::StopCommand &) {
@@ -584,5 +589,82 @@ namespace rts::core::manager {
         auto resources = m_world.playerResources(building->getTeamId());
         resources.refund(staticData.cost());
         m_world.setPlayerResources(building->getTeamId(), resources);
+    }
+
+    // =========================================================
+    // Construction
+    // =========================================================
+    std::shared_ptr<model::Unit> GameLogicManager::firstSelectedWorker() const {
+        for (const auto& weak : m_selection.selected()) {
+            if (auto unit = std::dynamic_pointer_cast<model::Unit>(weak.lock());
+                unit && unit->isWorker() && unit->getAction() != model::ActionType::Dead) {
+                return unit;
+            }
+        }
+        return nullptr;
+    }
+
+    bool GameLogicManager::canPlaceBuilding(int originX, int originY, int w, int h) const {
+        for (int dy = 0; dy < h; ++dy) {
+            for (int dx = 0; dx < w; ++dx) {
+                const int gx = originX + dx;
+                const int gy = originY + dy;
+                if (m_world.isTileBlocked(gx, gy) || m_world.isCellOccupied(gx, gy)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    void GameLogicManager::handleBuildCommand(const command::BuildCommand& cmd) {
+        auto lock = m_world.acquireWriteLock();
+
+        auto worker = firstSelectedWorker();
+        if (!worker) {
+            return;
+        }
+
+        // Resolve the requested building type; reject ids outside the known range.
+        if (cmd.buildingTypeId() < 0) {
+            return;
+        }
+        const auto buildingType = static_cast<model::BuildingType>(cmd.buildingTypeId());
+        const auto data = core::data::buildingStaticDataFor(buildingType);
+
+        // Center the footprint on the cursor tile.
+        const auto& tf = m_world.gridTransform();
+        const auto centerCell = tf.worldToGrid(cmd.position());
+        const int originX = centerCell.x - data.footprintWidth / 2;
+        const int originY = centerCell.y - data.footprintHeight / 2;
+
+        if (!canPlaceBuilding(originX, originY, data.footprintWidth, data.footprintHeight)) {
+            return;
+        }
+
+        auto resources = m_world.playerResources(worker->getTeamId());
+        if (!resources.canAfford(data.cost())) {
+            return;
+        }
+
+        // Place the building at the footprint center so its single occupied cell and
+        // sprite line up with the validated region.
+        const float halfW = data.footprintWidth * tf.tileSize * 0.5f;
+        const float halfH = data.footprintHeight * tf.tileSize * 0.5f;
+        const model::Vector2D buildingPos {
+            tf.gridToWorldCenter(path::GridPos{ originX, originY }).x - tf.tileSize * 0.5f + halfW,
+            tf.gridToWorldCenter(path::GridPos{ originX, originY }).y - tf.tileSize * 0.5f + halfH
+        };
+
+        auto site = std::make_shared<model::Building>(buildingType, buildingPos, worker->getTeamId());
+        // Start as a fragile shell; workers raise HP/progress toward completion.
+        site->beginConstruction(data.buildTimeSeconds, data.maxHp * 0.1f);
+        registerBuildingSpawn(*site);
+        m_world.addElement(site);
+
+        resources.pay(data.cost());
+        m_world.setPlayerResources(worker->getTeamId(), resources);
+
+        worker->buildAt(site.get());
     }
 }

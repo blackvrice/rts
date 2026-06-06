@@ -242,6 +242,11 @@ namespace rts::core::manager {
             case WorldOrderMode::Gather:
                 m_logicBus.push(std::make_unique<command::GatherCommand>(worldPos));
                 break;
+            case WorldOrderMode::Build:
+                // Place the worker's default structure (Barracks) at the cursor.
+                m_logicBus.push(std::make_unique<command::BuildCommand>(
+                    static_cast<int>(core::model::BuildingType::Barracks), worldPos));
+                break;
         }
 
         m_worldOrderMode = WorldOrderMode::Attack;
@@ -273,8 +278,11 @@ namespace rts::core::manager {
                 // default unit. The logic layer resolves both against the selection.
                 m_logicBus.push(std::make_unique<command::TrainUnitCommand>(-1, -1));
                 break;
-            case command::GameplayInputAction::Patrol:
             case command::GameplayInputAction::Build:
+                // Arm build placement; the next right-click resolves the location.
+                m_worldOrderMode = WorldOrderMode::Build;
+                break;
+            case command::GameplayInputAction::Patrol:
             case command::GameplayInputAction::ReturnResource:
             case command::GameplayInputAction::Repair:
             case command::GameplayInputAction::UseAbility:
