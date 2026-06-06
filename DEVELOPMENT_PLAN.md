@@ -689,7 +689,7 @@ Idle
 
 ## Epic 0.6 단순 적 AI
 
-현재 상태: `[0%]`
+현재 상태: `[60%]`
 
 ### 목표
 
@@ -702,10 +702,10 @@ Idle
 #### Task
 
 ```text
-[ ] AI 플레이어 리소스 생성
-[ ] AI 소유 건물 생성
-[ ] AI 소유 유닛 생성
-[ ] AI 업데이트 루프 추가
+[x] AI 플레이어 리소스 생성 (PlayerId::Enemy 자원)
+[x] AI 소유 건물 생성 (enemy TownHall/Barracks)
+[x] AI 소유 유닛 생성 (enemy units + Barracks 생산)
+[x] AI 업데이트 루프 추가 (GameLogicManager::updateAI)
 ```
 
 #### 완료 기준
@@ -721,11 +721,11 @@ Idle
 #### Task
 
 ```text
-[ ] 일정 시간마다 공격 웨이브 생성
-[ ] AI 전투 유닛 목록 수집
-[ ] 플레이어 타운홀 위치 탐색
-[ ] AttackMove 명령 발행
-[ ] 웨이브 쿨다운 적용
+[x] 일정 시간마다 공격 웨이브 생성 (kAiWaveInterval 35s)
+[x] AI 전투 유닛 목록 수집 (Idle 적 전투 유닛)
+[x] 플레이어 타운홀 위치 탐색 (findTownHall)
+[x] AttackMove 명령 발행 (AttackMove 미구현이라 attack-target으로 대체)
+[x] 웨이브 쿨다운 적용 (m_aiWaveTimer)
 ```
 
 #### 초기 구현 추천
@@ -755,8 +755,8 @@ AI 병사 5기 생성
 [ ] AI 일꾼 생산
 [ ] AI 자원 채집
 [ ] AI 병영 건설
-[ ] AI 병사 생산
-[ ] 일정 수 이상 모이면 공격
+[x] AI 병사 생산 (Barracks Warrior 주기적 train)
+[ ] 일정 수 이상 모이면 공격 (현재 시간 기반 웨이브)
 ```
 
 Vertical Slice 단계에서는 Wave Attack AI만 먼저 구현해도 충분합니다.
@@ -765,7 +765,7 @@ Vertical Slice 단계에서는 Wave Attack AI만 먼저 구현해도 충분합�
 
 ## Epic 0.7 승패 조건
 
-현재 상태: `[0%]`
+현재 상태: `[80%]`
 
 ---
 
@@ -774,9 +774,9 @@ Vertical Slice 단계에서는 Wave Attack AI만 먼저 구현해도 충분합�
 #### Task
 
 ```text
-[ ] TownHall 타입 정의
-[ ] Player별 주요 건물 목록 관리
-[ ] 건물 사망 이벤트 감지
+[x] TownHall 타입 정의 (BuildingType::TownHall)
+[x] Player별 주요 건물 목록 관리 (countTownHalls 집계로 대체)
+[x] 건물 사망 이벤트 감지 (매 tick getAction==Dead 폴링)
 ```
 
 ---
@@ -786,10 +786,10 @@ Vertical Slice 단계에서는 Wave Attack AI만 먼저 구현해도 충분합�
 #### Task
 
 ```text
-[ ] 플레이어의 모든 TownHall 파괴 시 패배
-[ ] 또는 모든 건물 파괴 시 패배
-[ ] 패배 UI 표시
-[ ] 입력 잠금
+[x] 플레이어의 모든 TownHall 파괴 시 패배
+[ ] 또는 모든 건물 파괴 시 패배 (TownHall 기준만 사용)
+[x] 패배 UI 표시 (DEFEAT 배너)
+[x] 입력 잠금 (inputLocked)
 ```
 
 ---
@@ -799,9 +799,9 @@ Vertical Slice 단계에서는 Wave Attack AI만 먼저 구현해도 충분합�
 #### Task
 
 ```text
-[ ] 모든 적 주요 건물 파괴 시 승리
-[ ] 승리 UI 표시
-[ ] 결과 화면 전환
+[x] 모든 적 주요 건물 파괴 시 승리 (적 TownHall 0)
+[x] 승리 UI 표시 (VICTORY 배너)
+[ ] 결과 화면 전환 (배너만, 전용 씬 전환 미구현)
 ```
 
 ### 완료 기준

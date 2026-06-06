@@ -33,6 +33,12 @@ namespace rts::core::path {
 namespace rts::core::world {
     class GameWorldGridQuery;
 
+    enum class GameResult {
+        InProgress,
+        Victory,
+        Defeat
+    };
+
     class GameWorld {
     public:
         using ReadLock = std::shared_lock<std::shared_mutex>;
@@ -59,6 +65,9 @@ namespace rts::core::world {
         const model::PlayerResourceState& playerResources(int playerId) const;
         void setPlayerResources(int playerId, const model::PlayerResourceState& resources);
 
+        GameResult gameResult() const noexcept { return m_gameResult; }
+        void setGameResult(GameResult result) noexcept { m_gameResult = result; }
+
         manager::PathManager& path();
         const manager::PathManager& path() const;
 
@@ -73,6 +82,7 @@ namespace rts::core::world {
         std::unique_ptr<manager::PathManager> m_pathManager;
         GridTransform m_gridTransform;
         uint64_t m_collisionVersion { 0 };
+        GameResult m_gameResult { GameResult::InProgress };
         mutable std::shared_mutex m_mutex;
     };
 

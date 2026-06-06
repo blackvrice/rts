@@ -230,6 +230,9 @@ namespace rts::core::manager {
     }
 
     void GameUIManager::issueWorldOrder(const core::model::Vector2D& screenPosition) {
+        if (m_world.gameResult() != core::world::GameResult::InProgress) {
+            return;
+        }
         const core::model::Vector2D worldPos = m_camera.screenToWorld(screenPosition);
 
         switch (m_worldOrderMode) {
@@ -253,6 +256,9 @@ namespace rts::core::manager {
     }
 
     void GameUIManager::handleGameplayInput(const command::GameplayInputCommand& cmd) {
+        if (m_world.gameResult() != core::world::GameResult::InProgress) {
+            return;
+        }
         switch (cmd.action()) {
             case command::GameplayInputAction::Move:
                 m_worldOrderMode = WorldOrderMode::Move;
@@ -412,6 +418,24 @@ namespace rts::core::manager {
 
         for (auto &viewModel: m_viewModels) {
             viewModel->buildRenderCommands(m_renderQueue);
+        }
+
+        // Victory / defeat banner centered on screen once the match is decided.
+        const auto result = m_world.gameResult();
+        if (result != core::world::GameResult::InProgress) {
+            const auto& vp = m_camera.viewportSize();
+            const bool won = result == core::world::GameResult::Victory;
+            m_renderQueue.emplace(
+                core::render::RenderLayer::UI,
+                -50,
+                core::render::DrawText {
+                    .pos = { vp.x * 0.5f - 120.0f, vp.y * 0.5f - 24.0f },
+                    .color = won ? 0x33FF66FFu : 0xFF3333FFu,
+                    .fontId = 1u,
+                    .size = 48,
+                    .text = won ? "VICTORY" : "DEFEAT"
+                }
+            );
         }
     }
 

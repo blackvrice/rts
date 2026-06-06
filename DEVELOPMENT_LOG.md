@@ -1,5 +1,30 @@
 # Development Log
 
+## 2026-06-07 - Sprint 4: Simple Enemy AI + Victory/Defeat (Vertical Slice 마감)
+
+### 변경 내용
+- **GameWorld 게임 결과 상태**: `GameResult{InProgress, Victory, Defeat}` enum + `gameResult()`/`setGameResult()`. 기본 InProgress.
+- **GameLogicManager 적 AI** (`updateAI`):
+  - 생산: `kAiProduceInterval`(10s)마다 적 Barracks(완성·큐 비어있음)에 Warrior를 무료로 train(슬라이스 자가구동용, 비용 검사 생략).
+  - 공격 웨이브: `kAiWaveInterval`(35s)마다 적 진영의 Idle 전투 유닛 전부를 플레이어 TownHall에 `attack` — 추격+교전은 기존 전투 FSM 재사용.
+  - 적 유닛은 `registerBuildingSpawn` 콜백으로 생산되어 자동으로 월드에 추가됨.
+- **승패 판정** (`checkVictoryDefeat`, 매 tick): `countTownHalls(team)`로 양 진영 TownHall 수 집계 → 플레이어 0이면 Defeat, 적 0이면 Victory.
+- **입력 잠금**: 결과 확정 후 GameLogicManager의 6개 handle(Move/Attack/Gather/Train/Cancel/Build)이 `inputLocked()`로 조기 반환. GameUIManager의 `issueWorldOrder`·`handleGameplayInput`도 결과 시 입력 무시.
+- **결과 배너**: GameUIManager `render()`에서 결과 확정 시 화면 중앙에 `DrawText`로 "VICTORY"(녹색)/"DEFEAT"(빨강) 표시. RenderCommand variant 확장 없이 기존 DrawText 재사용(GCC ICE 위험 회피).
+
+### 동작 결과 — Vertical Slice 완성
+- 일꾼 채집 → 자원으로 생산/건설 → 유닛 양성 → 적 AI가 35초 주기로 공격 웨이브 → 적/아군 TownHall 파괴로 승패 결정 → 화면에 결과 표시 + 입력 잠금까지, RTS 한 판의 전체 루프가 코드 레벨에서 연결됨.
+
+### 검증
+- `cmake.exe --build cmake-build-debug` 빌드 성공(ICE 없이 1회 통과).
+- `RTS.exe` 실행 — 정상 구동 확인.
+- 한계: 자동화 환경에서 35초 웨이브·승패까지 진행 관찰은 불가하여 게임플레이 결과(실제 웨이브 도달/배너 표시)는 수동 검증 필요. 로직 경로와 빌드/구동 안정성은 확인함.
+
+### Follow-up
+- 결과 화면 전용 씬/리스타트, 반투명 배경 오버레이.
+- AI 생산 시 적 자원 차감(현재 무료), 적 일꾼 채집·확장 등 거시 AI.
+- AttackMove 명령 도입 시 웨이브를 attack-target 대신 attack-move로 전환.
+
 ## 2026-06-07 - Sprint 3: Construction Loop (Placement, ConstructionSite, Worker Build FSM)
 
 ### 변경 내용

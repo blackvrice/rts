@@ -210,6 +210,8 @@ namespace rts::core::manager {
         applyReadyResourceDeliveries();
         handleGatherRedirects();
         flushPendingSpawns();
+        updateAI(dt);
+        checkVictoryDefeat();
     }
 
     void GameLogicManager::selectElement(core::model::IGameElement &element) {
@@ -232,6 +234,7 @@ namespace rts::core::manager {
 
     void GameLogicManager::handleMoveCommand(const command::MoveCommand& cmd) {
         auto lock = m_world.acquireWriteLock();
+        if (inputLocked()) return;
         // A move order on a selected production building sets its rally point instead
         // of moving the (immobile) building.
         for (const auto& weak : m_selection.selected()) {
@@ -404,6 +407,7 @@ namespace rts::core::manager {
 
     void GameLogicManager::handleAttackCommand(const command::AttackCommand& cmd) {
         auto lock = m_world.acquireWriteLock();
+        if (inputLocked()) return;
 
         if (!cmd.hasWorldTarget()) {
             return;
@@ -447,6 +451,7 @@ namespace rts::core::manager {
 
     void GameLogicManager::handleGatherCommand(const command::GatherCommand& cmd) {
         auto lock = m_world.acquireWriteLock();
+        if (inputLocked()) return;
 
         if (!cmd.hasWorldTarget()) {
             return;
@@ -541,6 +546,7 @@ namespace rts::core::manager {
 
     void GameLogicManager::handleTrainCommand(const command::TrainUnitCommand& cmd) {
         auto lock = m_world.acquireWriteLock();
+        if (inputLocked()) return;
 
         auto building = firstSelectedBuilding();
         if (!building) {
@@ -573,6 +579,7 @@ namespace rts::core::manager {
 
     void GameLogicManager::handleCancelProduction(const command::CancelProductionCommand& cmd) {
         auto lock = m_world.acquireWriteLock();
+        if (inputLocked()) return;
 
         auto building = firstSelectedBuilding();
         if (!building) {
@@ -619,6 +626,7 @@ namespace rts::core::manager {
 
     void GameLogicManager::handleBuildCommand(const command::BuildCommand& cmd) {
         auto lock = m_world.acquireWriteLock();
+        if (inputLocked()) return;
 
         auto worker = firstSelectedWorker();
         if (!worker) {
@@ -666,5 +674,101 @@ namespace rts::core::manager {
         m_world.setPlayerResources(worker->getTeamId(), resources);
 
         worker->buildAt(site.get());
+    }
+
+    // =========================================================
+    // Enemy AI & Victory / Defeat
+    // =========================================================
+    namespace {
+        constexpr float kAiProduceInterval = 10.0f;  // refill barracks queue cadence
+        constexpr float kAiWaveInterval = 35.0f;      // send a combined attack wave
+    }
+
+    std::shared_ptr<model::Building> GameLogicManager::findTownHall(int teamId) const {
+        for (const auto& element : m_world.getElements()) {
+            auto building = std::dynamic_pointer_cast<model::Building>(element);
+            if (building &&
+                building->buildingType() == model::BuildingType::TownHall &&
+                building->getTeamId() == teamId &&
+                building->getAction() != model::ActionType::Dead) {
+                return building;
+            }
+        }
+        return nullptr;
+    }
+
+    int GameLogicManager::countTownHalls(int teamId) const {
+        int count = 0;
+        for (const auto& element : m_world.getElements()) {
+            auto building = std::dynamic_pointer_cast<model::Building>(element);
+            if (building &&
+                building->buildingType() == model::BuildingType::TownHall &&
+                building->getTeamId() == teamId &&
+                building->getAction() != model::ActionType::Dead) {
+                ++count;
+            }
+        }
+        return count;
+    }
+
+    void GameLogicManager::updateAI(float dt) {
+        if (m_world.gameResult() != core::world::GameResult::InProgress) {
+            return;
+        }
+
+        // Keep enemy barracks producing so waves have units to throw.
+        m_aiProduceTimer += dt;
+        if (m_aiProduceTimer >= kAiProduceInterval) {
+            m_aiProduceTimer = 0.f;
+            for (const auto& element : m_world.getElements()) {
+                auto building = std::dynamic_pointer_cast<model::Building>(element);
+                if (building &&
+                    building->getTeamId() == model::TeamId::Enemy &&
+                    building->buildingType() == model::BuildingType::Barracks &&
+                    building->isComplete() &&
+                    building->getAction() != model::ActionType::Dead &&
+                    building->trainQueueSize() == 0) {
+                    // AI trains for free (no cost check) to keep the slice self-driving.
+                    building->trainUnit(::rts::UnitType::Warrior);
+                }
+            }
+        }
+
+        // Periodically launch every idle enemy combat unit at the player's town hall.
+        m_aiWaveTimer += dt;
+        if (m_aiWaveTimer >= kAiWaveInterval) {
+            m_aiWaveTimer = 0.f;
+            auto target = findTownHall(model::TeamId::Player);
+            if (target) {
+                for (const auto& element : m_world.getElements()) {
+                    auto unit = std::dynamic_pointer_cast<model::Unit>(element);
+                    if (unit &&
+                        unit->getTeamId() == model::TeamId::Enemy &&
+                        !unit->isWorker() &&
+                        unit->getAction() == model::ActionType::Idle) {
+                        unit->attack(target.get());
+                    }
+                }
+            }
+        }
+    }
+
+    void GameLogicManager::checkVictoryDefeat() {
+        if (m_world.gameResult() != core::world::GameResult::InProgress) {
+            return;
+        }
+
+        const int playerHalls = countTownHalls(model::TeamId::Player);
+        const int enemyHalls = countTownHalls(model::TeamId::Enemy);
+
+        if (playerHalls == 0) {
+            m_world.setGameResult(core::world::GameResult::Defeat);
+        } else if (enemyHalls == 0) {
+            m_world.setGameResult(core::world::GameResult::Victory);
+        }
+    }
+
+    bool GameLogicManager::inputLocked() const {
+        return m_world.gameResult() != core::world::GameResult::InProgress;
     }
 }

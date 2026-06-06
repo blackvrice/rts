@@ -87,11 +87,23 @@ namespace rts::core::manager {
         // Checks the whole w x h footprint (top-left origin in tiles) is walkable and free.
         bool canPlaceBuilding(int originX, int originY, int w, int h) const;
 
+        // AI / victory helpers
+        void updateAI(float dt);
+        void checkVictoryDefeat();
+        std::shared_ptr<model::Building> findTownHall(int teamId) const;
+        int countTownHalls(int teamId) const;
+        bool inputLocked() const;
+
         core::world::GameWorld& m_world;
         SelectionSystem m_selection;
         ControlGroupSystem m_controlGroups;
         CollisionSystem m_collision;
         MovementSystem m_movement;
         std::vector<PendingSpawn> m_pendingSpawns;
+
+        // Simple enemy AI: periodically refills barracks production and sends idle
+        // combat units at the player's town hall.
+        float m_aiProduceTimer { 0.f };
+        float m_aiWaveTimer { 0.f };
     };
 } // namespace rts::manager
