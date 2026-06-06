@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.22)
 project(RTS)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -55,6 +55,7 @@ add_library(imgui STATIC
         ${IMGUI_DIR}/imgui_tables.cpp
         ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
         ${IMGUI_DIR}/backends/imgui_impl_win32.cpp
+        src/core/model/Building.cpp
 )
 
 target_include_directories(imgui PUBLIC
@@ -184,6 +185,13 @@ add_executable(RTS
         src/core/world/GameWorld.cpp
         src/core/world/GameWorldGridQuery.cpp
         include/core/world/GridTransform.hpp
+        src/core/model/Building.cpp
+        src/core/map/FogOfWar.cpp
+        src/core/model/Projectile.cpp
+        src/core/model/ResourceNode.cpp
+        src/core/viewmodel/BuildingViewModel.cpp
+        src/core/viewmodel/ProjectileViewModel.cpp
+        src/core/viewmodel/ResourceNodeViewModel.cpp
 )
 
 # tmxlite
