@@ -31,6 +31,15 @@
 - Preserved modifier combinations such as control-group shortcuts by ignoring gameplay command hotkeys when Ctrl, Alt, or System modifiers are held.
 - Verification: built `RTS` with `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j1`, then launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
 
+## 2026-06-07 - Temporary Resource Fixture Cleanup
+
+- Adjusted the temporary debug world so player and enemy resource states are explicitly initialized instead of relying on default HUD placeholder values.
+- Repositioned the temporary Worker, Town Hall, and ResourceNode fixtures so gathering can be tested quickly, and added an enemy Town Hall so enemy building/resource ownership is represented consistently.
+- Fixed command target picking so a ResourceNode that was included in drag selection can still be used as the gather target for selected Workers.
+- Added total resource amount tracking to `ResourceNode` and used it in the selection HUD so resource remaining and resource capacity are no longer the same value.
+- Verification: built `RTS` with `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j1`, then launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
+- Follow-up: move the temporary fixture setup into a scenario/test-map loader once production/building placement begins owning initial world state.
+
 ## 2026-06-07 - Worker Resource Gathering Loop
 
 - Implemented the Sprint 1 resource gathering loop from `DEVELOPMENT_PLAN.md`: workers can gather from `ResourceNode`, carry resources to a friendly Town Hall drop-off, and increase `PlayerResourceState`.

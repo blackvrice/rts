@@ -20,6 +20,7 @@ namespace rts::core::model {
         // ── 채집 ─────────────────────────────────────────────────
         bool tryGather(int& amountOut) override;
         int  resourceType() const override { return static_cast<int>(m_type); }
+        int  totalAmount()  const noexcept { return m_totalAmount; }
         int  remaining()    const noexcept { return m_remaining; }
         bool isDepleted()   const noexcept { return m_remaining <= 0; }
         ResourceType type() const noexcept { return m_type; }
@@ -62,6 +63,7 @@ namespace rts::core::model {
     private:
         Vector2D     m_position;
         ResourceType m_type;
+        int          m_totalAmount;
         int          m_remaining;
         int          m_gatherAmount;
         float        m_gatherDurationSeconds;

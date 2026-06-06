@@ -348,7 +348,7 @@ namespace rts::core::manager {
                     selection.maxHp = building->getMaxHp();
                 } else if (auto resource = std::dynamic_pointer_cast<core::model::ResourceNode>(element)) {
                     selection.hp = resource->remaining();
-                    selection.maxHp = resource->remaining(); 
+                    selection.maxHp = resource->totalAmount();
                 }
 
                 selection.position = gameElement->getPosition();

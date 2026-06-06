@@ -12,6 +12,7 @@ namespace rts::core::model {
         int maxGatherers)
         : m_position(pos)
         , m_type(type)
+        , m_totalAmount(totalAmount)
         , m_remaining(totalAmount)
         , m_gatherAmount(gatherAmount)
         , m_gatherDurationSeconds(gatherDurationSeconds)

@@ -14,6 +14,7 @@ namespace rts::core::world {
         , m_gridTransform{64.f} {
         m_tileMap->init(32, 32);
         m_playerResources.emplace(model::PlayerId::Local, model::PlayerResourceState {});
+        m_playerResources.emplace(model::PlayerId::Enemy, model::PlayerResourceState {});
     }
 
     GameWorld::~GameWorld() = default;

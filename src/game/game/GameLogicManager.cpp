@@ -6,6 +6,7 @@
 #include <core/model/Unit.hpp>
 #include <core/model/UnitType.hpp>
 #include <core/model/Building.hpp>
+#include <core/model/PlayerResourceState.hpp>
 #include <core/model/ResourceNode.hpp>
 #include <core/world/GameWorld.hpp>
 
@@ -49,15 +50,31 @@ namespace rts::core::manager {
         // Temporary debug units until spawning/production owns initial world population.
         {
             auto lock = m_world.acquireWriteLock();
+
+            core::model::PlayerResourceState playerResources {};
+            playerResources.gold = 0;
+            playerResources.wood = 0;
+            playerResources.foodUsed = 2;
+            playerResources.foodCapacity = 10;
+            playerResources.army = 2;
+            m_world.setPlayerResources(core::model::TeamId::Player, playerResources);
+
+            core::model::PlayerResourceState enemyResources {};
+            enemyResources.gold = 0;
+            enemyResources.wood = 0;
+            enemyResources.foodUsed = 2;
+            enemyResources.foodCapacity = 10;
+            enemyResources.army = 2;
+            m_world.setPlayerResources(core::model::TeamId::Enemy, enemyResources);
             
             // --- Player Units ---
             auto worker = std::make_shared<core::model::Unit>(::rts::UnitType::Worker);
-            worker->setPosition({300.f, 300.f});
+            worker->setPosition({300.f, 240.f});
             worker->setTeamId(core::model::TeamId::Player);
             m_world.addElement(worker);
 
             auto unit3 = std::make_shared<core::model::Unit>();
-            unit3->setPosition({350.f, 300.f});
+            unit3->setPosition({360.f, 300.f});
             unit3->setTeamId(core::model::TeamId::Player);
             m_world.addElement(unit3);
 
@@ -75,28 +92,35 @@ namespace rts::core::manager {
             // --- Buildings ---
             auto townHall = std::make_shared<core::model::Building>(
                 core::model::BuildingType::TownHall,
-                core::model::Vector2D{200.f, 200.f},
+                core::model::Vector2D{220.f, 220.f},
                 core::model::TeamId::Player
             );
             m_world.addElement(townHall);
 
+            auto enemyTownHall = std::make_shared<core::model::Building>(
+                core::model::BuildingType::TownHall,
+                core::model::Vector2D{760.f, 650.f},
+                core::model::TeamId::Enemy
+            );
+            m_world.addElement(enemyTownHall);
+
             auto enemyBarracks = std::make_shared<core::model::Building>(
                 core::model::BuildingType::Barracks,
-                core::model::Vector2D{700.f, 600.f},
+                core::model::Vector2D{700.f, 560.f},
                 core::model::TeamId::Enemy
             );
             m_world.addElement(enemyBarracks);
 
             // --- Resources ---
             auto goldMine = std::make_shared<core::model::ResourceNode>(
-                core::model::Vector2D{100.f, 100.f},
+                core::model::Vector2D{120.f, 180.f},
                 core::model::ResourceNode::ResourceType::Gold,
                 5000
             );
             m_world.addElement(goldMine);
 
             auto woodForest = std::make_shared<core::model::ResourceNode>(
-                core::model::Vector2D{100.f, 400.f},
+                core::model::Vector2D{120.f, 360.f},
                 core::model::ResourceNode::ResourceType::Wood,
                 2000
             );
@@ -198,8 +222,15 @@ namespace rts::core::manager {
         for (const auto& element : m_world.getElements()) {
             auto candidate = std::dynamic_pointer_cast<model::IGameElement>(element);
             if (!candidate ||
-                candidate->getAction() == model::ActionType::Dead ||
-                selectionContains(selected, candidate.get())) {
+                candidate->getAction() == model::ActionType::Dead) {
+                continue;
+            }
+
+            const bool alreadySelected = selectionContains(selected, candidate.get());
+            const bool selectedResource =
+                alreadySelected && std::dynamic_pointer_cast<model::ResourceNode>(candidate);
+            // Drag-select can include resource nodes; workers still need the selected resource as a gather target.
+            if (alreadySelected && !selectedResource) {
                 continue;
             }
 

@@ -3,6 +3,7 @@
 namespace rts::core::model {
     namespace PlayerId {
         constexpr int Local = 1;
+        constexpr int Enemy = 2;
     }
 
     struct PlayerResourceState {
