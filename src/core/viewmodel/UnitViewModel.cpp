@@ -2,10 +2,13 @@
 #include "core/model/Unit.hpp"
 
 namespace {
-    constexpr int kBlueWarriorIdleTextureId = 1;
-    constexpr int kBlueWarriorRunTextureId = 2;
-    constexpr int kBlueWarriorAttackTextureId = 3;
-    constexpr int kBlueWarriorGuardTextureId = 4;
+    // Texture id layout shared with SfmlRenderManager:
+    //   Warrior: Blue base 1 (idle/run/attack/guard = +0..+3), Red base 11
+    //   Pawn:    Blue base 21 (idle/run/interact),             Red base 31
+    constexpr int kBlueWarriorBase = 1;
+    constexpr int kRedWarriorBase = 11;
+    constexpr int kBluePawnBase = 21;
+    constexpr int kRedPawnBase = 31;
 
     struct UnitSpriteClip {
         int textureId;
@@ -13,16 +16,37 @@ namespace {
         float framesPerSecond;
     };
 
-    UnitSpriteClip spriteClipFor(const rts::core::model::ActionType action) {
+    UnitSpriteClip spriteClipFor(const rts::UnitType unitType,
+                                 const int teamId,
+                                 const rts::core::model::ActionType action) {
+        using rts::core::model::ActionType;
+        const bool isEnemy = teamId == rts::core::model::TeamId::Enemy;
+
+        if (unitType == rts::UnitType::Worker) {
+            // Pawn sheets: Idle 8 frames, Run 6, Interact (used for work/attack) 3.
+            // Pawn has no guard sheet, so Hold falls back to Idle.
+            const int base = isEnemy ? kRedPawnBase : kBluePawnBase;
+            switch (action) {
+                case ActionType::Move:
+                    return {base + 1, 6, 10.0f};
+                case ActionType::Attack:
+                    return {base + 2, 3, 8.0f};
+                default:
+                    return {base + 0, 8, 6.0f};
+            }
+        }
+
+        // Warrior sheets cover all combat unit types for now.
+        const int base = isEnemy ? kRedWarriorBase : kBlueWarriorBase;
         switch (action) {
-            case rts::core::model::ActionType::Move:
-                return {kBlueWarriorRunTextureId, 6, 10.0f};
-            case rts::core::model::ActionType::Attack:
-                return {kBlueWarriorAttackTextureId, 4, 8.0f};
-            case rts::core::model::ActionType::Hold:
-                return {kBlueWarriorGuardTextureId, 6, 6.0f};
+            case ActionType::Move:
+                return {base + 1, 6, 10.0f};
+            case ActionType::Attack:
+                return {base + 2, 4, 8.0f};
+            case ActionType::Hold:
+                return {base + 3, 6, 6.0f};
             default:
-                return {kBlueWarriorIdleTextureId, 8, 6.0f};
+                return {base + 0, 8, 6.0f};
         }
     }
 }
@@ -91,7 +115,7 @@ namespace rts::core::viewmodel {
                 });
         }
 
-        const UnitSpriteClip clip = spriteClipFor(m_action);
+        const UnitSpriteClip clip = spriteClipFor(unit->unitType(), unit->getTeamId(), m_action);
 
         // Trimmed unit sprites are bottom-centered so the model position stays at the feet.
         out.emplace(

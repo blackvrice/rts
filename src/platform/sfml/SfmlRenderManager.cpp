@@ -37,18 +37,55 @@
 namespace {
     constexpr int kWorldTileSize = 64;
     constexpr const char* kWorldTilesetPath = "Terrain/Tileset/Tilemap_color1.png";
+    // Unit texture ids match the layout in UnitViewModel: Blue Warrior 1-4,
+    // Red Warrior 11-14, Blue Pawn 21-23, Red Pawn 31-33.
     constexpr int kBlueWarriorIdleTextureId = 1;
     constexpr int kBlueWarriorRunTextureId = 2;
     constexpr int kBlueWarriorAttackTextureId = 3;
     constexpr int kBlueWarriorGuardTextureId = 4;
+    constexpr int kRedWarriorIdleTextureId = 11;
+    constexpr int kRedWarriorRunTextureId = 12;
+    constexpr int kRedWarriorAttackTextureId = 13;
+    constexpr int kRedWarriorGuardTextureId = 14;
+    constexpr int kBluePawnIdleTextureId = 21;
+    constexpr int kBluePawnRunTextureId = 22;
+    constexpr int kBluePawnInteractTextureId = 23;
+    constexpr int kRedPawnIdleTextureId = 31;
+    constexpr int kRedPawnRunTextureId = 32;
+    constexpr int kRedPawnInteractTextureId = 33;
     constexpr int kCursorTextureId = 100;
     constexpr int kCursor02TextureId = 101;
     constexpr int kCursor03TextureId = 102;
     constexpr int kCursor04TextureId = 103;
+    // Resource node texture ids (ResourceNodeViewModel).
+    constexpr int kGoldTextureId = 200;
+    constexpr int kWoodTextureId = 201;
+    // Building texture ids (BuildingViewModel): Blue 300/301, Red 310/311.
+    constexpr int kBlueTownHallTextureId = 300;
+    constexpr int kBlueBarracksTextureId = 301;
+    constexpr int kRedTownHallTextureId = 310;
+    constexpr int kRedBarracksTextureId = 311;
+
     constexpr const char* kBlueWarriorIdlePath = "Units/Blue Units/Warrior/Warrior_Idle.png";
     constexpr const char* kBlueWarriorRunPath = "Units/Blue Units/Warrior/Warrior_Run.png";
     constexpr const char* kBlueWarriorAttackPath = "Units/Blue Units/Warrior/Warrior_Attack1.png";
     constexpr const char* kBlueWarriorGuardPath = "Units/Blue Units/Warrior/Warrior_Guard.png";
+    constexpr const char* kRedWarriorIdlePath = "Units/Red Units/Warrior/Warrior_Idle.png";
+    constexpr const char* kRedWarriorRunPath = "Units/Red Units/Warrior/Warrior_Run.png";
+    constexpr const char* kRedWarriorAttackPath = "Units/Red Units/Warrior/Warrior_Attack1.png";
+    constexpr const char* kRedWarriorGuardPath = "Units/Red Units/Warrior/Warrior_Guard.png";
+    constexpr const char* kBluePawnIdlePath = "Units/Blue Units/Pawn/Pawn_Idle.png";
+    constexpr const char* kBluePawnRunPath = "Units/Blue Units/Pawn/Pawn_Run.png";
+    constexpr const char* kBluePawnInteractPath = "Units/Blue Units/Pawn/Pawn_Interact Hammer.png";
+    constexpr const char* kRedPawnIdlePath = "Units/Red Units/Pawn/Pawn_Idle.png";
+    constexpr const char* kRedPawnRunPath = "Units/Red Units/Pawn/Pawn_Run.png";
+    constexpr const char* kRedPawnInteractPath = "Units/Red Units/Pawn/Pawn_Interact Hammer.png";
+    constexpr const char* kGoldPath = "Terrain/Resources/Gold/Gold Resource/Gold_Resource.png";
+    constexpr const char* kWoodPath = "Terrain/Resources/Wood/Wood Resource/Wood Resource.png";
+    constexpr const char* kBlueTownHallPath = "Buildings/Blue Buildings/Castle.png";
+    constexpr const char* kBlueBarracksPath = "Buildings/Blue Buildings/Barracks.png";
+    constexpr const char* kRedTownHallPath = "Buildings/Red Buildings/Castle.png";
+    constexpr const char* kRedBarracksPath = "Buildings/Red Buildings/Barracks.png";
     constexpr const char* kCursorPath = "UI Elements/UI Elements/Cursors/Cursor_01.png";
     constexpr const char* kCursor02Path = "UI Elements/UI Elements/Cursors/Cursor_02.png";
     constexpr const char* kCursor03Path = "UI Elements/UI Elements/Cursors/Cursor_03.png";
@@ -267,6 +304,54 @@ namespace {
                 break;
             case kBlueWarriorGuardTextureId:
                 relativePath = kBlueWarriorGuardPath;
+                break;
+            case kRedWarriorIdleTextureId:
+                relativePath = kRedWarriorIdlePath;
+                break;
+            case kRedWarriorRunTextureId:
+                relativePath = kRedWarriorRunPath;
+                break;
+            case kRedWarriorAttackTextureId:
+                relativePath = kRedWarriorAttackPath;
+                break;
+            case kRedWarriorGuardTextureId:
+                relativePath = kRedWarriorGuardPath;
+                break;
+            case kBluePawnIdleTextureId:
+                relativePath = kBluePawnIdlePath;
+                break;
+            case kBluePawnRunTextureId:
+                relativePath = kBluePawnRunPath;
+                break;
+            case kBluePawnInteractTextureId:
+                relativePath = kBluePawnInteractPath;
+                break;
+            case kRedPawnIdleTextureId:
+                relativePath = kRedPawnIdlePath;
+                break;
+            case kRedPawnRunTextureId:
+                relativePath = kRedPawnRunPath;
+                break;
+            case kRedPawnInteractTextureId:
+                relativePath = kRedPawnInteractPath;
+                break;
+            case kGoldTextureId:
+                relativePath = kGoldPath;
+                break;
+            case kWoodTextureId:
+                relativePath = kWoodPath;
+                break;
+            case kBlueTownHallTextureId:
+                relativePath = kBlueTownHallPath;
+                break;
+            case kBlueBarracksTextureId:
+                relativePath = kBlueBarracksPath;
+                break;
+            case kRedTownHallTextureId:
+                relativePath = kRedTownHallPath;
+                break;
+            case kRedBarracksTextureId:
+                relativePath = kRedBarracksPath;
                 break;
             case kCursorTextureId:
                 relativePath = kCursorPath;

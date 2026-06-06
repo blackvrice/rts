@@ -1,5 +1,31 @@
 # Development Log
 
+## 2026-06-07 - Fix: 유닛/건물/자원 스프라이트 미표시 (텍스처 매핑 누락)
+
+### 문제
+수동 플레이 검증 시 건물·자원이 화면에 보이지 않고, 모든 유닛이 파란 Warrior로만 표시됨.
+- 원인: ViewModel들은 올바른 텍스처 id를 emit하지만(건물 300/301/310/311, 자원 200/201), `SfmlRenderManager::tinySwordsSpriteTexture()`의 경로 switch에는 **Blue Warrior(1~4)와 커서(100~103)만** 등록되어 있어 나머지는 `default → nullptr`로 렌더가 스킵됨.
+- 추가로 `UnitViewModel`이 unitType·teamId를 무시하고 항상 Blue Warrior 스프라이트를 사용 → Worker/적 유닛 구분 불가.
+
+### 변경 내용
+- **SfmlRenderManager**: `tinySwordsSpriteTexture()` switch에 누락 텍스처 경로 추가.
+  - 건물: Blue/Red Castle(TownHall)·Barracks → `Buildings/{Blue,Red} Buildings/{Castle,Barracks}.png`
+  - 자원: Gold `Gold_Resource.png`, Wood `Wood Resource.png`
+  - 유닛: Red Warrior(11~14), Blue Pawn(21~23), Red Pawn(31~33) 시트 경로
+- **UnitViewModel**: `spriteClipFor(unitType, teamId, action)`로 확장.
+  - Worker → Pawn 시트(Idle 8 / Run 6 / Interact 3, Guard 없음→Idle 폴백)
+  - 그 외 전투 유닛 → Warrior 시트(Idle 8 / Run 6 / Attack 4 / Guard 6)
+  - 아군(Player)=Blue, 적(Enemy)=Red 팀 컬러 구분
+  - 텍스처 id 레이아웃을 SfmlRenderManager와 일치시킴(주석으로 문서화).
+
+### 검증
+- 참조한 10개 텍스처 파일 경로 존재를 파일시스템에서 확인.
+- `cmake.exe --build cmake-build-debug` 빌드 성공, `RTS.exe` 정상 구동 확인.
+- 한계: 실제 화면 표시는 수동 플레이로 최종 확인 필요(자동화 환경 캡처 불가). Archer/Lancer/Monk/Marine은 현재 Warrior 시트로 폴백.
+
+### Follow-up
+- 유닛 타입별 전용 스프라이트(Archer/Lancer 등), 건설 중 건물 반투명/스캐폴드 시각화.
+
 ## 2026-06-07 - Sprint 4: Simple Enemy AI + Victory/Defeat (Vertical Slice 마감)
 
 ### 변경 내용
