@@ -56,45 +56,45 @@ namespace rts::core::manager {
         {
             auto lock = m_world.acquireWriteLock();
 
+            // Debug starting resources so production/construction can be exercised
+            // immediately during manual playtests.
             core::model::PlayerResourceState playerResources {};
-            playerResources.gold = 0;
-            playerResources.wood = 0;
-            playerResources.foodUsed = 2;
-            playerResources.foodCapacity = 10;
-            playerResources.army = 2;
+            playerResources.gold = 500;
+            playerResources.wood = 300;
+            playerResources.foodUsed = 0;
+            playerResources.foodCapacity = 20;
+            playerResources.army = 0;
             m_world.setPlayerResources(core::model::TeamId::Player, playerResources);
 
             core::model::PlayerResourceState enemyResources {};
-            enemyResources.gold = 0;
-            enemyResources.wood = 0;
-            enemyResources.foodUsed = 2;
-            enemyResources.foodCapacity = 10;
-            enemyResources.army = 2;
+            enemyResources.gold = 500;
+            enemyResources.wood = 300;
+            enemyResources.foodUsed = 0;
+            enemyResources.foodCapacity = 20;
+            enemyResources.army = 0;
             m_world.setPlayerResources(core::model::TeamId::Enemy, enemyResources);
-            
-            // --- Player Units ---
-            auto worker = std::make_shared<core::model::Unit>(::rts::UnitType::Worker);
-            worker->setPosition({300.f, 240.f});
-            worker->setTeamId(core::model::TeamId::Player);
-            m_world.addElement(worker);
 
-            auto unit3 = std::make_shared<core::model::Unit>();
-            unit3->setPosition({360.f, 300.f});
-            unit3->setTeamId(core::model::TeamId::Player);
-            m_world.addElement(unit3);
+            // Spawns one unit of every type for a team in a spaced-out row so the
+            // initial placement never overlaps the unit collision radius (28px ->
+            // 56px min distance); 110px columns keep a comfortable gap.
+            const auto spawnUnitRow = [this](int teamId, float startX, float y) {
+                const ::rts::UnitType types[] = {
+                    ::rts::UnitType::Worker,
+                    ::rts::UnitType::Warrior,
+                    ::rts::UnitType::Archer,
+                    ::rts::UnitType::Marine
+                };
+                float x = startX;
+                for (const auto type : types) {
+                    auto unit = std::make_shared<core::model::Unit>(type);
+                    unit->setPosition({ x, y });
+                    unit->setTeamId(teamId);
+                    m_world.addElement(unit);
+                    x += 110.f;
+                }
+            };
 
-            // --- Enemy Units ---
-            auto unit2 = std::make_shared<core::model::Unit>();
-            unit2->setPosition({600.f, 500.f});
-            unit2->setTeamId(core::model::TeamId::Enemy);
-            m_world.addElement(unit2);
-
-            auto unit4 = std::make_shared<core::model::Unit>();
-            unit4->setPosition({650.f, 500.f});
-            unit4->setTeamId(core::model::TeamId::Enemy);
-            m_world.addElement(unit4);
-
-            // --- Buildings ---
+            // --- Player base (top-left) ---
             auto townHall = std::make_shared<core::model::Building>(
                 core::model::BuildingType::TownHall,
                 core::model::Vector2D{220.f, 220.f},
@@ -103,9 +103,20 @@ namespace rts::core::manager {
             registerBuildingSpawn(*townHall);
             m_world.addElement(townHall);
 
+            auto playerBarracks = std::make_shared<core::model::Building>(
+                core::model::BuildingType::Barracks,
+                core::model::Vector2D{500.f, 220.f},
+                core::model::TeamId::Player
+            );
+            registerBuildingSpawn(*playerBarracks);
+            m_world.addElement(playerBarracks);
+
+            spawnUnitRow(core::model::TeamId::Player, 240.f, 460.f);
+
+            // --- Enemy base (bottom-right) ---
             auto enemyTownHall = std::make_shared<core::model::Building>(
                 core::model::BuildingType::TownHall,
-                core::model::Vector2D{760.f, 650.f},
+                core::model::Vector2D{1200.f, 760.f},
                 core::model::TeamId::Enemy
             );
             registerBuildingSpawn(*enemyTownHall);
@@ -113,22 +124,24 @@ namespace rts::core::manager {
 
             auto enemyBarracks = std::make_shared<core::model::Building>(
                 core::model::BuildingType::Barracks,
-                core::model::Vector2D{700.f, 560.f},
+                core::model::Vector2D{1480.f, 760.f},
                 core::model::TeamId::Enemy
             );
             registerBuildingSpawn(*enemyBarracks);
             m_world.addElement(enemyBarracks);
 
-            // --- Resources ---
+            spawnUnitRow(core::model::TeamId::Enemy, 1200.f, 1000.f);
+
+            // --- Resources (left edge, clear of the base footprints) ---
             auto goldMine = std::make_shared<core::model::ResourceNode>(
-                core::model::Vector2D{120.f, 180.f},
+                core::model::Vector2D{120.f, 620.f},
                 core::model::ResourceNode::ResourceType::Gold,
                 5000
             );
             m_world.addElement(goldMine);
 
             auto woodForest = std::make_shared<core::model::ResourceNode>(
-                core::model::Vector2D{120.f, 360.f},
+                core::model::Vector2D{120.f, 760.f},
                 core::model::ResourceNode::ResourceType::Wood,
                 2000
             );
