@@ -149,7 +149,8 @@ namespace rts::core {
 
         di.registerSingleton<render::IRenderManager>(
             [](DIContainer &di) {
-                return std::make_shared<platform::sfml::SfmlRenderManager>();
+                auto &uiBus = *di.resolve<command::UICommandBus>();
+                return std::make_shared<platform::sfml::SfmlRenderManager>(uiBus);
             }
         );
 

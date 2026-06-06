@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include <cstdint>
 #include <memory>
 #include <SFML/System.hpp>
 #include <SFML/Window.hpp>
@@ -139,6 +140,37 @@ namespace rts::core::command {
 
     private:
         char32_t m_char;
+    };
+
+    // =========================================================
+    // Gameplay Intent
+    // =========================================================
+    enum class GameplayInputAction : std::uint8_t {
+        Move,
+        Stop,
+        HoldPosition,
+        Attack,
+        AttackMove,
+        Patrol,
+        TrainUnit,
+        Build,
+        CancelProduction,
+        Gather,
+        ReturnResource,
+        Repair,
+        UseAbility
+    };
+
+    class GameplayInputCommand final : public UICommand {
+    public:
+        explicit GameplayInputCommand(GameplayInputAction action)
+            : m_action(action) {
+        }
+
+        GameplayInputAction action() const noexcept { return m_action; }
+
+    private:
+        GameplayInputAction m_action;
     };
 
     class ChangeUILogicSourceCommand final : public UICommand {

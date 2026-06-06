@@ -13,10 +13,14 @@ namespace sf {
     class Texture;
 }
 
+namespace rts::core::command {
+    class UICommandBus;
+}
+
 namespace rts::platform::sfml {
     class SfmlHudOverlay {
     public:
-        SfmlHudOverlay() = default;
+        explicit SfmlHudOverlay(core::command::UICommandBus& uiBus);
         ~SfmlHudOverlay();
 
         SfmlHudOverlay(const SfmlHudOverlay&) = delete;
@@ -36,6 +40,7 @@ namespace rts::platform::sfml {
         ImGuiContext* m_context = nullptr;
         std::array<bool, 3> m_mouseButtons{};
         std::unordered_map<std::string, std::unique_ptr<sf::Texture>> m_textures;
+        core::command::UICommandBus& m_uiBus;
         std::string m_lastCommand = "Move";
     };
 }

@@ -17,6 +17,8 @@
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/Texture.hpp>
 
+#include "core/command/UICommand.hpp"
+#include "core/command/UICommandBus.hpp"
 #include "imgui.h"
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_win32.h"
@@ -51,6 +53,11 @@ namespace {
         float y;
         float w;
         float h;
+    };
+
+    struct HudCommandButton {
+        const char* label;
+        rts::core::command::GameplayInputAction action;
     };
 
     struct TrimCacheKey {
@@ -382,6 +389,10 @@ namespace {
 }
 
 namespace rts::platform::sfml {
+    SfmlHudOverlay::SfmlHudOverlay(core::command::UICommandBus& uiBus)
+        : m_uiBus(uiBus) {
+    }
+
     SfmlHudOverlay::~SfmlHudOverlay() {
         shutdown();
     }
@@ -576,11 +587,18 @@ namespace rts::platform::sfml {
         drawList.AddText({infoMin.x, infoMin.y + 124.0f}, kTextMain, "Morale 46%");
         drawList.AddText({infoMin.x, infoMin.y + 164.0f}, kWarning, ("Last command: " + m_lastCommand).c_str());
 
-        const std::array<const char*, 9> commands{
-            "Move", "Stop", "Hold",
-            "Attack", "Patrol", "Gather",
-            "Build", "Repair", "Cancel"
-        };
+        using core::command::GameplayInputAction;
+        const std::array<HudCommandButton, 9> commands{{
+            {"Move", GameplayInputAction::Move},
+            {"Stop", GameplayInputAction::Stop},
+            {"Hold", GameplayInputAction::HoldPosition},
+            {"Attack", GameplayInputAction::Attack},
+            {"Patrol", GameplayInputAction::Patrol},
+            {"Gather", GameplayInputAction::Gather},
+            {"Build", GameplayInputAction::Build},
+            {"Repair", GameplayInputAction::Repair},
+            {"Cancel", GameplayInputAction::CancelProduction}
+        }};
 
         const float gridTop = commandMin.y + 44.0f;
         const float cellGap = 8.0f;
@@ -596,7 +614,8 @@ namespace rts::platform::sfml {
                 gridTop + row * (cellH + cellGap)
             };
             ImGui::SetCursorScreenPos(pos);
-            const std::string id = std::string("##command_") + commands[i];
+            const HudCommandButton& command = commands[i];
+            const std::string id = std::string("##command_") + command.label;
             const bool clicked = ImGui::InvisibleButton(id.c_str(), {cellW, cellH});
             const bool active = ImGui::IsItemActive();
             const bool hovered = ImGui::IsItemHovered();
@@ -607,11 +626,13 @@ namespace rts::platform::sfml {
                 drawImage(drawList, icon, iconMin, {iconMin.x + 30.0f, iconMin.y + 30.0f});
             }
 
-            const ImVec2 textSize = ImGui::CalcTextSize(commands[i]);
-            drawList.AddText({pos.x + (cellW - textSize.x) * 0.5f, pos.y + cellH - textSize.y - 10.0f}, kTextMain, commands[i]);
+            const ImVec2 textSize = ImGui::CalcTextSize(command.label);
+            drawList.AddText({pos.x + (cellW - textSize.x) * 0.5f, pos.y + cellH - textSize.y - 10.0f}, kTextMain, command.label);
 
             if (clicked) {
-                m_lastCommand = commands[i];
+                m_lastCommand = command.label;
+                // The UI loop consumes this next frame and translates it into a LogicCommand.
+                m_uiBus.push(std::make_unique<core::command::GameplayInputCommand>(command.action));
             }
         }
 

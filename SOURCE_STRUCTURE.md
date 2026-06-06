@@ -50,6 +50,7 @@ cmake --build build
 
 - `include/platform/IWindow.hpp` defines the platform window abstraction.
 - `include/platform/sfml` and `src/platform/sfml` contain SFML-backed windowing, rendering, HUD overlay, font metrics, and asset-path integration.
+- `SfmlHudOverlay` draws the ImGui HUD command panel and emits gameplay UI input through `UICommandBus`; `GameUIManager` translates those UI inputs into `LogicCommand` payloads when enough target data exists.
 
 ## Maintenance Notes
 

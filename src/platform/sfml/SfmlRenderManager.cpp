@@ -411,8 +411,8 @@ namespace {
 }
 
 namespace rts::platform::sfml {
-    SfmlRenderManager::SfmlRenderManager()
-        : m_hud(std::make_unique<SfmlHudOverlay>()) {
+    SfmlRenderManager::SfmlRenderManager(core::command::UICommandBus& uiBus)
+        : m_hud(std::make_unique<SfmlHudOverlay>(uiBus)) {
     }
 
     SfmlRenderManager::~SfmlRenderManager() = default;

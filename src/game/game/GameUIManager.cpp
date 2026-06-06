@@ -64,8 +64,13 @@ namespace rts::core::manager {
 
         router.on<command::MouseRightPressedCommand>(
             [this](const command::MouseRightPressedCommand &cmd) {
-                const core::model::Vector2D worldPos = m_camera.screenToWorld(cmd.position());
-                m_logicBus.push(std::make_unique<command::AttackCommand>(worldPos));
+                issueWorldOrder(cmd.position());
+            }
+        );
+
+        router.on<command::GameplayInputCommand>(
+            [this](const command::GameplayInputCommand &cmd) {
+                handleGameplayInput(cmd);
             }
         );
 
@@ -126,6 +131,51 @@ namespace rts::core::manager {
             if (static_cast<bool>(modifier & KM::Shift)) m_shift = false;
         });
         m_elements.push_back(std::make_unique<core::ui::SelectBox>(logicBus, m_camera));
+    }
+
+    void GameUIManager::issueWorldOrder(const core::model::Vector2D& screenPosition) {
+        const core::model::Vector2D worldPos = m_camera.screenToWorld(screenPosition);
+
+        switch (m_worldOrderMode) {
+            case WorldOrderMode::Move:
+                m_logicBus.push(std::make_unique<command::MoveCommand>(worldPos));
+                break;
+            case WorldOrderMode::Attack:
+                m_logicBus.push(std::make_unique<command::AttackCommand>(worldPos));
+                break;
+        }
+
+        m_worldOrderMode = WorldOrderMode::Attack;
+    }
+
+    void GameUIManager::handleGameplayInput(const command::GameplayInputCommand& cmd) {
+        switch (cmd.action()) {
+            case command::GameplayInputAction::Move:
+                m_worldOrderMode = WorldOrderMode::Move;
+                break;
+            case command::GameplayInputAction::Attack:
+            case command::GameplayInputAction::AttackMove:
+                m_worldOrderMode = WorldOrderMode::Attack;
+                break;
+            case command::GameplayInputAction::Stop:
+                m_logicBus.push(std::make_unique<command::StopCommand>(-1));
+                break;
+            case command::GameplayInputAction::HoldPosition:
+                m_logicBus.push(std::make_unique<command::HoldPositionCommand>(-1));
+                break;
+            case command::GameplayInputAction::CancelProduction:
+                m_logicBus.push(std::make_unique<command::CancelProductionCommand>(-1));
+                break;
+            case command::GameplayInputAction::Patrol:
+            case command::GameplayInputAction::TrainUnit:
+            case command::GameplayInputAction::Build:
+            case command::GameplayInputAction::Gather:
+            case command::GameplayInputAction::ReturnResource:
+            case command::GameplayInputAction::Repair:
+            case command::GameplayInputAction::UseAbility:
+                // These need selected unit, target, or ability ids that the HUD does not provide yet.
+                break;
+        }
     }
 
 

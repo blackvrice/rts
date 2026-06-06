@@ -9,6 +9,10 @@
 #include <core/render/IRenderManager.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
 
+namespace rts::core::command {
+    class UICommandBus;
+}
+
 namespace rts::core::render {
     struct DrawCircle;
     struct DrawRect;
@@ -21,7 +25,7 @@ namespace rts::platform::sfml {
 
     class SfmlRenderManager : public core::render::IRenderManager {
     public:
-        SfmlRenderManager();
+        explicit SfmlRenderManager(core::command::UICommandBus& uiBus);
         ~SfmlRenderManager() override;
 
         void execute(const core::render::RenderQueue& queue, const core::render::RenderContext& ctx) override;
