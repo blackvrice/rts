@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "core/manager/ILogicManager.hpp"
+#include "core/model/ResourceNode.hpp"
 #include "game/game/systems/CollisionSystem.hpp"
 #include "game/game/systems/ControlGroupSystem.hpp"
 #include "game/game/systems/MovementSystem.hpp"
@@ -15,7 +16,6 @@
 namespace rts::core::model {
     class Building;
     class IGameElement;
-    class ResourceNode;
     class Unit;
     struct Vector2D;
 }
@@ -53,8 +53,11 @@ namespace rts::core::manager {
             const model::Vector2D& target,
             const SelectionSystem::SelectedList& selected) const;
         std::shared_ptr<model::Building> findClosestDropOffFor(const model::Unit& worker) const;
+        std::shared_ptr<model::ResourceNode> findClosestAvailableResource(
+            model::ResourceNode::ResourceType type, const model::Unit& requester) const;
         void issueGatherToResource(model::ResourceNode& resource);
         void applyReadyResourceDeliveries();
+        void handleGatherRedirects();
 
         core::world::GameWorld& m_world;
         SelectionSystem m_selection;

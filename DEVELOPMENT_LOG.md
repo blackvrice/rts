@@ -1,5 +1,23 @@
 # Development Log
 
+## 2026-06-07 - Sprint 1: Worker Gather Redirect (MaxGatherers & Drop-off Rebuild)
+
+### 변경 내용
+- `GatherPhase`에 `NeedNewResource`, `NeedNewDropOff` 두 상태 추가.
+- `updateGather()` 수정: drop-off가 파괴되면서 자원을 운반 중일 때 Idle 대신 `NeedNewDropOff`로 전환. MoveToResource 단계에서 슬롯 예약 실패 시 Idle 대신 `NeedNewResource`로 전환.
+- `takeReadyResourceDelivery()` 수정: 다음 채집 사이클 시작 실패 시 Idle 대신 `NeedNewResource`로 전환하고 `carryingType`을 보존.
+- `Unit` 공개 API 추가: `isNeedingResourceRedirect()`, `isNeedingDropOffRedirect()`, `targetGatherType()`, `redirectToDropOff(Building*)`.
+- `GameLogicManager`에 `handleGatherRedirects()` 추가: 매 tick 워커를 순회하여 redirect 상태인 워커에게 같은 타입의 빈 슬롯이 있는 가장 가까운 자원 또는 새 drop-off를 자동 재배정.
+- `findClosestAvailableResource()` 추가: 자원 타입별 슬롯 여유가 있는 가장 가까운 ResourceNode 탐색.
+
+### 동작 결과
+- Worker가 maxGatherers(3)가 꽉 찬 자원 노드로 이동할 때 → 같은 타입의 다른 자원 노드로 자동 재배정.
+- Worker가 자원을 운반하다가 drop-off(TownHall)가 파괴되면 → 가장 가까운 다른 drop-off 건물로 자동 전환.
+- 두 경우 모두 대안이 없으면 Worker는 Idle로 정지.
+
+### 검증
+- `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug` 빌드 성공 (오류 없음).
+
 ## 2026-06-07 - Unit Static Data Runtime Stats
 
 - Reworked `UnitStaticData` into a runtime-ready unit stat model with display name, HP, attack damage, range, cooldown, move speed, armor, and basic economy costs.

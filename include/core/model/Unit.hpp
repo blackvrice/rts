@@ -60,6 +60,10 @@ namespace rts::core::model {
         ::rts::UnitType unitType() const noexcept;
         bool isWorker() const noexcept;
         bool hasResourceDeliveryReady() const noexcept;
+        bool isNeedingResourceRedirect() const noexcept;
+        bool isNeedingDropOffRedirect() const noexcept;
+        ResourceNode::ResourceType targetGatherType() const noexcept;
+        void redirectToDropOff(Building* newDropOff);
         std::optional<ResourceDelivery> takeReadyResourceDelivery();
         std::string displayName() const override;
 
@@ -92,7 +96,9 @@ namespace rts::core::model {
             MoveToResource,
             Gathering,
             MoveToDropOff,
-            DropResource
+            DropResource,
+            NeedNewResource,
+            NeedNewDropOff
         };
 
         struct WorkerGatherState {

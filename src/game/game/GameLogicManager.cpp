@@ -188,6 +188,7 @@ namespace rts::core::manager {
         auto lock = m_world.acquireWriteLock();
         m_movement.update(m_world, dt, m_collision);
         applyReadyResourceDeliveries();
+        handleGatherRedirects();
     }
 
     void GameLogicManager::selectElement(core::model::IGameElement &element) {
@@ -292,6 +293,57 @@ namespace rts::core::manager {
             }
 
             worker->gather(&resource, dropOff.get());
+        }
+    }
+
+    std::shared_ptr<model::ResourceNode> GameLogicManager::findClosestAvailableResource(
+        model::ResourceNode::ResourceType type, const model::Unit& requester) const
+    {
+        std::shared_ptr<model::ResourceNode> best;
+        float bestDistSq = std::numeric_limits<float>::max();
+
+        for (const auto& element : m_world.getElements()) {
+            auto node = std::dynamic_pointer_cast<model::ResourceNode>(element);
+            if (!node || node->isDepleted() || node->type() != type) {
+                continue;
+            }
+            if (node->reservedGathererCount() >= node->maxGatherers()) {
+                continue;
+            }
+            const float dSq = distanceSq(requester.getPosition(), node->getPosition());
+            if (dSq < bestDistSq) {
+                bestDistSq = dSq;
+                best = node;
+            }
+        }
+        return best;
+    }
+
+    void GameLogicManager::handleGatherRedirects() {
+        for (const auto& element : m_world.getElements()) {
+            auto worker = std::dynamic_pointer_cast<model::Unit>(element);
+            if (!worker || !worker->isWorker() ||
+                worker->getAction() == model::ActionType::Dead) {
+                continue;
+            }
+
+            if (worker->isNeedingDropOffRedirect()) {
+                auto newDropOff = findClosestDropOffFor(*worker);
+                if (newDropOff) {
+                    worker->redirectToDropOff(newDropOff.get());
+                } else {
+                    worker->stop();
+                }
+            } else if (worker->isNeedingResourceRedirect()) {
+                auto newResource = findClosestAvailableResource(
+                    worker->targetGatherType(), *worker);
+                auto newDropOff = findClosestDropOffFor(*worker);
+                if (newResource && newDropOff) {
+                    worker->gather(newResource.get(), newDropOff.get());
+                } else {
+                    worker->stop();
+                }
+            }
         }
     }
 

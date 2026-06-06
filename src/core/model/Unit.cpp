@@ -321,8 +321,10 @@ namespace rts::core::model {
             m_moveTarget = resource->getPosition();
             m_finalTargetWorld = m_moveTarget;
         } else {
+            const auto savedType = m_gatherState.carryingType;
             clearGatherState(false);
-            m_action = ActionType::Idle;
+            m_gatherState.carryingType = savedType;
+            m_gatherState.phase = GatherPhase::NeedNewResource;
             m_animationAction = ActionType::Idle;
         }
 
@@ -457,12 +459,30 @@ namespace rts::core::model {
     }
 
     void Unit::updateGather(float dt) {
+        // Redirect phases are handled by GameLogicManager each tick
+        if (m_gatherState.phase == GatherPhase::NeedNewResource ||
+            m_gatherState.phase == GatherPhase::NeedNewDropOff) {
+            return;
+        }
+
         auto* resource = m_gatherState.targetResource;
         auto* dropOff = m_gatherState.targetDropOff;
-        if (!isWorker() || !resource || !dropOff || dropOff->getAction() == ActionType::Dead) {
+        if (!isWorker() || !resource) {
             clearGatherState(true);
             m_action = ActionType::Idle;
             m_animationAction = ActionType::Idle;
+            return;
+        }
+
+        if (!dropOff || dropOff->getAction() == ActionType::Dead) {
+            if (m_gatherState.carryingAmount > 0) {
+                m_gatherState.phase = GatherPhase::NeedNewDropOff;
+                m_gatherState.targetDropOff = nullptr;
+            } else {
+                clearGatherState(true);
+                m_action = ActionType::Idle;
+                m_animationAction = ActionType::Idle;
+            }
             return;
         }
 
@@ -479,9 +499,7 @@ namespace rts::core::model {
             case GatherPhase::MoveToResource:
                 if (!resource->hasGatherReservation(*this) &&
                     !resource->reserveGatherSlot(*this)) {
-                    clearGatherState(false);
-                    m_action = ActionType::Idle;
-                    m_animationAction = ActionType::Idle;
+                    m_gatherState.phase = GatherPhase::NeedNewResource;
                     return;
                 }
 
@@ -573,6 +591,29 @@ namespace rts::core::model {
         }
 
         m_gatherState = WorkerGatherState {};
+    }
+
+    bool Unit::isNeedingResourceRedirect() const noexcept {
+        return m_action == ActionType::Gather &&
+               m_gatherState.phase == GatherPhase::NeedNewResource;
+    }
+
+    bool Unit::isNeedingDropOffRedirect() const noexcept {
+        return m_action == ActionType::Gather &&
+               m_gatherState.phase == GatherPhase::NeedNewDropOff;
+    }
+
+    ResourceNode::ResourceType Unit::targetGatherType() const noexcept {
+        return m_gatherState.carryingType;
+    }
+
+    void Unit::redirectToDropOff(Building* newDropOff) {
+        if (!newDropOff || m_gatherState.phase != GatherPhase::NeedNewDropOff) return;
+        m_gatherState.targetDropOff = newDropOff;
+        m_gatherState.phase = GatherPhase::MoveToDropOff;
+        m_moveTarget = newDropOff->getPosition();
+        m_finalTargetWorld = m_moveTarget;
+        m_animationAction = ActionType::Move;
     }
 
 }
