@@ -192,6 +192,14 @@ add_executable(RTS
         src/core/viewmodel/BuildingViewModel.cpp
         src/core/viewmodel/ProjectileViewModel.cpp
         src/core/viewmodel/ResourceNodeViewModel.cpp
+        include/core/map/FogOfWar.hpp
+        include/core/model/Building.hpp
+        include/core/model/Projectile.hpp
+        include/core/model/ResourceNode.hpp
+        include/core/model/UnitType.hpp
+        include/core/viewmodel/BuildingViewModel.hpp
+        include/core/viewmodel/ProjectileViewModel.hpp
+        include/core/viewmodel/ResourceNodeViewModel.hpp
 )
 
 # tmxlite
