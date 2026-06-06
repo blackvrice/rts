@@ -20,6 +20,7 @@
 
 #include "core/command/UICommand.hpp"
 #include "core/command/UICommandBus.hpp"
+#include "core/render/RenderCommand.hpp"
 #include "imgui.h"
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_win32.h"
@@ -110,6 +111,14 @@ namespace {
 
     std::string formatFood(const rts::core::model::PlayerResourceState& resources) {
         return std::to_string(resources.foodUsed) + "/" + std::to_string(resources.foodCapacity);
+    }
+
+    std::string formatRounded(const float value) {
+        return std::to_string(static_cast<int>(std::lround(value)));
+    }
+
+    std::string formatPosition(const rts::core::model::Vector2D& position) {
+        return formatRounded(position.x) + ", " + formatRounded(position.y);
     }
 
     ImVec2 operator+(const ImVec2& a, const ImVec2& b) {
@@ -410,7 +419,10 @@ namespace rts::platform::sfml {
         shutdown();
     }
 
-    void SfmlHudOverlay::render(sf::RenderWindow& window, const core::model::PlayerResourceState& resources) {
+    void SfmlHudOverlay::render(
+        sf::RenderWindow& window,
+        const core::model::PlayerResourceState& resources,
+        const core::render::UpdateHudSelection& selection) {
         if (!m_context) {
             initialize(window);
         }
@@ -425,7 +437,7 @@ namespace rts::platform::sfml {
         syncMouseButtons();
         ImGui::NewFrame();
 
-        drawHud(ImGui::GetIO().DisplaySize, resources);
+        drawHud(ImGui::GetIO().DisplaySize, resources, selection);
 
         ImGui::Render();
         if (!window.setActive(true)) {
@@ -527,7 +539,8 @@ namespace rts::platform::sfml {
 
     void SfmlHudOverlay::drawHud(
         const ImVec2& displaySize,
-        const core::model::PlayerResourceState& resources) {
+        const core::model::PlayerResourceState& resources,
+        const core::render::UpdateHudSelection& selection) {
         const float width = std::max(displaySize.x, 1280.0f);
         const float height = std::max(displaySize.y, 720.0f);
         // HUD ADJUST: bottomHeight changes the full lower HUD height; margin changes outer spacing.
@@ -598,13 +611,24 @@ namespace rts::platform::sfml {
         drawPortrait(drawList, portraitMin, portraitMax, avatar);
 
         const ImVec2 infoMin{portraitMax.x + 24.0f, statusMin.y + 48.0f};
-        drawList.AddText(infoMin, kTextMain, "Tiny Swords Vanguard");
-        drawList.AddText({infoMin.x, infoMin.y + 28.0f}, kTextDim, "Selected: 6 units");
-        drawList.AddText({infoMin.x, infoMin.y + 56.0f}, kTextDim, "Armor 1   Range 5   Damage 6");
+        const std::string selectedCount = "Selected: " + std::to_string(selection.selectedCount) +
+            (selection.selectedCount == 1 ? " unit" : " units");
+        const std::string action = "Action: " + selection.action;
+        const std::string hp = selection.hasPrimaryUnit
+            ? "HP " + formatRounded(selection.hp) + " / " + formatRounded(selection.maxHp)
+            : "HP -";
+        const std::string position = selection.hasPrimaryUnit
+            ? "Position " + formatPosition(selection.position)
+            : "Position -";
+        const std::string command = "Last command: " + m_lastCommand;
+
+        drawList.AddText(infoMin, kTextMain, selection.primaryName.c_str());
+        drawList.AddText({infoMin.x, infoMin.y + 28.0f}, kTextDim, selectedCount.c_str());
+        drawList.AddText({infoMin.x, infoMin.y + 56.0f}, kTextDim, action.c_str());
         // StarCraft-style unit HUD shows health as a compact number instead of a filled bar.
-        drawList.AddText({infoMin.x, infoMin.y + 92.0f}, kTextMain, "HP 492 / 600");
-        drawList.AddText({infoMin.x, infoMin.y + 124.0f}, kTextMain, "Morale 46%");
-        drawList.AddText({infoMin.x, infoMin.y + 164.0f}, kWarning, ("Last command: " + m_lastCommand).c_str());
+        drawList.AddText({infoMin.x, infoMin.y + 92.0f}, selection.hasPrimaryUnit ? kTextMain : kTextDim, hp.c_str());
+        drawList.AddText({infoMin.x, infoMin.y + 124.0f}, kTextMain, position.c_str());
+        drawList.AddText({infoMin.x, infoMin.y + 164.0f}, kWarning, command.c_str());
 
         using core::command::GameplayInputAction;
         const std::array<HudCommandButton, 9> commands{{

@@ -215,6 +215,19 @@ namespace {
         return {};
     }
 
+    rts::core::render::UpdateHudSelection hudSelection(
+        const rts::core::render::RenderQueue& queue
+    ) {
+        for (const auto& command : queue.commands()) {
+            const auto* selection = std::get_if<rts::core::render::UpdateHudSelection>(&command.data);
+            if (selection) {
+                return *selection;
+            }
+        }
+
+        return {};
+    }
+
     const sf::Texture* tinySwordsSpriteTexture(const int textureId) {
         static std::unordered_map<int, std::unique_ptr<sf::Texture>> textures;
 
@@ -449,6 +462,7 @@ namespace rts::platform::sfml {
         const sf::View defaultView = sfWindow->getView();
         const auto selectedHudUnit = selectedHudSprite(queue);
         const auto resources = hudResources(queue);
+        const auto selection = hudSelection(queue);
         const auto cameraPosition = camera.position();
         sf::View worldView;
         worldView.setSize({
@@ -490,7 +504,7 @@ namespace rts::platform::sfml {
             );
         }
 
-        m_hud->render(*sfWindow, resources);
+        m_hud->render(*sfWindow, resources, selection);
         drawSelectedHudSprite(*sfWindow, selectedHudUnit);
         drawMouseCursor(*sfWindow);
     }
@@ -618,6 +632,12 @@ namespace rts::platform::sfml {
     void SfmlRenderManager::draw(
         sf::RenderWindow&,
         const core::render::UpdateHudResources&
+    ) {
+    }
+
+    void SfmlRenderManager::draw(
+        sf::RenderWindow&,
+        const core::render::UpdateHudSelection&
     ) {
     }
 }

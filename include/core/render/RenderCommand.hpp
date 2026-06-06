@@ -60,12 +60,23 @@ namespace rts::core::render {
         model::PlayerResourceState resources;
     };
 
+    struct UpdateHudSelection {
+        int selectedCount {};
+        bool hasPrimaryUnit {};
+        std::string primaryName { "No unit selected" };
+        std::string action { "None" };
+        float hp {};
+        float maxHp {};
+        model::Vector2D position {};
+    };
+
     using RenderCommandData = std::variant<
         DrawRect,
         DrawText,
         DrawSprite,
         DrawCircle,
-        UpdateHudResources
+        UpdateHudResources,
+        UpdateHudSelection
     >;
 
     struct RenderCommand {

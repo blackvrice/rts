@@ -19,6 +19,10 @@ namespace rts::core::command {
     class UICommandBus;
 }
 
+namespace rts::core::render {
+    struct UpdateHudSelection;
+}
+
 namespace rts::platform::sfml {
     class SfmlHudOverlay {
     public:
@@ -28,7 +32,10 @@ namespace rts::platform::sfml {
         SfmlHudOverlay(const SfmlHudOverlay&) = delete;
         SfmlHudOverlay& operator=(const SfmlHudOverlay&) = delete;
 
-        void render(sf::RenderWindow& window, const core::model::PlayerResourceState& resources);
+        void render(
+            sf::RenderWindow& window,
+            const core::model::PlayerResourceState& resources,
+            const core::render::UpdateHudSelection& selection);
 
     private:
         void initialize(sf::RenderWindow& window);
@@ -37,7 +44,10 @@ namespace rts::platform::sfml {
         const sf::Texture* texture(const std::string& relativePath);
 
         static void applyStyle();
-        void drawHud(const ImVec2& displaySize, const core::model::PlayerResourceState& resources);
+        void drawHud(
+            const ImVec2& displaySize,
+            const core::model::PlayerResourceState& resources,
+            const core::render::UpdateHudSelection& selection);
 
         ImGuiContext* m_context = nullptr;
         std::array<bool, 3> m_mouseButtons{};

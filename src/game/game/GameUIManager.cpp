@@ -4,6 +4,8 @@
 
 #include "game/game/GameUIManager.hpp"
 
+#include <utility>
+
 #include "core/command/CommandRouterBase.hpp"
 #include "core/command/LogicCommand.hpp"
 #include "core/command/LogicCommandBus.hpp"
@@ -28,6 +30,33 @@ namespace rts::core::manager {
         constexpr float kCameraStep = 128.0f;
         constexpr float kEdgeThreshold = 20.0f;
         constexpr float kEdgeScrollSpeed = 8.0f;
+
+        const char* actionText(const core::model::ActionType action) {
+            switch (action) {
+                case core::model::ActionType::Idle:
+                    return "Idle";
+                case core::model::ActionType::Move:
+                    return "Moving";
+                case core::model::ActionType::Attack:
+                    return "Attacking";
+                case core::model::ActionType::Stop:
+                    return "Stopped";
+                case core::model::ActionType::Hold:
+                    return "Holding";
+                case core::model::ActionType::Patrol:
+                    return "Patrolling";
+                case core::model::ActionType::Gather:
+                    return "Gathering";
+                case core::model::ActionType::Build:
+                    return "Building";
+                case core::model::ActionType::Cast:
+                    return "Casting";
+                case core::model::ActionType::Dead:
+                    return "Dead";
+            }
+
+            return "Unknown";
+        }
     }
 
     GameUIManager::~GameUIManager() = default;
@@ -221,6 +250,35 @@ namespace rts::core::manager {
                 core::render::UpdateHudResources {
                     m_world.playerResources(core::model::PlayerId::Local)
                 }
+            );
+
+            core::render::UpdateHudSelection selection {};
+            selection.primaryName = "No unit selected";
+            selection.action = "None";
+
+            for (const auto& element : m_world.getElements()) {
+                auto unit = std::dynamic_pointer_cast<core::model::Unit>(element);
+                if (!unit ||
+                    !unit->state().selected ||
+                    unit->getAction() == core::model::ActionType::Dead) {
+                    continue;
+                }
+
+                ++selection.selectedCount;
+                if (!selection.hasPrimaryUnit) {
+                    selection.hasPrimaryUnit = true;
+                    selection.primaryName = "Tiny Swords Vanguard";
+                    selection.action = actionText(unit->getAction());
+                    selection.hp = unit->getHp();
+                    selection.maxHp = unit->getMaxHp();
+                    selection.position = unit->getPosition();
+                }
+            }
+
+            m_renderQueue.emplace(
+                core::render::RenderLayer::UI,
+                -99,
+                std::move(selection)
             );
         }
 
