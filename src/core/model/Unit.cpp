@@ -31,14 +31,22 @@ namespace rts::core::model {
         attackTimer = 0.f;
 
         m_action = ActionType::Idle;
+        m_animationAction = ActionType::Idle;
     }
+
     ActionType Unit::getAction() const {
         return m_action;
+    }
+
+    ActionType Unit::getAnimationAction() const {
+        return m_animationAction;
     }
 
     void Unit::moveTo(const Vector2D& target) {
         if (m_action == ActionType::Dead) return;
         m_action = ActionType::Move;
+        m_animationAction = ActionType::Move;
+        m_attackTarget = nullptr;
         m_moveTarget = target;
         m_finalTargetWorld = target;
         m_gridPath.clear();
@@ -48,10 +56,16 @@ namespace rts::core::model {
         if (m_action == ActionType::Dead) return;
         if (!target) return;
         if (target->getAction() == ActionType::Dead) return;
+        if (target->getTeamId() == m_teamId && m_teamId != TeamId::Neutral) return;
+
         m_action = ActionType::Attack;
         m_attackTarget = target;
         m_moveTarget = target->getPosition();
         m_finalTargetWorld = m_moveTarget;
+        // The order is attack, but the sprite should run until the weapon is in range.
+        m_animationAction = distanceSq(m_moveTarget, m_position) <= attackRange * attackRange
+                                ? ActionType::Attack
+                                : ActionType::Move;
         m_gridPath.clear();
     }
 
@@ -82,6 +96,7 @@ namespace rts::core::model {
         if (distSq <= ARRIVE_EPS * ARRIVE_EPS) {
             m_position = m_moveTarget;
             m_action = ActionType::Idle;
+            m_animationAction = ActionType::Idle;
             return;
         }
 
@@ -120,6 +135,7 @@ namespace rts::core::model {
             }
             m_position = target;
             m_action = ActionType::Idle;
+            m_animationAction = ActionType::Idle;
             return;
         }
 
@@ -144,6 +160,7 @@ namespace rts::core::model {
         if (!m_attackTarget || m_attackTarget->getAction() == ActionType::Dead) {
             m_attackTarget = nullptr;
             m_action = ActionType::Idle;
+            m_animationAction = ActionType::Idle;
             return;
         }
 
@@ -155,6 +172,7 @@ namespace rts::core::model {
         float rangeSq = attackRange * attackRange;
 
         if (distSq > rangeSq) {
+            m_animationAction = ActionType::Move;
             const float dist = std::sqrt(distSq);
             if (dist <= 0.0f) {
                 return;
@@ -175,6 +193,7 @@ namespace rts::core::model {
             return;
         }
 
+        m_animationAction = ActionType::Attack;
         attackTimer -= dt;
         if (attackTimer <= 0.f) {
             attackTimer = attackCooldown;
@@ -191,11 +210,12 @@ namespace rts::core::model {
         if (m_hp <= 0.f) {
             m_hp = 0.f;
             m_action = ActionType::Dead;
+            m_animationAction = ActionType::Dead;
             m_attackTarget = nullptr;
             return;
         }
 
-        if (attacker && m_action != ActionType::Attack) {
+        if (attacker && m_action != ActionType::Attack && attacker->getTeamId() != m_teamId) {
             attack(attacker);
         }
     }
@@ -217,6 +237,8 @@ namespace rts::core::model {
     void Unit::idle() {
         if (m_action == ActionType::Dead) return;
         m_action = ActionType::Idle;
+        m_animationAction = ActionType::Idle;
+        m_attackTarget = nullptr;
         m_gridPath.clear();
     }
 
@@ -231,11 +253,21 @@ namespace rts::core::model {
     void Unit::holdPosition() {
         if (m_action == ActionType::Dead) return;
         m_action = ActionType::Hold;
+        m_animationAction = ActionType::Hold;
+        m_attackTarget = nullptr;
         m_gridPath.clear();
     }
 
     void Unit::setSelected(bool selected) {
         m_state.selected = selected;
+    }
+
+    int Unit::getTeamId() const {
+        return m_teamId;
+    }
+
+    void Unit::setTeamId(int teamId) {
+        m_teamId = teamId;
     }
 
     void Unit::setPath(path::Path p) {
@@ -257,6 +289,8 @@ namespace rts::core::model {
         m_finalTargetWorld = finalWorldTarget;
         m_moveTarget = finalWorldTarget;
         m_action = ActionType::Move;
+        m_animationAction = ActionType::Move;
+        m_attackTarget = nullptr;
     }
 
     const Vector2D& Unit::finalTargetWorld() const noexcept {
@@ -267,6 +301,8 @@ namespace rts::core::model {
     void Unit::stop() {
         if (m_action == ActionType::Dead) return;
         m_action = ActionType::Idle;
+        m_animationAction = ActionType::Idle;
+        m_attackTarget = nullptr;
         m_gridPath.clear();
     }
 

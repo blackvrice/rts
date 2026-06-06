@@ -32,7 +32,7 @@ namespace rts::core::viewmodel {
         : m_unit(unit) {
         if (auto u = m_unit.lock()) {
             m_position = u->getPosition();
-            m_action = u->getAction();
+            m_action = u->getAnimationAction();
             m_hpRatio = u->getHp() / u->getMaxHp();
         }
     }
@@ -43,7 +43,7 @@ namespace rts::core::viewmodel {
             return;
 
         m_position = unit->getPosition();
-        m_action = unit->getAction();
+        m_action = unit->getAnimationAction();
         m_hpRatio = unit->getHp() / unit->getMaxHp();
     }
 

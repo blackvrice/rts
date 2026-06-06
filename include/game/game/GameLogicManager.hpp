@@ -46,7 +46,7 @@ namespace rts::core::manager {
         void handleAttackCommand(const command::AttackCommand& cmd);
 
     private:
-        std::shared_ptr<model::IGameElement> findAttackTargetAt(
+        std::shared_ptr<model::IGameElement> findCommandTargetAt(
             const model::Vector2D& target,
             const SelectionSystem::SelectedList& selected) const;
 

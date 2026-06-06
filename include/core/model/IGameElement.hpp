@@ -21,6 +21,11 @@ namespace rts::core::model {
         Dead
     };
 
+    namespace TeamId {
+        constexpr int Neutral = 0;
+        constexpr int Player  = 1;
+        constexpr int Enemy   = 2;
+    }
 
     class IGameElement : public IElement, public std::enable_shared_from_this<IGameElement>  {
     public:
@@ -59,6 +64,10 @@ namespace rts::core::model {
         // 상태
         virtual ActionType getAction() const = 0;
         virtual void setSelected(bool selected) = 0;
+
+        // 팀
+        virtual int getTeamId() const { return TeamId::Neutral; }
+        virtual void setTeamId(int) {}
     };
 
 }

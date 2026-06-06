@@ -29,6 +29,12 @@ namespace {
 
         return false;
     }
+
+    bool isOpposingTeam(const int attackerTeamId, const int targetTeamId) {
+        return attackerTeamId != rts::core::model::TeamId::Neutral &&
+               targetTeamId != rts::core::model::TeamId::Neutral &&
+               attackerTeamId != targetTeamId;
+    }
 }
 
 namespace rts::core::manager {
@@ -42,12 +48,12 @@ namespace rts::core::manager {
             auto lock = m_world.acquireWriteLock();
             auto unit = std::make_shared<core::model::Unit>();
             unit->setPosition({300.f, 300.f});
-
+            unit->setTeamId(core::model::TeamId::Player);
             m_world.addElement(unit);
 
             auto unit2 = std::make_shared<core::model::Unit>();
             unit2->setPosition({500.f, 500.f});
-
+            unit2->setTeamId(core::model::TeamId::Enemy);
             m_world.addElement(unit2);
         }
 
@@ -123,7 +129,7 @@ namespace rts::core::manager {
         m_movement.issueMove(m_world, m_selection.selected(), cmd.target());
     }
 
-    std::shared_ptr<model::IGameElement> GameLogicManager::findAttackTargetAt(
+    std::shared_ptr<model::IGameElement> GameLogicManager::findCommandTargetAt(
         const model::Vector2D& target,
         const SelectionSystem::SelectedList& selected) const {
         std::shared_ptr<model::IGameElement> bestTarget;
@@ -155,9 +161,24 @@ namespace rts::core::manager {
             return;
         }
 
-        const auto target = findAttackTargetAt(cmd.target(), m_selection.selected());
+        int attackerTeam = model::TeamId::Neutral;
+        for (const auto& weak : m_selection.selected()) {
+            if (auto unit = weak.lock(); unit && unit->getAction() != model::ActionType::Dead) {
+                attackerTeam = unit->getTeamId();
+                break;
+            }
+        }
+
+        const auto target = findCommandTargetAt(cmd.target(), m_selection.selected());
         if (!target) {
             m_movement.issueMove(m_world, m_selection.selected(), cmd.target());
+            return;
+        }
+
+        // Right-click follows RTS convention: friendly target means move/approach,
+        // opposing team target means attack.
+        if (!isOpposingTeam(attackerTeam, target->getTeamId())) {
+            m_movement.issueMove(m_world, m_selection.selected(), target->getPosition());
             return;
         }
 

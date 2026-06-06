@@ -21,6 +21,7 @@ namespace rts::core::model {
         explicit Unit();
 
         ActionType getAction() const override;
+        ActionType getAnimationAction() const;
 
         void moveTo(const Vector2D &target) override;
 
@@ -54,6 +55,9 @@ namespace rts::core::model {
         void cast(int, const Vector2D&) override {}
         void setSelected(bool selected) override;
 
+        int getTeamId() const override;
+        void setTeamId(int teamId) override;
+
         void setPath(path::Path p);
         void setMoveTargetWithPath(const std::vector<path::GridPos>& gridPath,
                                    const Vector2D& finalWorldTarget);
@@ -66,6 +70,7 @@ namespace rts::core::model {
         size_t m_pathIndex{0};
 
         ActionType m_action = ActionType::Idle;
+        ActionType m_animationAction = ActionType::Idle;
 
         Vector2D m_position{};
         Vector2D m_moveTarget{};
@@ -81,6 +86,8 @@ namespace rts::core::model {
 
         float m_hp = 100.f;
         float m_maxHp = 100.f;
+
+        int m_teamId{TeamId::Neutral};
 
         GameState m_state{};
     };
