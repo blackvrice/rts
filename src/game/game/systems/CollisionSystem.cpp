@@ -30,8 +30,10 @@ namespace rts::core::manager {
         }
 
         for (const auto& element : world.getElements()) {
-            const auto other = std::dynamic_pointer_cast<model::Unit>(element);
-            if (!other || other.get() == &unit || other->getAction() == model::ActionType::Dead) {
+            const auto other = std::dynamic_pointer_cast<model::IGameElement>(element);
+            if (!other ||
+                other.get() == static_cast<const model::IGameElement*>(&unit) ||
+                other->getAction() == model::ActionType::Dead) {
                 continue;
             }
 

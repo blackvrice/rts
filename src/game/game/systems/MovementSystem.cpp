@@ -30,12 +30,88 @@ namespace {
         return a.x == b.x && a.y == b.y;
     }
 
+    struct MovePlan {
+        rts::core::path::Path path;
+        Vector2D finalTarget;
+    };
+
     rts::core::path::PathOptions movementPathOptions() {
         rts::core::path::PathOptions options;
         options.allowDiagonal = true;
         options.useDynamicBlocking = true;
         options.preventDiagonalCornerCutting = true;
         return options;
+    }
+
+    bool finalTargetBlockedByHit(
+        const Unit& unit,
+        const CollisionSystem& collision,
+        const CollisionSystem::CollisionHit& hit) {
+        if (!hit.hasCenter) {
+            return false;
+        }
+
+        const float stopDistance = collision.movingUnitRadius() + hit.radius + 1.0f;
+        return distanceSq(unit.finalTargetWorld(), hit.center) <= stopDistance * stopDistance;
+    }
+
+    std::optional<MovePlan> findApproachPath(
+        GameWorld& world,
+        const rts::core::path::GridPos& start,
+        const rts::core::path::GridPos& goal,
+        const Vector2D& requestedTarget,
+        const rts::core::path::PathOptions& options) {
+        const auto& transform = world.gridTransform();
+        std::optional<MovePlan> bestPlan;
+        float bestScore = std::numeric_limits<float>::max();
+
+        for (int radius = 1; radius <= 3; ++radius) {
+            for (int dy = -radius; dy <= radius; ++dy) {
+                for (int dx = -radius; dx <= radius; ++dx) {
+                    if (std::max(std::abs(dx), std::abs(dy)) != radius) {
+                        continue;
+                    }
+
+                    const rts::core::path::GridPos candidate {
+                        goal.x + dx,
+                        goal.y + dy
+                    };
+
+                    if (!world.gridQuery().inBounds(candidate) ||
+                        world.gridQuery().isBlockedStatic(candidate) ||
+                        world.gridQuery().isBlockedDynamic(candidate)) {
+                        continue;
+                    }
+
+                    auto path = world.path().findPath(
+                        world.gridQuery(),
+                        world.collisionVersion(),
+                        start,
+                        candidate,
+                        options
+                    );
+                    if (!path || path->empty()) {
+                        continue;
+                    }
+
+                    const Vector2D candidateWorld = transform.gridToWorldCenter(candidate);
+                    const float score =
+                        static_cast<float>(path->size()) * 64.0f +
+                        distanceSq(candidateWorld, requestedTarget) * 0.01f;
+
+                    if (score < bestScore) {
+                        bestScore = score;
+                        bestPlan = MovePlan{*path, candidateWorld};
+                    }
+                }
+            }
+
+            if (bestPlan.has_value()) {
+                break;
+            }
+        }
+
+        return bestPlan;
     }
 
     std::optional<rts::core::path::GridPos> findAvoidanceCell(
@@ -127,6 +203,8 @@ namespace {
                 goalCell,
                 options)) {
             path.insert(path.end(), std::next(tail->begin()), tail->end());
+        } else {
+            return false;
         }
 
         unit.setMoveTargetWithPath(path, unit.finalTargetWorld());
@@ -153,6 +231,11 @@ namespace rts::core::manager {
                     const auto hit = collision.findMoveBlocker(world, *unit, unit->getPosition());
                     if (hit.has_value()) {
                         unit->setPosition(previousPosition);
+                        if (finalTargetBlockedByHit(*unit, collision, *hit)) {
+                            unit->stop();
+                            continue;
+                        }
+
                         if (!issueAvoidancePath(world, *unit, previousPosition, collision, *hit)) {
                             unit->stop();
                         }
@@ -207,6 +290,9 @@ namespace rts::core::manager {
                 unit->stop();
                 if (path && !path->empty()) {
                     unit->setMoveTargetWithPath(*path, target);
+                } else if (auto approach = findApproachPath(world, start, goal, target, options)) {
+                    // Occupied goals are approached through a nearby free cell instead of retrying forever.
+                    unit->setMoveTargetWithPath(approach->path, approach->finalTarget);
                 }
             }
         }
