@@ -236,6 +236,9 @@ namespace rts::core::manager {
             case WorldOrderMode::Attack:
                 m_logicBus.push(std::make_unique<command::AttackCommand>(worldPos));
                 break;
+            case WorldOrderMode::Gather:
+                m_logicBus.push(std::make_unique<command::GatherCommand>(worldPos));
+                break;
         }
 
         m_worldOrderMode = WorldOrderMode::Attack;
@@ -250,6 +253,9 @@ namespace rts::core::manager {
             case command::GameplayInputAction::AttackMove:
                 m_worldOrderMode = WorldOrderMode::Attack;
                 break;
+            case command::GameplayInputAction::Gather:
+                m_worldOrderMode = WorldOrderMode::Gather;
+                break;
             case command::GameplayInputAction::Stop:
                 m_logicBus.push(std::make_unique<command::StopCommand>(-1));
                 break;
@@ -262,7 +268,6 @@ namespace rts::core::manager {
             case command::GameplayInputAction::Patrol:
             case command::GameplayInputAction::TrainUnit:
             case command::GameplayInputAction::Build:
-            case command::GameplayInputAction::Gather:
             case command::GameplayInputAction::ReturnResource:
             case command::GameplayInputAction::Repair:
             case command::GameplayInputAction::UseAbility:
@@ -360,7 +365,8 @@ namespace rts::core::manager {
 
         if (m_isDragging) {
             cursorId = 102; // Cursor_03
-        } else if (m_worldOrderMode == WorldOrderMode::Move) {
+        } else if (m_worldOrderMode == WorldOrderMode::Move ||
+                   m_worldOrderMode == WorldOrderMode::Gather) {
             cursorId = 103; // Cursor_04
         } else if (m_worldOrderMode == WorldOrderMode::Attack) {
             core::model::Vector2D worldPos = m_camera.screenToWorld(m_mousePos);

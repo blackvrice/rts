@@ -13,7 +13,9 @@
 #include "game/game/systems/SelectionSystem.hpp"
 
 namespace rts::core::model {
+    class Building;
     class IGameElement;
+    class ResourceNode;
     class Unit;
     struct Vector2D;
 }
@@ -44,11 +46,15 @@ namespace rts::core::manager {
         void selectElement(model::IGameElement &element);
         void handleMoveCommand(const command::MoveCommand& cmd);
         void handleAttackCommand(const command::AttackCommand& cmd);
+        void handleGatherCommand(const command::GatherCommand& cmd);
 
     private:
         std::shared_ptr<model::IGameElement> findCommandTargetAt(
             const model::Vector2D& target,
             const SelectionSystem::SelectedList& selected) const;
+        std::shared_ptr<model::Building> findClosestDropOffFor(const model::Unit& worker) const;
+        void issueGatherToResource(model::ResourceNode& resource);
+        void applyReadyResourceDeliveries();
 
         core::world::GameWorld& m_world;
         SelectionSystem m_selection;

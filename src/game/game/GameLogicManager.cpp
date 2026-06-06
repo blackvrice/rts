@@ -4,6 +4,7 @@
 #include <memory>
 
 #include <core/model/Unit.hpp>
+#include <core/model/UnitType.hpp>
 #include <core/model/Building.hpp>
 #include <core/model/ResourceNode.hpp>
 #include <core/world/GameWorld.hpp>
@@ -50,10 +51,10 @@ namespace rts::core::manager {
             auto lock = m_world.acquireWriteLock();
             
             // --- Player Units ---
-            auto unit = std::make_shared<core::model::Unit>();
-            unit->setPosition({300.f, 300.f});
-            unit->setTeamId(core::model::TeamId::Player);
-            m_world.addElement(unit);
+            auto worker = std::make_shared<core::model::Unit>(::rts::UnitType::Worker);
+            worker->setPosition({300.f, 300.f});
+            worker->setTeamId(core::model::TeamId::Player);
+            m_world.addElement(worker);
 
             auto unit3 = std::make_shared<core::model::Unit>();
             unit3->setPosition({350.f, 300.f});
@@ -115,6 +116,19 @@ namespace rts::core::manager {
             handleAttackCommand(cmd);
         });
 
+        m_router.on<command::GatherCommand>([this](const command::GatherCommand &cmd) {
+            handleGatherCommand(cmd);
+        });
+
+        m_router.on<command::StopCommand>([this](const command::StopCommand &) {
+            auto lock = m_world.acquireWriteLock();
+            for (auto &weak: m_selection.selected()) {
+                if (auto element = weak.lock(); element && element->getAction() != model::ActionType::Dead) {
+                    element->stop();
+                }
+            }
+        });
+
         m_router.on<command::HoldPositionCommand>([this](const command::HoldPositionCommand &) {
             auto lock = m_world.acquireWriteLock();
             for (auto &weak: m_selection.selected()) {
@@ -149,6 +163,7 @@ namespace rts::core::manager {
     void GameLogicManager::tick(float dt) {
         auto lock = m_world.acquireWriteLock();
         m_movement.update(m_world, dt, m_collision);
+        applyReadyResourceDeliveries();
     }
 
     void GameLogicManager::selectElement(core::model::IGameElement &element) {
@@ -199,6 +214,82 @@ namespace rts::core::manager {
         return bestTarget;
     }
 
+    std::shared_ptr<model::Building> GameLogicManager::findClosestDropOffFor(const model::Unit& worker) const {
+        std::shared_ptr<model::Building> bestDropOff;
+        float bestDistanceSq = std::numeric_limits<float>::max();
+
+        for (const auto& element : m_world.getElements()) {
+            auto building = std::dynamic_pointer_cast<model::Building>(element);
+            if (!building ||
+                !building->isDropOff() ||
+                building->getAction() == model::ActionType::Dead ||
+                building->getTeamId() != worker.getTeamId()) {
+                continue;
+            }
+
+            const float candidateDistanceSq = distanceSq(
+                building->getPosition(),
+                worker.getPosition()
+            );
+            if (candidateDistanceSq < bestDistanceSq) {
+                bestDistanceSq = candidateDistanceSq;
+                bestDropOff = std::move(building);
+            }
+        }
+
+        return bestDropOff;
+    }
+
+    void GameLogicManager::issueGatherToResource(model::ResourceNode& resource) {
+        if (resource.isDepleted()) {
+            return;
+        }
+
+        for (const auto& weak : m_selection.selected()) {
+            auto element = weak.lock();
+            auto worker = std::dynamic_pointer_cast<model::Unit>(element);
+            if (!worker ||
+                !worker->isWorker() ||
+                worker->getAction() == model::ActionType::Dead) {
+                continue;
+            }
+
+            auto dropOff = findClosestDropOffFor(*worker);
+            if (!dropOff) {
+                worker->stop();
+                continue;
+            }
+
+            worker->gather(&resource, dropOff.get());
+        }
+    }
+
+    void GameLogicManager::applyReadyResourceDeliveries() {
+        for (const auto& element : m_world.getElements()) {
+            auto unit = std::dynamic_pointer_cast<model::Unit>(element);
+            if (!unit) {
+                continue;
+            }
+
+            const auto delivery = unit->takeReadyResourceDelivery();
+            if (!delivery || delivery->amount <= 0) {
+                continue;
+            }
+
+            auto resources = m_world.playerResources(unit->getTeamId());
+            switch (delivery->type) {
+                case model::ResourceNode::ResourceType::Gold:
+                    resources.gold += delivery->amount;
+                    break;
+                case model::ResourceNode::ResourceType::Wood:
+                    resources.wood += delivery->amount;
+                    break;
+            }
+
+            m_world.setPlayerResources(unit->getTeamId(), resources);
+        }
+    }
+
     void GameLogicManager::handleAttackCommand(const command::AttackCommand& cmd) {
         auto lock = m_world.acquireWriteLock();
 
@@ -220,6 +311,11 @@ namespace rts::core::manager {
             return;
         }
 
+        if (auto resource = std::dynamic_pointer_cast<model::ResourceNode>(target)) {
+            issueGatherToResource(*resource);
+            return;
+        }
+
         // Right-click follows RTS convention: friendly target means move/approach,
         // opposing team target means attack.
         if (!isOpposingTeam(attackerTeam, target->getTeamId())) {
@@ -235,5 +331,21 @@ namespace rts::core::manager {
                 attacker->attack(target.get());
             }
         }
+    }
+
+    void GameLogicManager::handleGatherCommand(const command::GatherCommand& cmd) {
+        auto lock = m_world.acquireWriteLock();
+
+        if (!cmd.hasWorldTarget()) {
+            return;
+        }
+
+        const auto target = findCommandTargetAt(cmd.target(), m_selection.selected());
+        auto resource = std::dynamic_pointer_cast<model::ResourceNode>(target);
+        if (!resource) {
+            return;
+        }
+
+        issueGatherToResource(*resource);
     }
 }

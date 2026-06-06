@@ -1,5 +1,7 @@
 #pragma once
+#include <vector>
 #include <string>
+
 #include "core/model/IGameElement.hpp"
 
 namespace rts::core::model {
@@ -8,7 +10,12 @@ namespace rts::core::model {
     public:
         enum class ResourceType : int { Gold = 0, Wood = 1 };
 
-        ResourceNode(Vector2D pos, ResourceType type, int totalAmount, int gatherAmount = 10);
+        ResourceNode(Vector2D pos,
+                     ResourceType type,
+                     int totalAmount,
+                     int gatherAmount = 10,
+                     float gatherDurationSeconds = 1.5f,
+                     int maxGatherers = 3);
 
         // ── 채집 ─────────────────────────────────────────────────
         bool tryGather(int& amountOut) override;
@@ -16,6 +23,13 @@ namespace rts::core::model {
         int  remaining()    const noexcept { return m_remaining; }
         bool isDepleted()   const noexcept { return m_remaining <= 0; }
         ResourceType type() const noexcept { return m_type; }
+        int gatherAmountPerTrip() const noexcept { return m_gatherAmount; }
+        float gatherDurationSeconds() const noexcept { return m_gatherDurationSeconds; }
+        int maxGatherers() const noexcept { return m_maxGatherers; }
+        int reservedGathererCount() const noexcept;
+        bool reserveGatherSlot(const IGameElement& worker);
+        void releaseGatherSlot(const IGameElement& worker);
+        bool hasGatherReservation(const IGameElement& worker) const;
 
         // ── IElement ─────────────────────────────────────────────
         void     update()                         override {}
@@ -50,6 +64,9 @@ namespace rts::core::model {
         ResourceType m_type;
         int          m_remaining;
         int          m_gatherAmount;
+        float        m_gatherDurationSeconds;
+        int          m_maxGatherers;
+        std::vector<const IGameElement*> m_reservedGatherers;
         GameState    m_state{};
     };
 }

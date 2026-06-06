@@ -1,11 +1,18 @@
 ﻿#include <cmath>
 #include <iostream>
 #include <algorithm>
+#include <optional>
+#include <utility>
+
+#include <core/model/Building.hpp>
 #include <core/model/Unit.hpp>
 #include <core/viewmodel/UnitViewModel.hpp>
 #include <core/world/GridTransform.hpp>
 
 namespace {
+    constexpr float kGatherInteractRange = 72.0f;
+    constexpr float kDropOffInteractRange = 82.0f;
+
     float distanceSq(
         const rts::core::model::Vector2D& a,
         const rts::core::model::Vector2D& b) {
@@ -22,6 +29,11 @@ namespace rts::core::model {
     {
     }
 
+    Unit::Unit(const ::rts::UnitType unitType)
+        : Unit(core::data::unitStaticDataFor(unitType))
+    {
+    }
+
     Unit::Unit(const core::data::UnitStaticData& staticData)
     {
         // ===== 기본 스탯 초기화 =====
@@ -35,6 +47,7 @@ namespace rts::core::model {
     }
 
     void Unit::applyStaticData(const core::data::UnitStaticData& staticData) {
+        m_unitType = staticData.unitType;
         m_displayName = staticData.displayName;
         m_maxHp = staticData.maxHp;
         m_hp = m_maxHp;
@@ -55,6 +68,7 @@ namespace rts::core::model {
 
     void Unit::moveTo(const Vector2D& target) {
         if (m_action == ActionType::Dead) return;
+        clearGatherState(true);
         m_action = ActionType::Move;
         m_animationAction = ActionType::Move;
         m_attackTarget = nullptr;
@@ -69,6 +83,7 @@ namespace rts::core::model {
         if (target->getAction() == ActionType::Dead) return;
         if (target->getTeamId() == m_teamId && m_teamId != TeamId::Neutral) return;
 
+        clearGatherState(true);
         m_action = ActionType::Attack;
         m_attackTarget = target;
         m_moveTarget = target->getPosition();
@@ -90,6 +105,9 @@ namespace rts::core::model {
             break;
         case ActionType::Attack:
             updateAttack(dt);
+            break;
+        case ActionType::Gather:
+            updateGather(dt);
             break;
         default:
             break;
@@ -225,6 +243,7 @@ namespace rts::core::model {
             m_action = ActionType::Dead;
             m_animationAction = ActionType::Dead;
             m_attackTarget = nullptr;
+            clearGatherState(true);
             return;
         }
 
@@ -261,6 +280,55 @@ namespace rts::core::model {
         return m_armor;
     }
 
+    ::rts::UnitType Unit::unitType() const noexcept {
+        return m_unitType;
+    }
+
+    bool Unit::isWorker() const noexcept {
+        return m_unitType == ::rts::UnitType::Worker;
+    }
+
+    bool Unit::hasResourceDeliveryReady() const noexcept {
+        return m_action == ActionType::Gather &&
+               m_gatherState.phase == GatherPhase::DropResource &&
+               m_gatherState.deliveryReady &&
+               m_gatherState.carryingAmount > 0;
+    }
+
+    std::optional<Unit::ResourceDelivery> Unit::takeReadyResourceDelivery() {
+        if (!hasResourceDeliveryReady()) {
+            return std::nullopt;
+        }
+
+        ResourceDelivery delivery {
+            m_gatherState.carryingType,
+            m_gatherState.carryingAmount
+        };
+
+        m_gatherState.carryingAmount = 0;
+        m_gatherState.deliveryReady = false;
+
+        auto* resource = m_gatherState.targetResource;
+        auto* dropOff = m_gatherState.targetDropOff;
+        if (resource &&
+            dropOff &&
+            resource->getAction() != ActionType::Dead &&
+            dropOff->getAction() != ActionType::Dead &&
+            resource->reserveGatherSlot(*this)) {
+            m_gatherState.phase = GatherPhase::MoveToResource;
+            m_gatherState.gatherProgressSeconds = 0.0f;
+            m_animationAction = ActionType::Move;
+            m_moveTarget = resource->getPosition();
+            m_finalTargetWorld = m_moveTarget;
+        } else {
+            clearGatherState(false);
+            m_action = ActionType::Idle;
+            m_animationAction = ActionType::Idle;
+        }
+
+        return delivery;
+    }
+
     std::string Unit::displayName() const {
         return m_displayName;
     }
@@ -273,6 +341,7 @@ namespace rts::core::model {
 
     void Unit::idle() {
         if (m_action == ActionType::Dead) return;
+        clearGatherState(true);
         m_action = ActionType::Idle;
         m_animationAction = ActionType::Idle;
         m_attackTarget = nullptr;
@@ -289,6 +358,7 @@ namespace rts::core::model {
 
     void Unit::holdPosition() {
         if (m_action == ActionType::Dead) return;
+        clearGatherState(true);
         m_action = ActionType::Hold;
         m_animationAction = ActionType::Hold;
         m_attackTarget = nullptr;
@@ -317,6 +387,7 @@ namespace rts::core::model {
                                  const Vector2D& finalWorldTarget)
     {
         if (m_action == ActionType::Dead) return;
+        clearGatherState(true);
         m_gridPath.clear();
         // PathManager returns the start cell too; movement should begin at the next cell.
         for (std::size_t i = 1; i < gridPath.size(); ++i) {
@@ -337,6 +408,7 @@ namespace rts::core::model {
 
     void Unit::stop() {
         if (m_action == ActionType::Dead) return;
+        clearGatherState(true);
         m_action = ActionType::Idle;
         m_animationAction = ActionType::Idle;
         m_attackTarget = nullptr;
@@ -345,6 +417,162 @@ namespace rts::core::model {
 
     const GameState& Unit::state() const {
         return m_state;
+    }
+
+    void Unit::gather(IGameElement* resource) {
+        gather(dynamic_cast<ResourceNode*>(resource), nullptr);
+    }
+
+    void Unit::gather(ResourceNode* resource, Building* dropOff) {
+        if (m_action == ActionType::Dead) return;
+
+        clearGatherState(true);
+        if (!isWorker() ||
+            !resource ||
+            !dropOff ||
+            resource->isDepleted() ||
+            dropOff->getAction() == ActionType::Dead ||
+            !resource->reserveGatherSlot(*this)) {
+            m_action = ActionType::Idle;
+            m_animationAction = ActionType::Idle;
+            return;
+        }
+
+        m_action = ActionType::Gather;
+        m_animationAction = ActionType::Move;
+        m_attackTarget = nullptr;
+        m_gridPath.clear();
+        m_gatherState = WorkerGatherState {
+            .targetResource = resource,
+            .targetDropOff = dropOff,
+            .carryingType = resource->type(),
+            .carryingAmount = 0,
+            .maxCarryAmount = resource->gatherAmountPerTrip(),
+            .gatherProgressSeconds = 0.0f,
+            .phase = GatherPhase::MoveToResource,
+            .deliveryReady = false
+        };
+        m_moveTarget = resource->getPosition();
+        m_finalTargetWorld = m_moveTarget;
+    }
+
+    void Unit::updateGather(float dt) {
+        auto* resource = m_gatherState.targetResource;
+        auto* dropOff = m_gatherState.targetDropOff;
+        if (!isWorker() || !resource || !dropOff || dropOff->getAction() == ActionType::Dead) {
+            clearGatherState(true);
+            m_action = ActionType::Idle;
+            m_animationAction = ActionType::Idle;
+            return;
+        }
+
+        if ((m_gatherState.phase == GatherPhase::MoveToResource ||
+             m_gatherState.phase == GatherPhase::Gathering) &&
+            resource->isDepleted()) {
+            clearGatherState(true);
+            m_action = ActionType::Idle;
+            m_animationAction = ActionType::Idle;
+            return;
+        }
+
+        switch (m_gatherState.phase) {
+            case GatherPhase::MoveToResource:
+                if (!resource->hasGatherReservation(*this) &&
+                    !resource->reserveGatherSlot(*this)) {
+                    clearGatherState(false);
+                    m_action = ActionType::Idle;
+                    m_animationAction = ActionType::Idle;
+                    return;
+                }
+
+                m_animationAction = ActionType::Move;
+                if (moveToward(resource->getPosition(), kGatherInteractRange, dt)) {
+                    m_gatherState.phase = GatherPhase::Gathering;
+                    m_gatherState.gatherProgressSeconds = 0.0f;
+                    m_animationAction = ActionType::Attack;
+                }
+                break;
+
+            case GatherPhase::Gathering: {
+                m_animationAction = ActionType::Attack;
+                m_gatherState.gatherProgressSeconds += dt;
+                if (m_gatherState.gatherProgressSeconds < resource->gatherDurationSeconds()) {
+                    break;
+                }
+
+                int gatheredAmount = 0;
+                if (!resource->tryGather(gatheredAmount) || gatheredAmount <= 0) {
+                    clearGatherState(true);
+                    m_action = ActionType::Idle;
+                    m_animationAction = ActionType::Idle;
+                    return;
+                }
+
+                resource->releaseGatherSlot(*this);
+                m_gatherState.carryingType = resource->type();
+                m_gatherState.carryingAmount = std::min(
+                    gatheredAmount,
+                    m_gatherState.maxCarryAmount
+                );
+                m_gatherState.phase = GatherPhase::MoveToDropOff;
+                m_gatherState.gatherProgressSeconds = 0.0f;
+                m_animationAction = ActionType::Move;
+                m_moveTarget = dropOff->getPosition();
+                m_finalTargetWorld = m_moveTarget;
+                break;
+            }
+
+            case GatherPhase::MoveToDropOff:
+                m_animationAction = ActionType::Move;
+                if (moveToward(dropOff->getPosition(), kDropOffInteractRange, dt)) {
+                    m_gatherState.phase = GatherPhase::DropResource;
+                    m_gatherState.deliveryReady = true;
+                    m_animationAction = ActionType::Idle;
+                }
+                break;
+
+            case GatherPhase::DropResource:
+                m_animationAction = ActionType::Idle;
+                break;
+
+            case GatherPhase::None:
+                clearGatherState(true);
+                m_action = ActionType::Idle;
+                m_animationAction = ActionType::Idle;
+                break;
+        }
+    }
+
+    bool Unit::moveToward(const Vector2D& target, float stopDistance, float dt) {
+        Vector2D delta{ target.x - m_position.x, target.y - m_position.y };
+        const float distSq = delta.x * delta.x + delta.y * delta.y;
+        const float stopDistanceSq = stopDistance * stopDistance;
+        if (distSq <= stopDistanceSq) {
+            return true;
+        }
+
+        const float dist = std::sqrt(distSq);
+        if (dist <= 0.0f) {
+            return true;
+        }
+
+        const Vector2D dir{ delta.x / dist, delta.y / dist };
+        const float advance = std::min(moveSpeed * dt, std::max(0.0f, dist - stopDistance));
+        if (advance <= 0.0f) {
+            return true;
+        }
+
+        m_position.x += dir.x * advance;
+        m_position.y += dir.y * advance;
+        return (dist - advance) <= stopDistance + 0.5f;
+    }
+
+    void Unit::clearGatherState(bool releaseReservation) {
+        if (releaseReservation && m_gatherState.targetResource) {
+            m_gatherState.targetResource->releaseGatherSlot(*this);
+        }
+
+        m_gatherState = WorkerGatherState {};
     }
 
 }

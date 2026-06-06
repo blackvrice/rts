@@ -139,25 +139,28 @@
 
 ## Epic 0.3 자원 채집 루프
 
-현재 상태: `[20%]`
+현재 상태: `[80%]`
 
 ### 현재 구현된 항목
 
 ```text
 - ResourceNode 모델 존재
 - ResourceNode 렌더링 존재
+- ResourceNode 자원량/채집량/채집 시간/예약 데이터 존재
+- WorkerGatherState 기초 구현
+- 자원 우클릭/GatherCommand 런타임 연결
+- Worker Gather FSM 기초 구현
+- Drop-off 탐색 및 PlayerResource 증가 연결
+- 자동 반복 채집 기초 구현
 ```
 
-### 부족한 항목
+### 남은 안정화 항목
 
 ```text
-- Worker Gather FSM
-- 자원 예약
-- 채집 시간
-- 운반량
-- Drop-off 건물 탐색
-- 자원 증가
-- 자동 반복 채집
+- EntityId 기반 ResourceNodeComponent 전환
+- MaxGatherers 초과 시 다른 자원 자동 탐색 또는 대기
+- Drop-off 건물 파괴 시 재탐색
+- 채집 루프 전용 테스트/디버그 로그
 ```
 
 ---
@@ -167,13 +170,13 @@
 #### Task
 
 ```text
-[ ] ResourceType 추가
-[ ] ResourceAmount 추가
-[ ] GatherAmountPerTrip 추가
-[ ] GatherDurationTick 추가
-[ ] MaxGatherers 추가
-[ ] ReservedWorkers 목록 추가
-[ ] IsDepleted 상태 추가
+[x] ResourceType 추가
+[x] ResourceAmount 추가
+[x] GatherAmountPerTrip 추가
+[x] GatherDurationTick 추가
+[x] MaxGatherers 추가
+[x] ReservedWorkers 목록 추가
+[x] IsDepleted 상태 추가
 ```
 
 #### 예시 구조
@@ -206,11 +209,11 @@ struct ResourceNode
 #### Task
 
 ```text
-[ ] Worker가 현재 운반 중인 자원 타입 저장
-[ ] Worker가 현재 운반 중인 자원량 저장
-[ ] Worker의 최대 운반량 저장
-[ ] Worker가 채집 중인 ResourceNode 저장
-[ ] Worker가 돌아갈 Drop-off 건물 저장
+[x] Worker가 현재 운반 중인 자원 타입 저장
+[x] Worker가 현재 운반 중인 자원량 저장
+[x] Worker의 최대 운반량 저장
+[x] Worker가 채집 중인 ResourceNode 저장
+[x] Worker가 돌아갈 Drop-off 건물 저장
 ```
 
 #### 예시 구조
@@ -243,11 +246,11 @@ struct WorkerGatherState
 #### Task
 
 ```text
-[ ] 자원 노드 우클릭 시 GatherCommand 생성
-[ ] 선택된 유닛 중 Worker만 필터링
-[ ] Worker가 아니면 명령 무시
-[ ] 고갈된 자원 노드면 명령 거부
-[ ] ResourceNode까지 이동 명령 연결
+[x] 자원 노드 우클릭 시 GatherCommand 생성
+[x] 선택된 유닛 중 Worker만 필터링
+[x] Worker가 아니면 명령 무시
+[x] 고갈된 자원 노드면 명령 거부
+[x] ResourceNode까지 이동 명령 연결
 ```
 
 #### 완료 기준
@@ -284,13 +287,13 @@ MoveToResource
 #### Task
 
 ```text
-[ ] MoveToResource 상태 추가
-[ ] ReserveGatherSlot 상태 추가
-[ ] Gathering 상태 추가
-[ ] CarryResource 상태 추가
-[ ] MoveToDropOff 상태 추가
-[ ] DropResource 상태 추가
-[ ] 자동 반복 채집 처리
+[x] MoveToResource 상태 추가
+[x] ReserveGatherSlot 상태 추가
+[x] Gathering 상태 추가
+[x] CarryResource 상태 추가
+[x] MoveToDropOff 상태 추가
+[x] DropResource 상태 추가
+[x] 자동 반복 채집 처리
 ```
 
 #### 완료 기준
@@ -310,11 +313,11 @@ MoveToResource
 #### Task
 
 ```text
-[ ] Drop-off 가능한 건물 타입 정의
-[ ] 완성된 아군 건물만 후보로 인정
-[ ] 가장 가까운 Drop-off 건물 탐색
+[x] Drop-off 가능한 건물 타입 정의
+[x] 완성된 아군 건물만 후보로 인정
+[x] 가장 가까운 Drop-off 건물 탐색
 [ ] Drop-off 건물이 파괴되었을 때 재탐색
-[ ] Drop-off 건물이 없으면 Worker Idle 처리
+[x] Drop-off 건물이 없으면 Worker Idle 처리
 ```
 
 #### 완료 기준
@@ -332,10 +335,10 @@ MoveToResource
 #### Task
 
 ```text
-[ ] ResourceNode별 예약 Worker 목록 관리
+[x] ResourceNode별 예약 Worker 목록 관리
 [ ] MaxGatherers 초과 시 다른 자원 탐색 또는 대기
-[ ] Worker 사망/명령 변경 시 예약 해제
-[ ] ResourceNode 고갈 시 예약 전체 해제
+[x] Worker 사망/명령 변경 시 예약 해제
+[x] ResourceNode 고갈 시 예약 전체 해제
 ```
 
 #### 완료 기준
@@ -1833,12 +1836,12 @@ Rebuild
 ### 작업 순서
 
 ```text
-1. WorkerGatherState 추가
-2. GatherCommand 추가
-3. ResourceNode 예약 추가
-4. Worker Gather FSM 추가
-5. Drop-off 건물 탐색 추가
-6. PlayerResource 증가 연결
+[x] WorkerGatherState 추가
+[x] GatherCommand 추가
+[x] ResourceNode 예약 추가
+[x] Worker Gather FSM 추가
+[x] Drop-off 건물 탐색 추가
+[x] PlayerResource 증가 연결
 ```
 
 ### 완료 결과
@@ -1957,15 +1960,17 @@ Worker가 새 건물을 지을 수 있다.
 현재 개발 우선순위는 다음입니다.
 
 ```text
-1. ResourceNodeComponent 확장
-2. WorkerGatherState 추가
-3. GatherCommand 추가
-4. Worker FSM에 MoveToResource / Gathering / MoveToDropOff / DropResource 추가
-5. Drop-off 건물 탐색
-6. 자원 반납 시 PlayerResource 증가
+1. 자원 채집 안정화
+   - MaxGatherers 초과 시 대기/다른 자원 탐색
+   - Drop-off 파괴 시 재탐색
+2. ProductionQueue 구현
+3. 생산 비용 차감 처리
+4. 생산 진행도 Tick 업데이트
+5. 유닛 스폰 위치 계산
+6. RallyPoint 이동 연결
 ```
 
-이 작업이 끝나면 RTS 핵심 루프 중 하나인 **자원 채집**이 완성됩니다.
+자원 채집 기본 루프는 구현되었고, 안정화 항목을 보강하면 Sprint 1을 닫을 수 있습니다.
 
 그 다음 순서는 다음과 같습니다.
 

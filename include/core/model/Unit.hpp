@@ -6,10 +6,12 @@
 #include <cstddef>
 #include <deque>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "IGameElement.hpp"
+#include "ResourceNode.hpp"
 #include "core/data/UnitStaticData.hpp"
 #include "core/path/GridTypes.hpp"
 
@@ -18,10 +20,17 @@ namespace rts::core::world {
 }
 
 namespace rts::core::model {
+    class Building;
     class Unit : public IGameElement{
     public:
         explicit Unit();
+        explicit Unit(::rts::UnitType unitType);
         explicit Unit(const core::data::UnitStaticData& staticData);
+
+        struct ResourceDelivery {
+            ResourceNode::ResourceType type;
+            int amount { 0 };
+        };
 
         ActionType getAction() const override;
         ActionType getAnimationAction() const;
@@ -48,6 +57,10 @@ namespace rts::core::model {
         float getAttackCooldown() const;
         float getMoveSpeed() const;
         float getArmor() const;
+        ::rts::UnitType unitType() const noexcept;
+        bool isWorker() const noexcept;
+        bool hasResourceDeliveryReady() const noexcept;
+        std::optional<ResourceDelivery> takeReadyResourceDelivery();
         std::string displayName() const override;
 
         void update() override;
@@ -59,7 +72,8 @@ namespace rts::core::model {
         void holdPosition() override;
         void patrol(const Vector2D&, const Vector2D&) override {}
         void attackMove(const Vector2D&) override {}
-        void gather(IGameElement*) override {}
+        void gather(IGameElement*) override;
+        void gather(ResourceNode* resource, Building* dropOff);
         void build(int, const Vector2D&) override {}
         void cast(int, const Vector2D&) override {}
         void setSelected(bool selected) override;
@@ -73,7 +87,29 @@ namespace rts::core::model {
         const Vector2D& finalTargetWorld() const noexcept;
 
     private:
+        enum class GatherPhase {
+            None,
+            MoveToResource,
+            Gathering,
+            MoveToDropOff,
+            DropResource
+        };
+
+        struct WorkerGatherState {
+            ResourceNode* targetResource { nullptr };
+            Building* targetDropOff { nullptr };
+            ResourceNode::ResourceType carryingType {};
+            int carryingAmount { 0 };
+            int maxCarryAmount { 10 };
+            float gatherProgressSeconds { 0.0f };
+            GatherPhase phase { GatherPhase::None };
+            bool deliveryReady { false };
+        };
+
         void applyStaticData(const core::data::UnitStaticData& staticData);
+        void updateGather(float dt);
+        bool moveToward(const Vector2D& target, float stopDistance, float dt);
+        void clearGatherState(bool releaseReservation);
 
         std::deque<path::GridPos> m_gridPath; // 다음 노드부터 pop_front
         Vector2D m_finalTargetWorld{};
@@ -88,6 +124,8 @@ namespace rts::core::model {
 
         IGameElement* m_attackTarget = nullptr;
 
+        ::rts::UnitType m_unitType { ::rts::UnitType::Warrior };
+        WorkerGatherState m_gatherState {};
         std::string m_displayName { "Unit" };
         float moveSpeed = 120.f;
 

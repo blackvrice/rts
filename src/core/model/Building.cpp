@@ -34,6 +34,10 @@ namespace rts::core::model {
         return "Building";
     }
 
+    bool Building::isDropOff() const noexcept {
+        return m_type == BuildingType::TownHall;
+    }
+
     void Building::takeDamage(float amount, IGameElement*) {
         if (m_hp <= 0.f) return;
         m_hp = std::max(0.f, m_hp - amount);

@@ -251,16 +251,24 @@ namespace rts::core::command {
     // =========================================================
     class GatherCommand final : public LogicCommand {
     public:
+        explicit GatherCommand(core::model::Vector2D target)
+            : m_target(target), m_hasWorldTarget(true) {
+        }
+
         GatherCommand(int workerId, int resourceId)
             : m_workerId(workerId), m_resourceId(resourceId) {
         }
 
         int workerId() const noexcept { return m_workerId; }
         int resourceId() const noexcept { return m_resourceId; }
+        core::model::Vector2D target() const noexcept { return m_target; }
+        bool hasWorldTarget() const noexcept { return m_hasWorldTarget; }
 
     private:
-        int m_workerId;
-        int m_resourceId;
+        int m_workerId { -1 };
+        int m_resourceId { -1 };
+        core::model::Vector2D m_target {};
+        bool m_hasWorldTarget { false };
     };
 
     class ReturnResourceCommand final : public LogicCommand {

@@ -6,6 +6,7 @@
 
 namespace rts::core::data {
     struct UnitStaticData {
+        ::rts::UnitType unitType { ::rts::UnitType::Warrior };
         std::string displayName { "Unit" };
         float maxHp { 100.0f };
         float attackDamage { 10.0f };
@@ -20,6 +21,7 @@ namespace rts::core::data {
 
     inline UnitStaticData warriorUnitStaticData() {
         return UnitStaticData {
+            .unitType = ::rts::UnitType::Warrior,
             .displayName = "Warrior",
             .maxHp = 120.0f,
             .attackDamage = 12.0f,
@@ -35,6 +37,7 @@ namespace rts::core::data {
 
     inline UnitStaticData archerUnitStaticData() {
         return UnitStaticData {
+            .unitType = ::rts::UnitType::Archer,
             .displayName = "Archer",
             .maxHp = 80.0f,
             .attackDamage = 9.0f,
@@ -50,6 +53,7 @@ namespace rts::core::data {
 
     inline UnitStaticData workerUnitStaticData() {
         return UnitStaticData {
+            .unitType = ::rts::UnitType::Worker,
             .displayName = "Worker",
             .maxHp = 70.0f,
             .attackDamage = 4.0f,
@@ -65,6 +69,7 @@ namespace rts::core::data {
 
     inline UnitStaticData marineUnitStaticData() {
         auto data = archerUnitStaticData();
+        data.unitType = ::rts::UnitType::Marine;
         data.displayName = "Marine";
         data.attackDamage = 8.0f;
         data.attackRange = 150.0f;

@@ -31,6 +31,16 @@
 - Preserved modifier combinations such as control-group shortcuts by ignoring gameplay command hotkeys when Ctrl, Alt, or System modifiers are held.
 - Verification: built `RTS` with `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j1`, then launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
 
+## 2026-06-07 - Worker Resource Gathering Loop
+
+- Implemented the Sprint 1 resource gathering loop from `DEVELOPMENT_PLAN.md`: workers can gather from `ResourceNode`, carry resources to a friendly Town Hall drop-off, and increase `PlayerResourceState`.
+- Extended `ResourceNode` with gather amount, gather duration, max gatherers, depletion checks, and reservation tracking so gather orders have real resource state to operate on.
+- Added Worker gather state to `Unit`, including resource/drop-off targets, carrying data, gather phases, reservation release on command changes/death, and automatic repeat gathering after delivery.
+- Wired smart right-click and `GatherCommand` world-target input through `GameLogicManager`, filtering non-workers and routing ready deliveries back into `GameWorld` resources.
+- Updated `DEVELOPMENT_PLAN.md` to mark the completed resource-gathering tasks and leave the remaining stabilization items visible.
+- Verification: built `RTS` with `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j1`, then launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
+- Follow-up: add behavior for MaxGatherers overflow, Drop-off destruction retargeting, and targeted tests/debug traces for the gather loop.
+
 ## 2026-06-06 - Render Lock Reentry Fix
 
 - Fixed a render-thread stall where `GameUIManager::render()` tried to acquire `GameWorld`'s read lock while `GameScene::render()` already held the same non-recursive `shared_mutex` read lock.
