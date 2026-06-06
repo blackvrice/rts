@@ -1,13 +1,17 @@
 #include "game/game/GameLogicManager.hpp"
 
+#include <algorithm>
+#include <cstdlib>
 #include <limits>
 #include <memory>
+#include <vector>
 
 #include <core/model/Unit.hpp>
 #include <core/model/UnitType.hpp>
 #include <core/model/Building.hpp>
 #include <core/model/PlayerResourceState.hpp>
 #include <core/model/ResourceNode.hpp>
+#include <core/data/UnitStaticData.hpp>
 #include <core/world/GameWorld.hpp>
 
 namespace {
@@ -95,6 +99,7 @@ namespace rts::core::manager {
                 core::model::Vector2D{220.f, 220.f},
                 core::model::TeamId::Player
             );
+            registerBuildingSpawn(*townHall);
             m_world.addElement(townHall);
 
             auto enemyTownHall = std::make_shared<core::model::Building>(
@@ -102,6 +107,7 @@ namespace rts::core::manager {
                 core::model::Vector2D{760.f, 650.f},
                 core::model::TeamId::Enemy
             );
+            registerBuildingSpawn(*enemyTownHall);
             m_world.addElement(enemyTownHall);
 
             auto enemyBarracks = std::make_shared<core::model::Building>(
@@ -109,6 +115,7 @@ namespace rts::core::manager {
                 core::model::Vector2D{700.f, 560.f},
                 core::model::TeamId::Enemy
             );
+            registerBuildingSpawn(*enemyBarracks);
             m_world.addElement(enemyBarracks);
 
             // --- Resources ---
@@ -142,6 +149,14 @@ namespace rts::core::manager {
 
         m_router.on<command::GatherCommand>([this](const command::GatherCommand &cmd) {
             handleGatherCommand(cmd);
+        });
+
+        m_router.on<command::TrainUnitCommand>([this](const command::TrainUnitCommand &cmd) {
+            handleTrainCommand(cmd);
+        });
+
+        m_router.on<command::CancelProductionCommand>([this](const command::CancelProductionCommand &cmd) {
+            handleCancelProduction(cmd);
         });
 
         m_router.on<command::StopCommand>([this](const command::StopCommand &) {
@@ -189,6 +204,7 @@ namespace rts::core::manager {
         m_movement.update(m_world, dt, m_collision);
         applyReadyResourceDeliveries();
         handleGatherRedirects();
+        flushPendingSpawns();
     }
 
     void GameLogicManager::selectElement(core::model::IGameElement &element) {
@@ -211,6 +227,14 @@ namespace rts::core::manager {
 
     void GameLogicManager::handleMoveCommand(const command::MoveCommand& cmd) {
         auto lock = m_world.acquireWriteLock();
+        // A move order on a selected production building sets its rally point instead
+        // of moving the (immobile) building.
+        for (const auto& weak : m_selection.selected()) {
+            if (auto building = std::dynamic_pointer_cast<model::Building>(weak.lock());
+                building && building->getAction() != model::ActionType::Dead) {
+                building->setRallyPoint(cmd.target());
+            }
+        }
         m_movement.issueMove(m_world, m_selection.selected(), cmd.target());
     }
 
@@ -430,5 +454,135 @@ namespace rts::core::manager {
         }
 
         issueGatherToResource(*resource);
+    }
+
+    // =========================================================
+    // Production
+    // =========================================================
+    ::rts::UnitType GameLogicManager::defaultUnitFor(model::BuildingType type) {
+        switch (type) {
+            case model::BuildingType::TownHall: return ::rts::UnitType::Worker;
+            case model::BuildingType::Barracks: return ::rts::UnitType::Warrior;
+        }
+        return ::rts::UnitType::Warrior;
+    }
+
+    std::shared_ptr<model::Building> GameLogicManager::firstSelectedBuilding() const {
+        for (const auto& weak : m_selection.selected()) {
+            if (auto building = std::dynamic_pointer_cast<model::Building>(weak.lock());
+                building && building->getAction() != model::ActionType::Dead) {
+                return building;
+            }
+        }
+        return nullptr;
+    }
+
+    void GameLogicManager::registerBuildingSpawn(model::Building& building) {
+        // Buffer the spawn request; the actual element insertion happens in
+        // flushPendingSpawns() after the per-tick element sweep completes.
+        building.setUnitSpawnFn(
+            [this](::rts::UnitType type, const model::Vector2D& anchor,
+                   const model::Vector2D& rally, bool hasRally, int team) {
+                m_pendingSpawns.push_back(PendingSpawn{ type, anchor, rally, hasRally, team });
+            });
+    }
+
+    model::Vector2D GameLogicManager::findFreeSpawnPosition(const model::Vector2D& anchor) const {
+        const auto& tf = m_world.gridTransform();
+        const auto origin = tf.worldToGrid(anchor);
+
+        // Expand outward ring by ring around the anchor cell until a walkable,
+        // unoccupied tile is found; fall back to the anchor when none is free.
+        constexpr int kMaxRadius = 6;
+        for (int radius = 0; radius <= kMaxRadius; ++radius) {
+            for (int dy = -radius; dy <= radius; ++dy) {
+                for (int dx = -radius; dx <= radius; ++dx) {
+                    // Only inspect the perimeter of the current ring.
+                    if (std::max(std::abs(dx), std::abs(dy)) != radius) {
+                        continue;
+                    }
+                    const int gx = origin.x + dx;
+                    const int gy = origin.y + dy;
+                    if (m_world.isTileBlocked(gx, gy) || m_world.isCellOccupied(gx, gy)) {
+                        continue;
+                    }
+                    return tf.gridToWorldCenter(path::GridPos{ gx, gy });
+                }
+            }
+        }
+        return anchor;
+    }
+
+    void GameLogicManager::flushPendingSpawns() {
+        if (m_pendingSpawns.empty()) {
+            return;
+        }
+
+        // Move out first so spawned-unit side effects can't grow the buffer we iterate.
+        std::vector<PendingSpawn> spawns;
+        spawns.swap(m_pendingSpawns);
+
+        for (const auto& spawn : spawns) {
+            auto unit = std::make_shared<model::Unit>(spawn.type);
+            unit->setPosition(findFreeSpawnPosition(spawn.anchor));
+            unit->setTeamId(spawn.team);
+            m_world.addElement(unit);
+
+            if (spawn.hasRally) {
+                unit->moveTo(spawn.rally);
+            }
+        }
+    }
+
+    void GameLogicManager::handleTrainCommand(const command::TrainUnitCommand& cmd) {
+        auto lock = m_world.acquireWriteLock();
+
+        auto building = firstSelectedBuilding();
+        if (!building) {
+            return;
+        }
+
+        const ::rts::UnitType unitType = cmd.unitTypeId() < 0
+            ? defaultUnitFor(building->buildingType())
+            : static_cast<::rts::UnitType>(cmd.unitTypeId());
+
+        if (building->trainQueueSize() >= model::Building::kMaxTrainQueue) {
+            return;
+        }
+
+        const auto staticData = core::data::unitStaticDataFor(unitType);
+        const auto cost = staticData.cost();
+
+        auto resources = m_world.playerResources(building->getTeamId());
+        if (!resources.canAfford(cost)) {
+            return;
+        }
+
+        if (!building->trainUnit(unitType)) {
+            return;
+        }
+
+        resources.pay(cost);
+        m_world.setPlayerResources(building->getTeamId(), resources);
+    }
+
+    void GameLogicManager::handleCancelProduction(const command::CancelProductionCommand& cmd) {
+        auto lock = m_world.acquireWriteLock();
+
+        auto building = firstSelectedBuilding();
+        if (!building) {
+            return;
+        }
+
+        const auto cancelled = building->cancelLastTrain();
+        if (!cancelled) {
+            return;
+        }
+
+        // Refund the cancelled unit's cost to the owning player.
+        const auto staticData = core::data::unitStaticDataFor(*cancelled);
+        auto resources = m_world.playerResources(building->getTeamId());
+        resources.refund(staticData.cost());
+        m_world.setPlayerResources(building->getTeamId(), resources);
     }
 }

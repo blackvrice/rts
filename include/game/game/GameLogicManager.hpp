@@ -5,9 +5,12 @@
 #pragma once
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "core/manager/ILogicManager.hpp"
 #include "core/model/ResourceNode.hpp"
+#include "core/model/UnitType.hpp"
+#include "core/model/Vector2D.hpp"
 #include "game/game/systems/CollisionSystem.hpp"
 #include "game/game/systems/ControlGroupSystem.hpp"
 #include "game/game/systems/MovementSystem.hpp"
@@ -17,7 +20,7 @@ namespace rts::core::model {
     class Building;
     class IGameElement;
     class Unit;
-    struct Vector2D;
+    enum class BuildingType;
 }
 
 namespace rts::core::world {
@@ -47,8 +50,20 @@ namespace rts::core::manager {
         void handleMoveCommand(const command::MoveCommand& cmd);
         void handleAttackCommand(const command::AttackCommand& cmd);
         void handleGatherCommand(const command::GatherCommand& cmd);
+        void handleTrainCommand(const command::TrainUnitCommand& cmd);
+        void handleCancelProduction(const command::CancelProductionCommand& cmd);
 
     private:
+        // Units produced this tick are buffered here and flushed after the element
+        // sweep, since spawning mid-iteration would invalidate the elements vector.
+        struct PendingSpawn {
+            ::rts::UnitType type;
+            model::Vector2D anchor;
+            model::Vector2D rally;
+            bool hasRally;
+            int team;
+        };
+
         std::shared_ptr<model::IGameElement> findCommandTargetAt(
             const model::Vector2D& target,
             const SelectionSystem::SelectedList& selected) const;
@@ -59,10 +74,18 @@ namespace rts::core::manager {
         void applyReadyResourceDeliveries();
         void handleGatherRedirects();
 
+        // Production helpers
+        void registerBuildingSpawn(model::Building& building);
+        std::shared_ptr<model::Building> firstSelectedBuilding() const;
+        model::Vector2D findFreeSpawnPosition(const model::Vector2D& anchor) const;
+        void flushPendingSpawns();
+        static ::rts::UnitType defaultUnitFor(model::BuildingType type);
+
         core::world::GameWorld& m_world;
         SelectionSystem m_selection;
         ControlGroupSystem m_controlGroups;
         CollisionSystem m_collision;
         MovementSystem m_movement;
+        std::vector<PendingSpawn> m_pendingSpawns;
     };
 } // namespace rts::manager

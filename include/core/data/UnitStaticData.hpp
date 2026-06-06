@@ -2,6 +2,7 @@
 
 #include <string>
 
+#include "core/model/PlayerResourceState.hpp"
 #include "core/model/UnitType.hpp"
 
 namespace rts::core::data {
@@ -17,6 +18,10 @@ namespace rts::core::data {
         int goldCost { 0 };
         int woodCost { 0 };
         int foodCost { 0 };
+
+        ::rts::core::model::Cost cost() const {
+            return { goldCost, woodCost, foodCost };
+        }
     };
 
     inline UnitStaticData warriorUnitStaticData() {

@@ -100,6 +100,9 @@ namespace rts::core::manager {
                 case Key::R:
                     action = GameplayInputAction::Repair;
                     return true;
+                case Key::T:
+                    action = GameplayInputAction::TrainUnit;
+                    return true;
                 case Key::Escape:
                     action = GameplayInputAction::CancelProduction;
                     return true;
@@ -265,8 +268,12 @@ namespace rts::core::manager {
             case command::GameplayInputAction::CancelProduction:
                 m_logicBus.push(std::make_unique<command::CancelProductionCommand>(-1));
                 break;
-            case command::GameplayInputAction::Patrol:
             case command::GameplayInputAction::TrainUnit:
+                // buildingId -1 = use current selection, unitTypeId -1 = the building's
+                // default unit. The logic layer resolves both against the selection.
+                m_logicBus.push(std::make_unique<command::TrainUnitCommand>(-1, -1));
+                break;
+            case command::GameplayInputAction::Patrol:
             case command::GameplayInputAction::Build:
             case command::GameplayInputAction::ReturnResource:
             case command::GameplayInputAction::Repair:

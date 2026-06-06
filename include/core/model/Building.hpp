@@ -1,6 +1,7 @@
 #pragma once
 #include <deque>
 #include <functional>
+#include <optional>
 #include <string>
 #include <memory>
 #include "IGameElement.hpp"
@@ -15,7 +16,11 @@ namespace rts::core::model {
 
     class Building : public IGameElement {
     public:
-        using UnitSpawnFn = std::function<void(UnitType, const Vector2D&, int)>;
+        // Spawn callback supplies the trained unit type, the building anchor (caller
+        // resolves a free tile around it), the rally destination, whether a rally was
+        // set, and the owning team.
+        using UnitSpawnFn = std::function<void(UnitType, const Vector2D& anchor,
+                                               const Vector2D& rally, bool hasRally, int team)>;
         static constexpr int kMaxTrainQueue = 5;
 
         Building(BuildingType type, Vector2D pos, int teamId);
@@ -51,11 +56,17 @@ namespace rts::core::model {
         float getHp() const { return m_hp; }
         float getMaxHp() const { return m_maxHp; }
         bool trainUnit(UnitType type);
-        void cancelLastTrain();
+        // Returns the cancelled unit type so callers can refund its cost, or nullopt
+        // when the queue was empty.
+        std::optional<UnitType> cancelLastTrain();
         void setUnitSpawnFn(UnitSpawnFn fn);
         int trainQueueSize() const { return static_cast<int>(m_trainQueue.size()); }
         UnitType trainQueueAt(int i) const noexcept;
         float trainProgress() const noexcept;
+
+        void setRallyPoint(const Vector2D& point);
+        Vector2D rallyPoint() const noexcept { return m_rallyPoint; }
+        bool hasRallyPoint() const noexcept { return m_hasRallyPoint; }
 
     private:
         BuildingType m_type;
@@ -67,6 +78,8 @@ namespace rts::core::model {
         float m_trainTimer = 0.f;
         std::deque<UnitType> m_trainQueue;
         UnitSpawnFn m_spawnFn;
+        Vector2D m_rallyPoint{};
+        bool m_hasRallyPoint = false;
         GameState m_state{};
     };
 

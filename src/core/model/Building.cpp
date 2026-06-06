@@ -49,12 +49,23 @@ namespace rts::core::model {
         return true;
     }
 
-    void Building::cancelLastTrain() {
-        if (!m_trainQueue.empty()) m_trainQueue.pop_back();
+    std::optional<UnitType> Building::cancelLastTrain() {
+        if (m_trainQueue.empty()) return std::nullopt;
+        const UnitType cancelled = m_trainQueue.back();
+        m_trainQueue.pop_back();
+        // Resetting the timer when the in-progress item was cancelled keeps the next
+        // queued unit from inheriting partial progress.
+        if (m_trainQueue.empty()) m_trainTimer = 0.f;
+        return cancelled;
     }
 
     void Building::setUnitSpawnFn(UnitSpawnFn fn) {
         m_spawnFn = std::move(fn);
+    }
+
+    void Building::setRallyPoint(const Vector2D& point) {
+        m_rallyPoint = point;
+        m_hasRallyPoint = true;
     }
 
     UnitType Building::trainQueueAt(int i) const noexcept {
@@ -76,7 +87,10 @@ namespace rts::core::model {
             const UnitType spawned = m_trainQueue.front();
             m_trainQueue.pop_front();
             if (m_spawnFn) {
-                m_spawnFn(spawned, Vector2D{ m_position.x, m_position.y + 88.f }, m_teamId);
+                // Anchor just below the building; the spawn callback resolves a free
+                // tile and routes the unit to the rally point when one is set.
+                const Vector2D anchor{ m_position.x, m_position.y + 88.f };
+                m_spawnFn(spawned, anchor, m_rallyPoint, m_hasRallyPoint, m_teamId);
             }
         }
     }

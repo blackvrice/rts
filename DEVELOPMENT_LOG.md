@@ -1,5 +1,36 @@
 # Development Log
 
+## 2026-06-07 - Sprint 2: Production Loop (Cost, Queue, Spawn Placement, RallyPoint)
+
+### 변경 내용
+- **Cost 시스템**: `PlayerResourceState.hpp`에 `Cost{gold,wood,food}` 구조체와 `canAfford()`/`pay()`/`refund()` 메서드 추가. food는 `foodUsed`/`foodCapacity` 인구 예약으로 검사. `UnitStaticData`에 `cost()` 변환 헬퍼 추가.
+- **Building 확장**: RallyPoint(`setRallyPoint`/`rallyPoint`/`hasRallyPoint`) 추가. `cancelLastTrain()`이 취소된 `UnitType`을 `std::optional`로 반환하도록 변경(환불용). `UnitSpawnFn` 시그니처를 `(type, anchor, rally, hasRally, team)`로 확장하고 tick의 스폰 호출에 rally 정보 전달.
+- **GameLogicManager 생산 로직**:
+  - `registerBuildingSpawn()`: 디버그 건물 3개(아군 TownHall, 적 TownHall, 적 Barracks)에 spawn 콜백 연결. 콜백은 즉시 생성하지 않고 `m_pendingSpawns`에 버퍼링.
+  - `flushPendingSpawns()`: `tick()`의 요소 순회가 끝난 뒤 호출 — 순회 중 `addElement`로 인한 elements 벡터 무효화를 방지. 여기서 스폰 위치 계산 + 유닛 생성 + RallyPoint 이동 발행.
+  - `findFreeSpawnPosition()`: 건물 앵커 주변을 링 단위로 확장하며 walkable·비점유 타일 탐색(최대 반경 6), 없으면 앵커 반환.
+  - `handleTrainCommand()`: 선택된 건물 기준(buildingId -1) → 유닛 타입 결정(unitTypeId -1이면 건물 기본 유닛: TownHall→Worker, Barracks→Warrior) → 큐 여유·`canAfford` 검사 → `trainUnit` → `pay`.
+  - `handleCancelProduction()`: 선택 건물의 마지막 큐 항목 취소 + 비용 환불.
+  - `handleMoveCommand()`: 선택된 게 건물이면 이동 대신 RallyPoint 설정.
+  - `TrainUnitCommand`/`CancelProductionCommand` 라우터 등록.
+- **GameUIManager**: `T` 키를 `TrainUnit` 핫키로 매핑. `TrainUnit` 액션이 `TrainUnitCommand(-1,-1)`(선택 건물 + 기본 유닛)을 발행하도록 연결(기존 빈 처리에서 변경).
+
+### 동작 결과
+- 건물 선택 후 `T` → 자원/인구 충분 시 비용 차감하고 생산 큐에 추가, 시간 경과 후 건물 옆 빈 타일에 유닛 스폰.
+- 건물 선택 후 우클릭 → RallyPoint 설정. 생산 완료 유닛이 RallyPoint로 자동 이동.
+- `Esc`(CancelProduction) → 마지막 큐 항목 취소 + 비용 환불.
+- 자원/인구 부족 또는 큐(최대 5) 가득 시 생산 거부.
+
+### 검증
+- `cmake.exe --build cmake-build-debug` 빌드 성공(오류 없음).
+- `RTS.exe` 실행 — 정상 구동(exit code 0, 크래시 없음) 확인.
+- 한계: 자동화 환경에서 키 입력·건물 선택 시뮬레이션이 어려워 in-game train 흐름은 수동 검증 필요. 펜딩 스폰 버퍼링으로 iterator 무효화 위험은 코드 레벨에서 제거함.
+
+### Follow-up
+- HUD 명령 카드에 건물 타입별 생산 가능 유닛 버튼 노출(현재는 핫키 + 기본 유닛만).
+- 생산/취소 시 사운드·실패 피드백, RallyPoint UI 표시.
+- 향후 건설된(런타임 생성) 건물에도 `registerBuildingSpawn` 자동 연결 필요.
+
 ## 2026-06-07 - Sprint 1: Worker Gather Redirect (MaxGatherers & Drop-off Rebuild)
 
 ### 변경 내용

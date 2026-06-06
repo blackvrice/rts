@@ -352,23 +352,29 @@ MoveToResource
 
 ## Epic 0.4 유닛 생산 루프
 
-현재 상태: `[30%]`
+현재 상태: `[85%]`
 
 ### 현재 구현된 항목
 
 ```text
 - Building 모델 존재
 - HUD 연동 일부 존재
+- 생산 큐 (Building train queue, 최대 5)
+- 비용 차감 / 환불 (Cost + PlayerResourceState canAfford/pay/refund)
+- 인구(food) 검사
+- 생산 진행도 Tick 처리
+- 유닛 스폰 위치 계산 (건물 주변 빈 타일 링 탐색)
+- RallyPoint 설정(건물 우클릭) + 생산 완료 유닛 자동 이동
+- T 핫키로 선택 건물 기본 유닛 생산
 ```
 
-### 부족한 항목
+### 남은 항목
 
 ```text
-- 생산 큐
-- 비용 차감
-- 생산 진행도
-- 유닛 스폰 위치 계산
-- RallyPoint 이동
+- HUD 명령 카드에 생산 가능 유닛 버튼 노출 (현재 핫키 + 기본 유닛만)
+- 생산/취소 사운드 및 자원 부족 피드백
+- RallyPoint UI 표시
+- 런타임 건설 건물에 spawn 콜백 자동 연결
 ```
 
 ---
