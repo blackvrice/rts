@@ -11,7 +11,9 @@
 #include "core/manager/CameraManager.hpp"
 #include "core/model/IElement.hpp"
 #include "core/model/IGameElement.hpp"
+#include "core/model/PlayerResourceState.hpp"
 #include "core/model/Unit.hpp"
+#include "core/render/RenderCommand.hpp"
 #include "core/render/RenderQueue.hpp"
 #include "core/ui/IUIElement.hpp"
 #include "core/ui/SelectBox.hpp"
@@ -211,6 +213,17 @@ namespace rts::core::manager {
 
     void GameUIManager::render() {
         m_renderQueue.clear();
+        {
+            const auto lock = m_world.acquireReadLock();
+            m_renderQueue.emplace(
+                core::render::RenderLayer::UI,
+                -100,
+                core::render::UpdateHudResources {
+                    m_world.playerResources(core::model::PlayerId::Local)
+                }
+            );
+        }
+
         for (auto &element: m_elements) {
             element->buildRenderCommands(m_renderQueue);
         }

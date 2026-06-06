@@ -5,6 +5,8 @@
 #include <string>
 #include <unordered_map>
 
+#include "core/model/PlayerResourceState.hpp"
+
 struct ImGuiContext;
 struct ImVec2;
 
@@ -26,7 +28,7 @@ namespace rts::platform::sfml {
         SfmlHudOverlay(const SfmlHudOverlay&) = delete;
         SfmlHudOverlay& operator=(const SfmlHudOverlay&) = delete;
 
-        void render(sf::RenderWindow& window);
+        void render(sf::RenderWindow& window, const core::model::PlayerResourceState& resources);
 
     private:
         void initialize(sf::RenderWindow& window);
@@ -35,7 +37,7 @@ namespace rts::platform::sfml {
         const sf::Texture* texture(const std::string& relativePath);
 
         static void applyStyle();
-        void drawHud(const ImVec2& displaySize);
+        void drawHud(const ImVec2& displaySize, const core::model::PlayerResourceState& resources);
 
         ImGuiContext* m_context = nullptr;
         std::array<bool, 3> m_mouseButtons{};

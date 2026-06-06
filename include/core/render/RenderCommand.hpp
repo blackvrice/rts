@@ -8,6 +8,7 @@
 #include <variant>
 
 #include "core/font/FontTypes.hpp"
+#include "core/model/PlayerResourceState.hpp"
 #include "core/model/Rect.hpp"
 
 namespace rts::core::render {
@@ -55,11 +56,16 @@ namespace rts::core::render {
         uint32_t color;
     };
 
+    struct UpdateHudResources {
+        model::PlayerResourceState resources;
+    };
+
     using RenderCommandData = std::variant<
         DrawRect,
         DrawText,
         DrawSprite,
-        DrawCircle
+        DrawCircle,
+        UpdateHudResources
     >;
 
     struct RenderCommand {

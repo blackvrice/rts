@@ -32,6 +32,7 @@ cmake --build build
 - `include/core/scene` defines scene interfaces.
 - `include/core/ecs` contains the custom ECS registry and entity primitives.
 - `include/core/entity`, `include/core/model`, and `include/core/data` define gameplay data, entities, and model types.
+- `include/core/model/PlayerResourceState.hpp` defines the player resource snapshot stored by `GameWorld` and forwarded to the HUD.
 - `include/core/factory` and `include/core/prototype` create game objects from static/prototype data.
 - `include/core/world`, `include/core/path`, and `src/core/world` contain grid/world representation, coordinate transforms, path queries, and map-facing logic.
 - `include/core/render` defines render commands, queues, context, and render-manager interfaces.
@@ -51,6 +52,7 @@ cmake --build build
 - `include/platform/IWindow.hpp` defines the platform window abstraction.
 - `include/platform/sfml` and `src/platform/sfml` contain SFML-backed windowing, rendering, HUD overlay, font metrics, and asset-path integration.
 - `SfmlHudOverlay` draws the ImGui HUD command panel and emits gameplay UI input through `UICommandBus`; `GameUIManager` translates those UI inputs into `LogicCommand` payloads when enough target data exists.
+- HUD resource numbers are supplied through `RenderQueue` using `UpdateHudResources`; avoid hardcoding live economy values in `SfmlHudOverlay`.
 
 ## Maintenance Notes
 

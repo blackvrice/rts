@@ -161,6 +161,7 @@ add_executable(RTS
         include/core/model/IGameElement.hpp
         include/core/model/IUIElement.hpp
         include/core/model/Unit.hpp
+        include/core/model/PlayerResourceState.hpp
         include/core/model/State.hpp
         include/core/model/Data.hpp
         include/core/model/Entity.hpp

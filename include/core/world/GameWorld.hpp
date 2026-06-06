@@ -8,8 +8,10 @@
 #include <cstdint>
 #include <mutex>
 #include <shared_mutex>
+#include <unordered_map>
 #include <vector>
 
+#include "core/model/PlayerResourceState.hpp"
 #include "core/world/GridTransform.hpp"
 
 namespace rts::core::map {
@@ -54,6 +56,8 @@ namespace rts::core::world {
         const GridTransform& gridTransform() const noexcept;
 
         const std::vector<std::shared_ptr<model::IElement>>& getElements() const;
+        const model::PlayerResourceState& playerResources(int playerId) const;
+        void setPlayerResources(int playerId, const model::PlayerResourceState& resources);
 
         manager::PathManager& path();
         const manager::PathManager& path() const;
@@ -63,6 +67,7 @@ namespace rts::core::world {
     private:
         std::unique_ptr<map::TileMapSoA> m_tileMap;
         std::vector<std::shared_ptr<model::IElement>> m_elements;
+        std::unordered_map<int, model::PlayerResourceState> m_playerResources;
 
         std::unique_ptr<GameWorldGridQuery> m_gridQuery;
         std::unique_ptr<manager::PathManager> m_pathManager;

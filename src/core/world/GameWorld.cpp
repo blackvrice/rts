@@ -13,6 +13,7 @@ namespace rts::core::world {
         , m_pathManager(std::make_unique<manager::PathManager>())
         , m_gridTransform{64.f} {
         m_tileMap->init(32, 32);
+        m_playerResources.emplace(model::PlayerId::Local, model::PlayerResourceState {});
     }
 
     GameWorld::~GameWorld() = default;
@@ -80,6 +81,19 @@ namespace rts::core::world {
 
     const std::vector<std::shared_ptr<model::IElement>>& GameWorld::getElements() const {
         return m_elements;
+    }
+
+    const model::PlayerResourceState& GameWorld::playerResources(const int playerId) const {
+        if (const auto it = m_playerResources.find(playerId); it != m_playerResources.end()) {
+            return it->second;
+        }
+
+        static const model::PlayerResourceState emptyResources {};
+        return emptyResources;
+    }
+
+    void GameWorld::setPlayerResources(const int playerId, const model::PlayerResourceState& resources) {
+        m_playerResources[playerId] = resources;
     }
 
     manager::PathManager& GameWorld::path() {

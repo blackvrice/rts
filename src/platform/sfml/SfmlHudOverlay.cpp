@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <string>
 #include <unordered_map>
 
 #include <SFML/Graphics/Image.hpp>
@@ -97,6 +98,18 @@ namespace {
 
     std::filesystem::path tinySwordsRoot() {
         return std::filesystem::path(rts::platform::sfml::TinySwordsRoot);
+    }
+
+    std::string formatNumber(const int value) {
+        std::string text = std::to_string(value);
+        for (int insertAt = static_cast<int>(text.size()) - 3; insertAt > 0; insertAt -= 3) {
+            text.insert(static_cast<std::size_t>(insertAt), ",");
+        }
+        return text;
+    }
+
+    std::string formatFood(const rts::core::model::PlayerResourceState& resources) {
+        return std::to_string(resources.foodUsed) + "/" + std::to_string(resources.foodCapacity);
     }
 
     ImVec2 operator+(const ImVec2& a, const ImVec2& b) {
@@ -397,7 +410,7 @@ namespace rts::platform::sfml {
         shutdown();
     }
 
-    void SfmlHudOverlay::render(sf::RenderWindow& window) {
+    void SfmlHudOverlay::render(sf::RenderWindow& window, const core::model::PlayerResourceState& resources) {
         if (!m_context) {
             initialize(window);
         }
@@ -412,7 +425,7 @@ namespace rts::platform::sfml {
         syncMouseButtons();
         ImGui::NewFrame();
 
-        drawHud(ImGui::GetIO().DisplaySize);
+        drawHud(ImGui::GetIO().DisplaySize, resources);
 
         ImGui::Render();
         if (!window.setActive(true)) {
@@ -512,7 +525,9 @@ namespace rts::platform::sfml {
         colors[ImGuiCol_Border] = ImVec4(0.35f, 0.65f, 0.68f, 0.72f);
     }
 
-    void SfmlHudOverlay::drawHud(const ImVec2& displaySize) {
+    void SfmlHudOverlay::drawHud(
+        const ImVec2& displaySize,
+        const core::model::PlayerResourceState& resources) {
         const float width = std::max(displaySize.x, 1280.0f);
         const float height = std::max(displaySize.y, 720.0f);
         // HUD ADJUST: bottomHeight changes the full lower HUD height; margin changes outer spacing.
@@ -551,11 +566,15 @@ namespace rts::platform::sfml {
         const ImVec2 resourceSize{142.0f, 34.0f};
         const float resourceTop = 12.0f;
         const float resourceStart = width - (resourceSize.x * 4.0f) - (12.0f * 3.0f) - margin;
+        const std::string gold = formatNumber(resources.gold);
+        const std::string wood = formatNumber(resources.wood);
+        const std::string food = formatFood(resources);
+        const std::string army = formatNumber(resources.army);
         // HUD ADJUST: top-right resource pills are positioned and spaced in this block.
-        drawResourcePill(drawList, {resourceStart, resourceTop}, resourceSize, "Gold", "1,500", kMineral, texture("UI Elements/UI Elements/Icons/Icon_01.png"));
-        drawResourcePill(drawList, {resourceStart + 154.0f, resourceTop}, resourceSize, "Wood", "520", kGas, texture("UI Elements/UI Elements/Icons/Icon_02.png"));
-        drawResourcePill(drawList, {resourceStart + 308.0f, resourceTop}, resourceSize, "Food", "24/32", kWarning, texture("UI Elements/UI Elements/Icons/Icon_03.png"));
-        drawResourcePill(drawList, {resourceStart + 462.0f, resourceTop}, resourceSize, "Army", "142", kPanelHigh, swords, &kBlueSwordIcon);
+        drawResourcePill(drawList, {resourceStart, resourceTop}, resourceSize, "Gold", gold.c_str(), kMineral, texture("UI Elements/UI Elements/Icons/Icon_01.png"));
+        drawResourcePill(drawList, {resourceStart + 154.0f, resourceTop}, resourceSize, "Wood", wood.c_str(), kGas, texture("UI Elements/UI Elements/Icons/Icon_02.png"));
+        drawResourcePill(drawList, {resourceStart + 308.0f, resourceTop}, resourceSize, "Food", food.c_str(), kWarning, texture("UI Elements/UI Elements/Icons/Icon_03.png"));
+        drawResourcePill(drawList, {resourceStart + 462.0f, resourceTop}, resourceSize, "Army", army.c_str(), kPanelHigh, swords, &kBlueSwordIcon);
 
         const float miniWidth = std::clamp(width * 0.18f, 285.0f, 340.0f);
         const float commandWidth = std::clamp(width * 0.22f, 360.0f, 420.0f);

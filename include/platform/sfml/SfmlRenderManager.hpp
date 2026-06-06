@@ -18,6 +18,7 @@ namespace rts::core::render {
     struct DrawRect;
     struct DrawSprite;
     struct DrawText;
+    struct UpdateHudResources;
 }
 
 namespace rts::platform::sfml {
@@ -38,6 +39,8 @@ namespace rts::platform::sfml {
         static void draw(sf::RenderWindow& window, const core::render::DrawSprite& s);
 
         static void draw(sf::RenderWindow& window, const core::render::DrawCircle& c);
+
+        static void draw(sf::RenderWindow& window, const core::render::UpdateHudResources& resources);
 
         std::unique_ptr<SfmlHudOverlay> m_hud;
     };
