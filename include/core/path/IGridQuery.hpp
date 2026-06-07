@@ -18,6 +18,9 @@ namespace rts::core::path {
         // 동적 점유(유닛/건물). 필요 없으면 false만 리턴해도 됨.
         virtual bool isBlockedDynamic(GridPos p) const = 0;
 
+        // Entering-tile movement cost. A cost of 0 is treated as blocked by terrain.
+        virtual float moveCost(GridPos p) const = 0;
+
         // 맵 범위 체크
         virtual bool inBounds(GridPos p) const = 0;
     };

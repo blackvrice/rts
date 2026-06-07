@@ -46,7 +46,8 @@ namespace rts::core::manager {
                     collisionVersion,
                     opt.allowDiagonal,
                     opt.useDynamicBlocking,
-                    opt.preventDiagonalCornerCutting
+                    opt.preventDiagonalCornerCutting,
+                    opt.useTerrainCost
                 };
                 auto it = m_cache.find(key);
                 if (it != m_cache.end()) return it->second;
@@ -61,7 +62,8 @@ namespace rts::core::manager {
                     collisionVersion,
                     opt.allowDiagonal,
                     opt.useDynamicBlocking,
-                    opt.preventDiagonalCornerCutting
+                    opt.preventDiagonalCornerCutting,
+                    opt.useTerrainCost
                 };
                 m_cache.emplace(key, *result);
             }
@@ -80,6 +82,7 @@ namespace rts::core::manager {
             bool allowDiagonal{};
             bool useDynamicBlocking{};
             bool preventDiagonalCornerCutting{};
+            bool useTerrainCost{};
             bool operator==(const CacheKeyEx& o) const noexcept {
                 return gridId == o.gridId
                     && start == o.start
@@ -87,7 +90,8 @@ namespace rts::core::manager {
                     && collisionVersion == o.collisionVersion
                     && allowDiagonal == o.allowDiagonal
                     && useDynamicBlocking == o.useDynamicBlocking
-                    && preventDiagonalCornerCutting == o.preventDiagonalCornerCutting;
+                    && preventDiagonalCornerCutting == o.preventDiagonalCornerCutting
+                    && useTerrainCost == o.useTerrainCost;
             }
         };
 
@@ -105,6 +109,7 @@ namespace rts::core::manager {
                 mix(std::hash<bool>{}(k.allowDiagonal));
                 mix(std::hash<bool>{}(k.useDynamicBlocking));
                 mix(std::hash<bool>{}(k.preventDiagonalCornerCutting));
+                mix(std::hash<bool>{}(k.useTerrainCost));
                 return h;
             }
         };
@@ -133,6 +138,28 @@ namespace rts::core::manager {
 
         static bool isDiagonalStep(path::GridPos from, path::GridPos to) {
             return std::abs(to.x - from.x) == 1 && std::abs(to.y - from.y) == 1;
+        }
+
+        static float enteringTileCost(
+            const path::IGridQuery& grid,
+            path::GridPos p,
+            const path::PathOptions& opt) {
+            if (!opt.useTerrainCost) {
+                return 1.0f;
+            }
+
+            return std::max(1.0f, grid.moveCost(p));
+        }
+
+        static float stepCost(
+            const path::IGridQuery& grid,
+            path::GridPos from,
+            path::GridPos to,
+            const path::PathOptions& opt) {
+            const float baseCost = opt.allowDiagonal && isDiagonalStep(from, to)
+                ? 1.41421356f
+                : 1.0f;
+            return baseCost * enteringTileCost(grid, to, opt);
         }
 
         static bool canEnterNeighbor(
@@ -215,14 +242,7 @@ namespace rts::core::manager {
                     if (!canEnterNeighbor(grid, cur.p, n, opt)) continue;
                     if (closed.contains(n)) continue;
 
-                    float step = 1.0f;
-                    if (opt.allowDiagonal) {
-                        int dx = std::abs(n.x - cur.p.x);
-                        int dy = std::abs(n.y - cur.p.y);
-                        if (dx + dy == 2) step = 1.41421356f;
-                    }
-
-                    float tentativeG = gScore[cur.p] + step;
+                    const float tentativeG = gScore[cur.p] + stepCost(grid, cur.p, n, opt);
 
                     auto it = gScore.find(n);
                     if (it == gScore.end() || tentativeG < it->second) {

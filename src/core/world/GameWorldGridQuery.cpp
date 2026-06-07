@@ -22,4 +22,9 @@ namespace rts::core::world {
         if (!inBounds(p)) return true;
         return m_world.isCellOccupied(p.x, p.y);
     }
+
+    float GameWorldGridQuery::moveCost(path::GridPos p) const {
+        if (!inBounds(p)) return 0.0f;
+        return m_world.tileMoveCost(p.x, p.y);
+    }
 } // namespace

@@ -15,6 +15,7 @@ namespace rts::core::world {
 
         bool isBlockedStatic(path::GridPos p) const override;
         bool isBlockedDynamic(path::GridPos p) const override;
+        float moveCost(path::GridPos p) const override;
 
         bool inBounds(path::GridPos p) const override;
 

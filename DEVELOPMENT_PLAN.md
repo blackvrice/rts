@@ -1220,7 +1220,7 @@ struct EntityId
 [ ] 대각선 이동 가능 여부 정책 확정
 [ ] Corner cutting 방지
 [ ] 이동 불가 타일 처리
-[ ] 지형 비용 처리
+[x] 지형 비용 처리
 [x] Path 실패 처리
 ```
 

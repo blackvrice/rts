@@ -1,5 +1,23 @@
 # Development Log
 
+## 2026-06-07 - A* 지형 이동 비용 반영
+
+### 변경 내용
+- `IGridQuery`에 타일 진입 비용 조회 API를 추가하고 `GameWorldGridQuery`가 `GameWorld`의 타일 이동 비용을 반환하도록 연결.
+- `GameWorld`에 범위 밖은 0, 범위 안은 `TileMapSoA::moveCost`를 반환하는 `tileMoveCost()`를 추가.
+- `PathOptions`에 `useTerrainCost` 옵션을 추가하고, `PathManager`의 A* g-score 계산이 진입 타일 비용을 곱해 누적되도록 변경.
+- 경로 캐시 키에 `useTerrainCost`를 포함해 비용 적용 여부가 다른 경로 요청이 같은 캐시 결과를 공유하지 않도록 정리.
+- `DEVELOPMENT_PLAN.md`의 Epic 3.1 추가 점검 항목 중 `지형 비용 처리`를 완료로 갱신.
+
+### 동작 결과
+- `moveCost == 0`인 타일은 기존처럼 이동 불가 타일로 처리.
+- `moveCost > 1`인 타일은 통과 가능하지만 A*가 더 비싼 경로로 평가하므로, 우회 경로가 충분히 싸면 우회하도록 선택.
+- 대각선 이동은 기존 정책대로 허용되며, 대각선 기본 비용에 진입 타일 비용을 곱해 계산.
+
+### 검증
+- `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j1` 빌드 성공.
+- `cmake-build-debug\RTS.exe`를 5초 동안 실행했고 조기 종료 없이 유지되는 것을 확인한 뒤 종료.
+
 ## 2026-06-07 - A* Path 실패 처리 보강
 
 ### 변경 내용

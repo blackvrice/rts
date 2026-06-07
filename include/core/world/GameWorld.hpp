@@ -56,6 +56,7 @@ namespace rts::core::world {
         int gridHeight() const noexcept;
 
         bool isTileBlocked(int x, int y) const noexcept;
+        float tileMoveCost(int x, int y) const noexcept;
         bool isCellOccupied(int x, int y) const noexcept;
         uint64_t collisionVersion() const noexcept;
         const path::IGridQuery& gridQuery() const noexcept;

@@ -48,6 +48,14 @@ namespace rts::core::world {
         return m_tileMap->getMoveCost(x, y) == 0;
     }
 
+    float GameWorld::tileMoveCost(int x, int y) const noexcept {
+        if (x < 0 || y < 0 || x >= gridWidth() || y >= gridHeight()) {
+            return 0.0f;
+        }
+
+        return static_cast<float>(m_tileMap->getMoveCost(x, y));
+    }
+
     bool GameWorld::isCellOccupied(int x, int y) const noexcept {
         if (x < 0 || y < 0 || x >= gridWidth() || y >= gridHeight()) {
             return true;
