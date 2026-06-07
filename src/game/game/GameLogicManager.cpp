@@ -606,15 +606,15 @@ namespace rts::core::manager {
     }
 
     void GameLogicManager::queueMoveOrderForSelected(const model::Vector2D& target) {
-        for (const auto& weak : m_selection.selected()) {
-            auto unit = std::dynamic_pointer_cast<model::Unit>(weak.lock());
+        for (const auto& assignment : m_movement.formationTargets(m_world, m_selection.selected(), target)) {
+            auto unit = assignment.unit;
             if (!unit || unit->getAction() == model::ActionType::Dead) {
                 continue;
             }
 
             unit->enqueueOrder(model::UnitOrder {
                 .type = model::OrderType::Move,
-                .targetPosition = target
+                .targetPosition = assignment.target
             });
 
             // Shift-clicking while idle should still begin the first queued waypoint.

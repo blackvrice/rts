@@ -6,6 +6,7 @@
 #include <memory>
 #include <optional>
 #include <unordered_map>
+#include <vector>
 
 #include "core/model/Vector2D.hpp"
 #include "game/game/systems/SelectionSystem.hpp"
@@ -29,7 +30,16 @@ namespace rts::core::manager {
 
     class MovementSystem {
     public:
+        struct FormationTarget {
+            std::shared_ptr<model::Unit> unit;
+            model::Vector2D target {};
+        };
+
         void update(world::GameWorld& world, float dt, const CollisionSystem& collision);
+        [[nodiscard]] std::vector<FormationTarget> formationTargets(
+            world::GameWorld& world,
+            const SelectionSystem::SelectedList& selected,
+            const model::Vector2D& target) const;
         void issueMove(world::GameWorld& world,
                        const SelectionSystem::SelectedList& selected,
                        const model::Vector2D& target,

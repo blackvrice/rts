@@ -28,6 +28,211 @@ namespace {
         return dx * dx + dy * dy;
     }
 
+    std::size_t unitWorldOrdinal(const GameWorld& world, const Unit& unit) {
+        std::size_t ordinal = 0;
+        for (const auto& element : world.getElements()) {
+            if (auto candidate = std::dynamic_pointer_cast<Unit>(element)) {
+                if (candidate.get() == &unit) {
+                    return ordinal;
+                }
+            }
+            ++ordinal;
+        }
+
+        return ordinal;
+    }
+
+    bool sameFormationCell(
+        const rts::core::path::GridPos& a,
+        const rts::core::path::GridPos& b) {
+        return a.x == b.x && a.y == b.y;
+    }
+
+    bool cellReserved(
+        const std::vector<rts::core::path::GridPos>& reserved,
+        const rts::core::path::GridPos& cell) {
+        return std::any_of(
+            reserved.begin(),
+            reserved.end(),
+            [&cell](const rts::core::path::GridPos& reservedCell) {
+                return sameFormationCell(reservedCell, cell);
+            }
+        );
+    }
+
+    bool isFormationUnit(
+        const std::vector<std::shared_ptr<Unit>>& units,
+        const rts::core::model::IGameElement& element) {
+        return std::any_of(
+            units.begin(),
+            units.end(),
+            [&element](const std::shared_ptr<Unit>& unit) {
+                return unit && unit.get() == &element;
+            }
+        );
+    }
+
+    bool occupiedByNonFormationElement(
+        const GameWorld& world,
+        const std::vector<std::shared_ptr<Unit>>& units,
+        const rts::core::path::GridPos& cell) {
+        const auto& transform = world.gridTransform();
+        for (const auto& element : world.getElements()) {
+            const auto gameElement = std::dynamic_pointer_cast<rts::core::model::IGameElement>(element);
+            if (!gameElement ||
+                gameElement->getAction() == rts::core::model::ActionType::Dead ||
+                isFormationUnit(units, *gameElement)) {
+                continue;
+            }
+
+            if (sameFormationCell(transform.worldToGrid(gameElement->getPosition()), cell)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool formationCellAvailable(
+        const GameWorld& world,
+        const std::vector<std::shared_ptr<Unit>>& units,
+        const std::vector<rts::core::path::GridPos>& reserved,
+        const rts::core::path::GridPos& cell) {
+        const auto& grid = world.gridQuery();
+        return grid.inBounds(cell) &&
+               !grid.isBlockedStatic(cell) &&
+               !cellReserved(reserved, cell) &&
+               !occupiedByNonFormationElement(world, units, cell);
+    }
+
+    std::optional<Vector2D> findNearestFormationTarget(
+        const GameWorld& world,
+        const std::vector<std::shared_ptr<Unit>>& units,
+        const std::vector<rts::core::path::GridPos>& reserved,
+        const Vector2D& desiredTarget) {
+        const auto& transform = world.gridTransform();
+        const auto desiredCell = transform.worldToGrid(desiredTarget);
+
+        std::optional<rts::core::path::GridPos> bestCell;
+        float bestScore = std::numeric_limits<float>::max();
+        constexpr int kMaxFormationSlotSearchRadius = 5;
+
+        for (int radius = 0; radius <= kMaxFormationSlotSearchRadius; ++radius) {
+            for (int dy = -radius; dy <= radius; ++dy) {
+                for (int dx = -radius; dx <= radius; ++dx) {
+                    if (std::max(std::abs(dx), std::abs(dy)) != radius) {
+                        continue;
+                    }
+
+                    const rts::core::path::GridPos candidate {
+                        desiredCell.x + dx,
+                        desiredCell.y + dy
+                    };
+                    if (!formationCellAvailable(world, units, reserved, candidate)) {
+                        continue;
+                    }
+
+                    const Vector2D candidateWorld = transform.gridToWorldCenter(candidate);
+                    const float score =
+                        distanceSq(candidateWorld, desiredTarget) +
+                        static_cast<float>(radius) * transform.tileSize;
+                    if (score < bestScore) {
+                        bestScore = score;
+                        bestCell = candidate;
+                    }
+                }
+            }
+
+            if (bestCell.has_value()) {
+                break;
+            }
+        }
+
+        if (!bestCell) {
+            return std::nullopt;
+        }
+
+        return transform.gridToWorldCenter(*bestCell);
+    }
+
+    std::vector<std::shared_ptr<Unit>> sortedFormationUnits(
+        const GameWorld& world,
+        const rts::core::manager::SelectionSystem::SelectedList& selected) {
+        std::vector<std::shared_ptr<Unit>> units;
+        units.reserve(selected.size());
+
+        for (const auto& weak : selected) {
+            auto unit = std::dynamic_pointer_cast<Unit>(weak.lock());
+            if (unit && unit->getAction() != rts::core::model::ActionType::Dead) {
+                units.push_back(std::move(unit));
+            }
+        }
+
+        std::stable_sort(
+            units.begin(),
+            units.end(),
+            [&world](const std::shared_ptr<Unit>& lhs, const std::shared_ptr<Unit>& rhs) {
+                const auto left = lhs->getPosition();
+                const auto right = rhs->getPosition();
+                constexpr float kSortEpsilon = 0.001f;
+                if (std::abs(left.y - right.y) > kSortEpsilon) {
+                    return left.y < right.y;
+                }
+                if (std::abs(left.x - right.x) > kSortEpsilon) {
+                    return left.x < right.x;
+                }
+                return unitWorldOrdinal(world, *lhs) < unitWorldOrdinal(world, *rhs);
+            }
+        );
+
+        return units;
+    }
+
+    std::vector<rts::core::manager::MovementSystem::FormationTarget> buildFormationTargets(
+        const GameWorld& world,
+        const std::vector<std::shared_ptr<Unit>>& units,
+        const Vector2D& target) {
+        std::vector<rts::core::manager::MovementSystem::FormationTarget> assignments;
+        assignments.reserve(units.size());
+
+        if (units.empty()) {
+            return assignments;
+        }
+
+        if (units.size() == 1) {
+            assignments.push_back({units.front(), target});
+            return assignments;
+        }
+
+        const float spacing = std::max(64.0f, world.gridTransform().tileSize);
+        const int columns = static_cast<int>(std::ceil(std::sqrt(static_cast<float>(units.size()))));
+        const int rows = static_cast<int>((units.size() + static_cast<std::size_t>(columns) - 1) /
+                                          static_cast<std::size_t>(columns));
+        std::vector<rts::core::path::GridPos> reservedCells;
+        reservedCells.reserve(units.size());
+
+        for (std::size_t index = 0; index < units.size(); ++index) {
+            const int row = static_cast<int>(index) / columns;
+            const int column = static_cast<int>(index) % columns;
+            const float offsetX = (static_cast<float>(column) - (static_cast<float>(columns) - 1.0f) * 0.5f) * spacing;
+            const float offsetY = (static_cast<float>(row) - (static_cast<float>(rows) - 1.0f) * 0.5f) * spacing;
+            const Vector2D desiredTarget { target.x + offsetX, target.y + offsetY };
+
+            auto assignedTarget = findNearestFormationTarget(world, units, reservedCells, desiredTarget);
+            if (!assignedTarget) {
+                // If no nearby slot is clean, preserve the requested formation point and
+                // let the normal path failure/approach logic decide how to recover.
+                assignedTarget = desiredTarget;
+            } else {
+                reservedCells.push_back(world.gridTransform().worldToGrid(*assignedTarget));
+            }
+
+            assignments.push_back({ units[index], *assignedTarget });
+        }
+
+        return assignments;
+    }
+
     bool sameCell(const rts::core::path::GridPos& a, const rts::core::path::GridPos& b) {
         return a.x == b.x && a.y == b.y;
     }
@@ -404,11 +609,19 @@ namespace rts::core::manager {
         }
     }
 
+    std::vector<MovementSystem::FormationTarget> MovementSystem::formationTargets(
+        world::GameWorld& world,
+        const SelectionSystem::SelectedList& selected,
+        const model::Vector2D& target) const {
+        return buildFormationTargets(world, sortedFormationUnits(world, selected), target);
+    }
+
     void MovementSystem::issueMove(
         world::GameWorld& world,
         const SelectionSystem::SelectedList& selected,
         const model::Vector2D& target,
         bool clearQueuedOrders) {
+        const auto assignments = formationTargets(world, selected, target);
         for (const auto& weak : selected) {
             if (auto element = weak.lock()) {
                 if (element->getAction() == model::ActionType::Dead) {
@@ -421,12 +634,18 @@ namespace rts::core::manager {
                     element->moveTo(target);
                     continue;
                 }
-
-                if (clearQueuedOrders) {
-                    unit->clearOrderQueue();
-                }
-                enqueuePathRequest(world, unit, target, PathOrderKind::Move);
             }
+        }
+
+        for (const auto& assignment : assignments) {
+            if (!assignment.unit || assignment.unit->getAction() == model::ActionType::Dead) {
+                continue;
+            }
+
+            if (clearQueuedOrders) {
+                assignment.unit->clearOrderQueue();
+            }
+            enqueuePathRequest(world, assignment.unit, assignment.target, PathOrderKind::Move);
         }
     }
 
@@ -453,10 +672,9 @@ namespace rts::core::manager {
         world::GameWorld& world,
         const SelectionSystem::SelectedList& selected,
         const model::Vector2D& target) {
-        for (const auto& weak : selected) {
-            if (auto unit = std::dynamic_pointer_cast<model::Unit>(weak.lock());
-                unit && unit->getAction() != model::ActionType::Dead) {
-                enqueuePathRequest(world, unit, target, PathOrderKind::AttackMove);
+        for (const auto& assignment : formationTargets(world, selected, target)) {
+            if (assignment.unit && assignment.unit->getAction() != model::ActionType::Dead) {
+                enqueuePathRequest(world, assignment.unit, assignment.target, PathOrderKind::AttackMove);
             }
         }
     }
@@ -480,10 +698,9 @@ namespace rts::core::manager {
         world::GameWorld& world,
         const SelectionSystem::SelectedList& selected,
         const model::Vector2D& target) {
-        for (const auto& weak : selected) {
-            if (auto unit = std::dynamic_pointer_cast<model::Unit>(weak.lock());
-                unit && unit->getAction() != model::ActionType::Dead) {
-                enqueuePathRequest(world, unit, target, PathOrderKind::Patrol, unit->getPosition());
+        for (const auto& assignment : formationTargets(world, selected, target)) {
+            if (assignment.unit && assignment.unit->getAction() != model::ActionType::Dead) {
+                enqueuePathRequest(world, assignment.unit, assignment.target, PathOrderKind::Patrol, assignment.unit->getPosition());
             }
         }
     }

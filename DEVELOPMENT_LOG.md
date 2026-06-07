@@ -1,5 +1,24 @@
 # Development Log
 
+## 2026-06-07 - Formation 기본 grid-slot 이동 적용
+
+### 변경 내용
+- `MovementSystem::formationTargets()`를 추가해 선택된 살아있는 유닛을 현재 위치 기준으로 정렬하고, 목적지 주변 grid slot을 유닛별 목표로 배정.
+- 여러 유닛 이동, AttackMove, Patrol 명령이 한 점 대신 분산된 슬롯으로 path request를 발행하도록 변경.
+- Shift 이동 큐도 같은 formation target 계산을 사용해 예약된 waypoint가 유닛별 슬롯을 보존하도록 연결.
+- 슬롯이 정적 지형, 이미 예약된 셀, 또는 선택되지 않은 다른 게임 오브젝트와 겹치면 가까운 주변 셀을 검색하도록 보정.
+- 근처 안전 슬롯을 찾지 못한 경우에는 기존 path failure/approach 처리에 맡기도록 요청된 formation 위치를 유지.
+- `DEVELOPMENT_PLAN.md`의 Epic 3.5 Formation을 기본 구현 완료 상태로 갱신.
+
+### 동작 결과
+- 다중 선택 유닛이 Move/AttackMove/Patrol 명령을 받을 때 서로 다른 목적지 셀로 이동해 한 점에 몰리는 현상을 줄임.
+- 선택된 유닛끼리는 이동 중 비워질 자리로 취급하고, 선택되지 않은 유닛/건물/자원은 슬롯 점유자로 취급해 목표 셀 중복을 피함.
+- 단일 유닛 이동은 기존처럼 정확한 클릭 위치를 목표로 유지.
+
+### 검증
+- `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j1` 빌드 성공.
+- `cmake-build-debug\RTS.exe`를 5초 동안 실행했고 조기 종료 없이 유지되는 것을 확인한 뒤 종료.
+
 ## 2026-06-07 - Local Avoidance 기본 push 적용
 
 ### 변경 내용
