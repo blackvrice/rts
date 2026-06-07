@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <iterator>
 #include <limits>
 #include <optional>
@@ -40,6 +41,19 @@ namespace {
         AttackMove,
         Patrol
     };
+
+    const char* pathOrderKindName(const PathOrderKind kind) {
+        switch (kind) {
+            case PathOrderKind::Move:
+                return "Move";
+            case PathOrderKind::AttackMove:
+                return "AttackMove";
+            case PathOrderKind::Patrol:
+                return "Patrol";
+        }
+
+        return "Unknown";
+    }
 
     rts::core::path::PathOptions movementPathOptions() {
         rts::core::path::PathOptions options;
@@ -223,7 +237,42 @@ namespace {
         return true;
     }
 
-    void issuePathOrder(
+    const char* pathFailureReason(
+        GameWorld& world,
+        const rts::core::path::GridPos& start,
+        const rts::core::path::GridPos& goal) {
+        const auto& grid = world.gridQuery();
+        if (!grid.inBounds(start)) {
+            return "start_out_of_bounds";
+        }
+        if (!grid.inBounds(goal)) {
+            return "goal_out_of_bounds";
+        }
+        if (grid.isBlockedStatic(goal)) {
+            return "goal_static_blocked";
+        }
+        if (grid.isBlockedDynamic(goal)) {
+            return "goal_dynamic_blocked";
+        }
+        return "no_path";
+    }
+
+    void logPathFailure(
+        const PathOrderKind kind,
+        const rts::core::path::GridPos& start,
+        const rts::core::path::GridPos& goal,
+        const Vector2D& target,
+        const char* reason) {
+        std::cerr << "[MovementSystem] Path order failed"
+                  << " kind=" << pathOrderKindName(kind)
+                  << " reason=" << reason
+                  << " start=(" << start.x << "," << start.y << ")"
+                  << " goal=(" << goal.x << "," << goal.y << ")"
+                  << " target=(" << target.x << "," << target.y << ")"
+                  << '\n';
+    }
+
+    bool issuePathOrder(
         GameWorld& world,
         Unit& unit,
         const Vector2D& target,
@@ -246,6 +295,11 @@ namespace {
         if (kind != PathOrderKind::Patrol || patrolStart.has_value()) {
             unit.stop();
         }
+
+        bool issued = false;
+        const bool canTryApproach =
+            world.gridQuery().inBounds(start) &&
+            world.gridQuery().inBounds(goal);
         if (path && !path->empty()) {
             switch (kind) {
                 case PathOrderKind::Move:
@@ -262,7 +316,10 @@ namespace {
                     }
                     break;
             }
-        } else if (auto approach = findApproachPath(world, start, goal, target, options)) {
+            issued = true;
+        } else if (auto approach = canTryApproach
+                   ? findApproachPath(world, start, goal, target, options)
+                   : std::optional<MovePlan>{}) {
             // Occupied goals are approached through a nearby free cell instead of retrying forever.
             switch (kind) {
                 case PathOrderKind::Move:
@@ -279,7 +336,16 @@ namespace {
                     }
                     break;
             }
+            issued = true;
         }
+
+        if (!issued) {
+            const char* reason = pathFailureReason(world, start, goal);
+            logPathFailure(kind, start, goal, target, reason);
+            unit.stop();
+        }
+
+        return issued;
     }
 }
 

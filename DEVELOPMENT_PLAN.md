@@ -1221,7 +1221,7 @@ struct EntityId
 [ ] Corner cutting 방지
 [ ] 이동 불가 타일 처리
 [ ] 지형 비용 처리
-[ ] Path 실패 처리
+[x] Path 실패 처리
 ```
 
 ---

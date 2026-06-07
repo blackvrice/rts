@@ -1,5 +1,23 @@
 # Development Log
 
+## 2026-06-07 - A* Path 실패 처리 보강
+
+### 변경 내용
+- `MovementSystem`의 경로 발행 헬퍼가 성공 여부를 반환하도록 정리하고, 직접 경로와 접근 경로가 모두 실패한 경우를 명시적으로 처리.
+- 경로 실패 시 유닛을 정지시켜 이전 이동/순찰 상태가 남아 반복 재시도되는 상황을 막음.
+- 실패 원인을 `start_out_of_bounds`, `goal_out_of_bounds`, `goal_static_blocked`, `goal_dynamic_blocked`, `no_path`로 구분해 콘솔 로그에 남기도록 추가.
+- 맵 밖 목표는 주변 접근 셀로 보정하지 않고 실패로 처리해 명령 실패 동작을 명확히 함.
+- `DEVELOPMENT_PLAN.md`의 Epic 3.1 추가 점검 항목 중 `Path 실패 처리`를 완료로 갱신.
+
+### 동작 결과
+- 유효한 경로는 기존처럼 A* 결과를 사용.
+- 막힌 목표 주변에 접근 가능한 셀이 있으면 기존 접근 경로 보정이 유지.
+- 경로와 접근 경로가 모두 실패하면 유닛이 안전하게 Idle 상태로 돌아가고 실패 로그가 남음.
+
+### 검증
+- `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j1` 빌드 성공.
+- `cmake-build-debug\RTS.exe`를 5초 동안 실행했고 조기 종료 없이 유지되는 것을 확인한 뒤 종료.
+
 ## 2026-06-07 - Command Queue: Shift 우클릭 이동 예약
 
 ### 변경 내용
