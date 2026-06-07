@@ -1,5 +1,23 @@
 # Development Log
 
+## 2026-06-07 - 타입별 충돌 반경 기반 겹침 방지
+
+### 변경 내용
+- `CollisionSystem`의 겹침 판정을 고정 유닛 간 거리 대신 `moving unit radius + blocker radius` 기준으로 변경.
+- blocker 타입별 기본 반경을 분리: Unit 28px, ResourceNode 44px, Building 52px.
+- 자원은 채집 거리 경계에서 막히도록 설정해 유닛이 자원 중심까지 파고들지 않으면서도 기존 gather 판정을 유지.
+- 건물은 현재 gather/build 상호작용 거리보다 작게 설정해 충돌 정지가 작업 도착 판정보다 먼저 걸리지 않도록 조정.
+- `DEVELOPMENT_PLAN.md`의 Epic 3.3 추가 Task를 완료로 갱신.
+
+### 동작 결과
+- 이동 유닛은 유닛/자원/건물의 타입별 반경을 기준으로 겹침을 피함.
+- 사망한 대상은 기존처럼 충돌 후보에서 제외.
+- 자원과 건물은 완전히 통과 가능한 점이 아니라 blocker로 취급되지만, 작업 상호작용 거리는 유지.
+
+### 검증
+- `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j1` 빌드 성공.
+- `cmake-build-debug\RTS.exe`를 5초 동안 실행했고 조기 종료 없이 유지되는 것을 확인한 뒤 종료.
+
 ## 2026-06-07 - PathRequestQueue 기본 구현
 
 ### 변경 내용

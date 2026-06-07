@@ -1,5 +1,7 @@
 #include "game/game/systems/CollisionSystem.hpp"
 
+#include <core/model/Building.hpp>
+#include <core/model/ResourceNode.hpp>
 #include <core/model/Unit.hpp>
 #include <core/world/GameWorld.hpp>
 
@@ -9,7 +11,23 @@ namespace {
     constexpr float kMapMaxX = 2000.f;
     constexpr float kMapMaxY = 2000.f;
     constexpr float kUnitCollisionRadius = 28.f;
-    constexpr float kMinUnitDistanceSq = kUnitCollisionRadius * kUnitCollisionRadius * 4.f;
+    constexpr float kResourceCollisionRadius = 44.f;
+    constexpr float kBuildingCollisionRadius = 52.f;
+
+    float collisionRadiusFor(const rts::core::model::IGameElement& element) {
+        if (dynamic_cast<const rts::core::model::Unit*>(&element)) {
+            return kUnitCollisionRadius;
+        }
+        if (dynamic_cast<const rts::core::model::ResourceNode*>(&element)) {
+            return kResourceCollisionRadius;
+        }
+        if (dynamic_cast<const rts::core::model::Building*>(&element)) {
+            // Keep this below current gather/build interaction ranges so workers can
+            // still stop at the edge instead of being cancelled by collision.
+            return kBuildingCollisionRadius;
+        }
+        return kUnitCollisionRadius;
+    }
 }
 
 namespace rts::core::manager {
@@ -40,11 +58,12 @@ namespace rts::core::manager {
             const auto otherPosition = other->getPosition();
             const float dx = otherPosition.x - pos.x;
             const float dy = otherPosition.y - pos.y;
+            const float minDistance = movingUnitRadius() + collisionRadiusFor(*other);
 
-            if ((dx * dx + dy * dy) < kMinUnitDistanceSq) {
+            if ((dx * dx + dy * dy) < minDistance * minDistance) {
                 return CollisionHit {
                     otherPosition,
-                    kUnitCollisionRadius,
+                    collisionRadiusFor(*other),
                     true
                 };
             }
