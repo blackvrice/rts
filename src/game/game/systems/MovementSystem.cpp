@@ -17,6 +17,7 @@
 
 namespace {
     using rts::core::manager::CollisionSystem;
+    using rts::core::manager::PathOrderKind;
     using rts::core::model::Unit;
     using rts::core::model::Vector2D;
     using rts::core::world::GameWorld;
@@ -34,12 +35,6 @@ namespace {
     struct MovePlan {
         rts::core::path::Path path;
         Vector2D finalTarget;
-    };
-
-    enum class PathOrderKind {
-        Move,
-        AttackMove,
-        Patrol
     };
 
     const char* pathOrderKindName(const PathOrderKind kind) {
@@ -355,7 +350,9 @@ namespace rts::core::manager {
     void MovementSystem::update(
         world::GameWorld& world,
         float dt,
-        const CollisionSystem& collision) const {
+        const CollisionSystem& collision) {
+        processQueuedPathRequests(world);
+
         for (const auto& element : world.getElements()) {
             if (auto unit = std::dynamic_pointer_cast<model::Unit>(element)) {
                 const auto previousPosition = unit->getPosition();
@@ -400,7 +397,7 @@ namespace rts::core::manager {
         world::GameWorld& world,
         const SelectionSystem::SelectedList& selected,
         const model::Vector2D& target,
-        bool clearQueuedOrders) const {
+        bool clearQueuedOrders) {
         for (const auto& weak : selected) {
             if (auto element = weak.lock()) {
                 if (element->getAction() == model::ActionType::Dead) {
@@ -417,7 +414,7 @@ namespace rts::core::manager {
                 if (clearQueuedOrders) {
                     unit->clearOrderQueue();
                 }
-                issuePathOrder(world, *unit, target, PathOrderKind::Move);
+                enqueuePathRequest(world, unit, target, PathOrderKind::Move);
             }
         }
     }
@@ -426,7 +423,7 @@ namespace rts::core::manager {
         world::GameWorld& world,
         model::Unit& unit,
         const model::Vector2D& target,
-        bool clearQueuedOrders) const {
+        bool clearQueuedOrders) {
         if (unit.getAction() == model::ActionType::Dead) {
             return;
         }
@@ -434,17 +431,21 @@ namespace rts::core::manager {
         if (clearQueuedOrders) {
             unit.clearOrderQueue();
         }
-        issuePathOrder(world, unit, target, PathOrderKind::Move);
+        if (auto handle = findUnitHandle(world, unit)) {
+            enqueuePathRequest(world, handle, target, PathOrderKind::Move);
+        } else {
+            issuePathOrder(world, unit, target, PathOrderKind::Move);
+        }
     }
 
     void MovementSystem::issueAttackMove(
         world::GameWorld& world,
         const SelectionSystem::SelectedList& selected,
-        const model::Vector2D& target) const {
+        const model::Vector2D& target) {
         for (const auto& weak : selected) {
             if (auto unit = std::dynamic_pointer_cast<model::Unit>(weak.lock());
                 unit && unit->getAction() != model::ActionType::Dead) {
-                issuePathOrder(world, *unit, target, PathOrderKind::AttackMove);
+                enqueuePathRequest(world, unit, target, PathOrderKind::AttackMove);
             }
         }
     }
@@ -452,22 +453,26 @@ namespace rts::core::manager {
     void MovementSystem::issueAttackMove(
         world::GameWorld& world,
         model::Unit& unit,
-        const model::Vector2D& target) const {
+        const model::Vector2D& target) {
         if (unit.getAction() == model::ActionType::Dead) {
             return;
         }
 
-        issuePathOrder(world, unit, target, PathOrderKind::AttackMove);
+        if (auto handle = findUnitHandle(world, unit)) {
+            enqueuePathRequest(world, handle, target, PathOrderKind::AttackMove);
+        } else {
+            issuePathOrder(world, unit, target, PathOrderKind::AttackMove);
+        }
     }
 
     void MovementSystem::issuePatrol(
         world::GameWorld& world,
         const SelectionSystem::SelectedList& selected,
-        const model::Vector2D& target) const {
+        const model::Vector2D& target) {
         for (const auto& weak : selected) {
             if (auto unit = std::dynamic_pointer_cast<model::Unit>(weak.lock());
                 unit && unit->getAction() != model::ActionType::Dead) {
-                issuePathOrder(world, *unit, target, PathOrderKind::Patrol, unit->getPosition());
+                enqueuePathRequest(world, unit, target, PathOrderKind::Patrol, unit->getPosition());
             }
         }
     }
@@ -475,11 +480,93 @@ namespace rts::core::manager {
     void MovementSystem::issuePatrol(
         world::GameWorld& world,
         model::Unit& unit,
-        const model::Vector2D& target) const {
+        const model::Vector2D& target) {
         if (unit.getAction() == model::ActionType::Dead) {
             return;
         }
 
-        issuePathOrder(world, unit, target, PathOrderKind::Patrol);
+        if (auto handle = findUnitHandle(world, unit)) {
+            enqueuePathRequest(world, handle, target, PathOrderKind::Patrol);
+        } else {
+            issuePathOrder(world, unit, target, PathOrderKind::Patrol);
+        }
+    }
+
+    void MovementSystem::cancelQueuedPath(model::Unit& unit) {
+        m_latestPathRequestByUnit.erase(&unit);
+    }
+
+    void MovementSystem::cancelQueuedPaths(const SelectionSystem::SelectedList& selected) {
+        for (const auto& weak : selected) {
+            if (auto unit = std::dynamic_pointer_cast<model::Unit>(weak.lock())) {
+                cancelQueuedPath(*unit);
+            }
+        }
+    }
+
+    std::shared_ptr<model::Unit> MovementSystem::findUnitHandle(
+        world::GameWorld& world,
+        model::Unit& unit) const {
+        for (const auto& element : world.getElements()) {
+            auto candidate = std::dynamic_pointer_cast<model::Unit>(element);
+            if (candidate && candidate.get() == &unit) {
+                return candidate;
+            }
+        }
+
+        return nullptr;
+    }
+
+    void MovementSystem::enqueuePathRequest(
+        world::GameWorld&,
+        const std::shared_ptr<model::Unit>& unit,
+        const model::Vector2D& target,
+        const PathOrderKind kind,
+        std::optional<model::Vector2D> patrolStart) {
+        if (!unit || unit->getAction() == model::ActionType::Dead) {
+            return;
+        }
+
+        const auto id = m_nextPathRequestId++;
+        m_latestPathRequestByUnit[unit.get()] = id;
+
+        // Cancel the current motion immediately; A* work itself is spread across ticks.
+        if (kind != PathOrderKind::Patrol || patrolStart.has_value()) {
+            unit->stop();
+        }
+
+        m_pathRequests.push_back(PathRequest {
+            .id = id,
+            .unit = unit,
+            .target = target,
+            .kind = kind,
+            .patrolStart = patrolStart
+        });
+    }
+
+    void MovementSystem::processQueuedPathRequests(world::GameWorld& world) {
+        std::size_t processed = 0;
+        while (processed < kMaxPathRequestsPerTick && !m_pathRequests.empty()) {
+            auto request = m_pathRequests.front();
+            m_pathRequests.pop_front();
+
+            auto unit = request.unit.lock();
+            if (!unit) {
+                continue;
+            }
+            if (unit->getAction() == model::ActionType::Dead) {
+                m_latestPathRequestByUnit.erase(unit.get());
+                continue;
+            }
+
+            auto latest = m_latestPathRequestByUnit.find(unit.get());
+            if (latest == m_latestPathRequestByUnit.end() || latest->second != request.id) {
+                continue;
+            }
+
+            m_latestPathRequestByUnit.erase(latest);
+            issuePathOrder(world, *unit, request.target, request.kind, request.patrolStart);
+            ++processed;
+        }
     }
 }

@@ -185,6 +185,7 @@ namespace rts::core::manager {
         m_router.on<command::StopCommand>([this](const command::StopCommand &) {
             auto lock = m_world.acquireWriteLock();
             if (inputLocked()) return;
+            m_movement.cancelQueuedPaths(m_selection.selected());
             for (auto &weak: m_selection.selected()) {
                 if (auto element = weak.lock(); element && element->getAction() != model::ActionType::Dead) {
                     if (auto unit = std::dynamic_pointer_cast<model::Unit>(element)) {
@@ -198,6 +199,7 @@ namespace rts::core::manager {
         m_router.on<command::HoldPositionCommand>([this](const command::HoldPositionCommand &) {
             auto lock = m_world.acquireWriteLock();
             if (inputLocked()) return;
+            m_movement.cancelQueuedPaths(m_selection.selected());
             for (auto &weak: m_selection.selected()) {
                 if (auto element = weak.lock(); element && element->getAction() != model::ActionType::Dead) {
                     if (auto unit = std::dynamic_pointer_cast<model::Unit>(element)) {
@@ -594,6 +596,7 @@ namespace rts::core::manager {
     }
 
     void GameLogicManager::clearSelectedUnitOrderQueues() {
+        m_movement.cancelQueuedPaths(m_selection.selected());
         for (const auto& weak : m_selection.selected()) {
             auto unit = std::dynamic_pointer_cast<model::Unit>(weak.lock());
             if (unit && unit->getAction() != model::ActionType::Dead) {
@@ -906,6 +909,7 @@ namespace rts::core::manager {
         }
 
         worker->clearOrderQueue();
+        m_movement.cancelQueuedPath(*worker);
 
         // Resolve the requested building type; reject ids outside the known range.
         if (cmd.buildingTypeId() < 0) {

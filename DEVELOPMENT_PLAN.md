@@ -1228,16 +1228,16 @@ struct EntityId
 
 ## Epic 3.2 PathRequestQueue
 
-현재 상태: `[0% 또는 부분 구현 필요]`
+현재 상태: `[80%]` (기본 큐 구현 완료, 100기 스트레스 수동 검증 필요)
 
 ### Task
 
 ```text
-[ ] PathRequest 구조 추가
-[ ] 요청 Queue 추가
-[ ] 한 Tick당 처리량 제한
-[ ] 요청 완료 콜백 또는 결과 저장
-[ ] 오래된 요청 취소
+[x] PathRequest 구조 추가
+[x] 요청 Queue 추가
+[x] 한 Tick당 처리량 제한
+[x] 요청 완료 콜백 또는 결과 저장
+[x] 오래된 요청 취소
 ```
 
 ### 완료 기준

@@ -1,5 +1,25 @@
 # Development Log
 
+## 2026-06-07 - PathRequestQueue 기본 구현
+
+### 변경 내용
+- `MovementSystem`에 `PathRequest` 구조와 내부 요청 큐를 추가해 Move/AttackMove/Patrol 경로 계산을 즉시 실행하지 않고 예약하도록 변경.
+- `MovementSystem::update()` 시작 시 queued path request를 tick당 최대 8개만 처리하도록 제한.
+- path request 완료 시 기존 `issuePathOrder()` 경로 적용 로직을 호출해 Unit path 결과를 즉시 반영.
+- 유닛별 최신 request id를 추적해 새 명령이 들어오면 오래된 path request가 나중에 적용되지 않도록 무효화.
+- Stop/Hold/Attack/Gather/Build 같은 즉시 명령 경로에서 pending path request를 취소하도록 `GameLogicManager`와 연결.
+- `DEVELOPMENT_PLAN.md`의 Epic 3.2 작업 항목을 기본 구현 완료 상태로 갱신.
+
+### 동작 결과
+- 다수 유닛에게 동시에 이동/공격이동/순찰 경로를 발행해도 한 tick에서 모든 A*를 몰아서 계산하지 않음.
+- 새 이동 명령은 이전 pending request를 대체하고, Stop/Hold 등은 pending request를 취소.
+- 큐 처리량을 넘는 유닛은 다음 tick들에 순차적으로 경로를 받아 이동을 시작.
+
+### 검증
+- `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j1` 빌드 성공.
+- `cmake-build-debug\RTS.exe`를 5초 동안 실행했고 조기 종료 없이 유지되는 것을 확인한 뒤 종료.
+- 한계: 100기 동시 이동의 체감 프레임 안정성은 별도 대량 스폰/수동 스트레스 검증이 필요.
+
 ## 2026-06-07 - A* 이동 정책 점검 항목 정리
 
 ### 변경 내용
