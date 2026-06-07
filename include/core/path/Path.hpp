@@ -8,9 +8,12 @@
 
 namespace rts::core::path {
     struct PathOptions {
+        // Generic A* defaults are conservative; gameplay movement opts into diagonal travel.
         bool allowDiagonal = false;
         bool useDynamicBlocking = true; // 동적 점유 체크 여부
+        // When diagonal travel is enabled, both adjacent cardinal side cells must be enterable.
         bool preventDiagonalCornerCutting = true;
+        // moveCost 0 is blocked by the grid query; costs above 1 make the path less preferred.
         bool useTerrainCost = true;
         int maxExpand = 20000; // 안전장치(노드 확장 제한)
     };

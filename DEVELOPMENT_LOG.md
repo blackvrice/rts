@@ -1,5 +1,21 @@
 # Development Log
 
+## 2026-06-07 - A* 이동 정책 점검 항목 정리
+
+### 변경 내용
+- `PathOptions`에 대각선 이동, corner cutting 방지, 지형 비용 처리의 기본 의미를 코드 주석으로 명확히 고정.
+- `MovementSystem`의 게임플레이 이동 정책이 대각선 이동을 허용하되 막힌 side cell 사이를 대각선으로 통과하지 못하게 한다는 점을 명시.
+- 기존 `PathManager`의 `canEnterNeighbor()` 검사와 `GameWorld::isTileBlocked()`/`moveCost == 0` 규칙을 기준으로 `DEVELOPMENT_PLAN.md`의 Epic 3.1 추가 점검 항목을 완료 처리.
+
+### 동작 결과
+- 유닛 이동 경로는 기존처럼 대각선을 허용.
+- 대각선 이동 중 양옆 cardinal cell 중 하나라도 막혀 있으면 해당 대각선 step은 제외.
+- `moveCost == 0` 타일은 이동 불가, `moveCost > 1` 타일은 더 비싼 통과 가능 지형으로 처리.
+
+### 검증
+- `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j1` 빌드 성공.
+- `cmake-build-debug\RTS.exe`를 5초 동안 실행했고 조기 종료 없이 유지되는 것을 확인한 뒤 종료.
+
 ## 2026-06-07 - A* 지형 이동 비용 반영
 
 ### 변경 내용

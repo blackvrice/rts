@@ -57,6 +57,8 @@ namespace {
 
     rts::core::path::PathOptions movementPathOptions() {
         rts::core::path::PathOptions options;
+        // Gameplay movement allows diagonals for natural paths, but PathManager still
+        // rejects diagonal corner-cutting through blocked side cells.
         options.allowDiagonal = true;
         options.useDynamicBlocking = true;
         options.preventDiagonalCornerCutting = true;
