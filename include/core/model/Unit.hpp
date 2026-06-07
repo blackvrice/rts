@@ -66,11 +66,16 @@ namespace rts::core::model {
         bool isAttackMoveSearching() const noexcept;
         bool needsAttackMoveResume() const noexcept;
         bool isHoldingPosition() const noexcept;
+        bool isPatrolActive() const noexcept;
+        bool isPatrolSearching() const noexcept;
+        bool needsPatrolResume() const noexcept;
         const Vector2D& attackMoveTarget() const noexcept;
+        const Vector2D& patrolDestination() const noexcept;
         ResourceNode::ResourceType targetGatherType() const noexcept;
         void redirectToDropOff(Building* newDropOff);
         void attackMoveEngage(IGameElement* target);
         void holdEngage(IGameElement* target);
+        void patrolEngage(IGameElement* target);
         std::optional<ResourceDelivery> takeReadyResourceDelivery();
         std::string displayName() const override;
 
@@ -81,7 +86,7 @@ namespace rts::core::model {
         void idle() override;
         void stop() override;
         void holdPosition() override;
-        void patrol(const Vector2D&, const Vector2D&) override {}
+        void patrol(const Vector2D& a, const Vector2D& b) override;
         void attackMove(const Vector2D& target) override;
         void gather(IGameElement*) override;
         void gather(ResourceNode* resource, Building* dropOff);
@@ -99,6 +104,12 @@ namespace rts::core::model {
                                    const Vector2D& finalWorldTarget);
         void setAttackMoveTargetWithPath(const std::vector<path::GridPos>& gridPath,
                                          const Vector2D& finalWorldTarget);
+        void setPatrolRouteWithPath(const std::vector<path::GridPos>& gridPath,
+                                    const Vector2D& finalWorldTarget,
+                                    const Vector2D& from,
+                                    const Vector2D& to);
+        void setPatrolTargetWithPath(const std::vector<path::GridPos>& gridPath,
+                                     const Vector2D& finalWorldTarget);
         const Vector2D& finalTargetWorld() const noexcept;
 
     private:
@@ -129,8 +140,10 @@ namespace rts::core::model {
         void updateBuild(float dt);
         bool moveToward(const Vector2D& target, float stopDistance, float dt);
         void clearGatherState(bool releaseReservation);
-        void beginAttack(IGameElement* target, bool preserveAttackMove);
+        void beginAttack(IGameElement* target, bool preserveAttackMove, bool preservePatrol = false);
         void clearAttackMoveOrder();
+        void clearPatrolOrder();
+        void advancePatrolDestination();
 
         std::deque<path::GridPos> m_gridPath; // 다음 노드부터 pop_front
         Vector2D m_finalTargetWorld{};
@@ -143,9 +156,14 @@ namespace rts::core::model {
         Vector2D m_position{};
         Vector2D m_moveTarget{};
         Vector2D m_attackMoveTarget{};
+        Vector2D m_patrolStart{};
+        Vector2D m_patrolEnd{};
+        Vector2D m_patrolDestination{};
 
         IGameElement* m_attackTarget = nullptr;
         bool m_attackMoveActive { false };
+        bool m_patrolActive { false };
+        bool m_patrolHeadingToEnd { true };
 
         ::rts::UnitType m_unitType { ::rts::UnitType::Warrior };
         WorkerGatherState m_gatherState {};

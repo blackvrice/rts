@@ -71,6 +71,7 @@ namespace rts::core::model {
         if (m_action == ActionType::Dead) return;
         clearGatherState(true);
         clearAttackMoveOrder();
+        clearPatrolOrder();
         m_action = ActionType::Move;
         m_animationAction = ActionType::Move;
         m_attackTarget = nullptr;
@@ -83,15 +84,19 @@ namespace rts::core::model {
         beginAttack(target, false);
     }
 
-    void Unit::beginAttack(IGameElement* target, bool preserveAttackMove) {
+    void Unit::beginAttack(IGameElement* target, bool preserveAttackMove, bool preservePatrol) {
         if (m_action == ActionType::Dead) return;
         if (!target) return;
         if (target->getAction() == ActionType::Dead) return;
         if (target->getTeamId() == m_teamId && m_teamId != TeamId::Neutral) return;
 
         const bool keepAttackMove = preserveAttackMove && m_attackMoveActive;
+        const bool keepPatrol = preservePatrol && m_patrolActive;
         clearGatherState(true);
         m_attackMoveActive = keepAttackMove;
+        if (!keepPatrol) {
+            clearPatrolOrder();
+        }
         m_action = ActionType::Attack;
         m_attackTarget = target;
         m_moveTarget = target->getPosition();
@@ -110,6 +115,7 @@ namespace rts::core::model {
     void Unit::attackMove(const Vector2D& target) {
         if (m_action == ActionType::Dead) return;
         clearGatherState(true);
+        clearPatrolOrder();
         m_attackMoveActive = true;
         m_attackMoveTarget = target;
         m_action = ActionType::Move;
@@ -117,6 +123,23 @@ namespace rts::core::model {
         m_attackTarget = nullptr;
         m_moveTarget = target;
         m_finalTargetWorld = target;
+        m_gridPath.clear();
+    }
+
+    void Unit::patrol(const Vector2D& a, const Vector2D& b) {
+        if (m_action == ActionType::Dead) return;
+        clearGatherState(true);
+        clearAttackMoveOrder();
+        m_patrolActive = true;
+        m_patrolStart = a;
+        m_patrolEnd = b;
+        m_patrolDestination = b;
+        m_patrolHeadingToEnd = true;
+        m_action = ActionType::Patrol;
+        m_animationAction = ActionType::Move;
+        m_attackTarget = nullptr;
+        m_moveTarget = b;
+        m_finalTargetWorld = b;
         m_gridPath.clear();
     }
 
@@ -132,10 +155,15 @@ namespace rts::core::model {
 
         clearGatherState(true);
         clearAttackMoveOrder();
+        clearPatrolOrder();
         m_action = ActionType::Hold;
         m_attackTarget = target;
         m_animationAction = ActionType::Attack;
         m_gridPath.clear();
+    }
+
+    void Unit::patrolEngage(IGameElement* target) {
+        beginAttack(target, false, true);
     }
 
     void Unit::tick(float dt) {
@@ -144,6 +172,7 @@ namespace rts::core::model {
 
         switch (m_action) {
         case ActionType::Move:
+        case ActionType::Patrol:
             updateMove(dt);
             break;
         case ActionType::Attack:
@@ -192,7 +221,7 @@ namespace rts::core::model {
 
     void Unit::updateMove(float dt)
     {
-        if (m_action != ActionType::Move) return;
+        if (m_action != ActionType::Move && m_action != ActionType::Patrol) return;
 
         Vector2D delta{ m_moveTarget.x - m_position.x, m_moveTarget.y - m_position.y };
         float distSq = delta.x * delta.x + delta.y * delta.y;
@@ -200,6 +229,12 @@ namespace rts::core::model {
         constexpr float ARRIVE_EPS = 1.0f; // 타일 중심으로 붙는 오차
         if (distSq <= ARRIVE_EPS * ARRIVE_EPS) {
             m_position = m_moveTarget;
+            if (m_action == ActionType::Patrol && m_patrolActive) {
+                advancePatrolDestination();
+                m_action = ActionType::Idle;
+                m_animationAction = ActionType::Idle;
+                return;
+            }
             m_action = ActionType::Idle;
             m_animationAction = ActionType::Idle;
             m_attackMoveActive = false;
@@ -220,7 +255,7 @@ namespace rts::core::model {
 
     void Unit::updateMove(float dt, const world::GridTransform& tf)
     {
-        if (m_action != ActionType::Move) return;
+        if (m_action != ActionType::Move && m_action != ActionType::Patrol) return;
 
         Vector2D target;
 
@@ -240,6 +275,12 @@ namespace rts::core::model {
                 return; // 다음 노드로 계속
             }
             m_position = target;
+            if (m_action == ActionType::Patrol && m_patrolActive) {
+                advancePatrolDestination();
+                m_action = ActionType::Idle;
+                m_animationAction = ActionType::Idle;
+                return;
+            }
             m_action = ActionType::Idle;
             m_animationAction = ActionType::Idle;
             m_attackMoveActive = false;
@@ -332,7 +373,7 @@ namespace rts::core::model {
         }
 
         if (attacker && m_action != ActionType::Attack && attacker->getTeamId() != m_teamId) {
-            beginAttack(attacker, m_attackMoveActive);
+            beginAttack(attacker, m_attackMoveActive, m_patrolActive);
         }
     }
 
@@ -429,6 +470,7 @@ namespace rts::core::model {
         if (m_action == ActionType::Dead) return;
         clearGatherState(true);
         clearAttackMoveOrder();
+        clearPatrolOrder();
         m_action = ActionType::Idle;
         m_animationAction = ActionType::Idle;
         m_attackTarget = nullptr;
@@ -447,6 +489,7 @@ namespace rts::core::model {
         if (m_action == ActionType::Dead) return;
         clearGatherState(true);
         clearAttackMoveOrder();
+        clearPatrolOrder();
         m_action = ActionType::Hold;
         m_animationAction = ActionType::Hold;
         m_attackTarget = nullptr;
@@ -508,6 +551,49 @@ namespace rts::core::model {
         m_attackTarget = nullptr;
     }
 
+    void Unit::setPatrolRouteWithPath(const std::vector<path::GridPos>& gridPath,
+                                      const Vector2D& finalWorldTarget,
+                                      const Vector2D& from,
+                                      const Vector2D& to)
+    {
+        if (m_action == ActionType::Dead) return;
+        clearGatherState(true);
+        clearAttackMoveOrder();
+        m_gridPath.clear();
+        for (std::size_t i = 1; i < gridPath.size(); ++i) {
+            m_gridPath.push_back(gridPath[i]);
+        }
+
+        m_patrolActive = true;
+        m_patrolStart = from;
+        m_patrolEnd = to;
+        m_patrolDestination = finalWorldTarget;
+        m_patrolHeadingToEnd = true;
+        m_finalTargetWorld = finalWorldTarget;
+        m_moveTarget = finalWorldTarget;
+        m_action = ActionType::Patrol;
+        m_animationAction = ActionType::Move;
+        m_attackTarget = nullptr;
+    }
+
+    void Unit::setPatrolTargetWithPath(const std::vector<path::GridPos>& gridPath,
+                                       const Vector2D& finalWorldTarget)
+    {
+        if (m_action == ActionType::Dead || !m_patrolActive) return;
+        clearGatherState(true);
+        m_gridPath.clear();
+        for (std::size_t i = 1; i < gridPath.size(); ++i) {
+            m_gridPath.push_back(gridPath[i]);
+        }
+
+        m_patrolDestination = finalWorldTarget;
+        m_finalTargetWorld = finalWorldTarget;
+        m_moveTarget = finalWorldTarget;
+        m_action = ActionType::Patrol;
+        m_animationAction = ActionType::Move;
+        m_attackTarget = nullptr;
+    }
+
     const Vector2D& Unit::finalTargetWorld() const noexcept {
         return m_finalTargetWorld;
     }
@@ -517,6 +603,7 @@ namespace rts::core::model {
         if (m_action == ActionType::Dead) return;
         clearGatherState(true);
         clearAttackMoveOrder();
+        clearPatrolOrder();
         m_action = ActionType::Idle;
         m_animationAction = ActionType::Idle;
         m_attackTarget = nullptr;
@@ -536,6 +623,7 @@ namespace rts::core::model {
 
         clearGatherState(true);
         clearAttackMoveOrder();
+        clearPatrolOrder();
         if (!isWorker() ||
             !resource ||
             !dropOff ||
@@ -709,10 +797,28 @@ namespace rts::core::model {
         m_attackMoveTarget = {};
     }
 
+    void Unit::clearPatrolOrder() {
+        m_patrolActive = false;
+        m_patrolStart = {};
+        m_patrolEnd = {};
+        m_patrolDestination = {};
+        m_patrolHeadingToEnd = true;
+    }
+
+    void Unit::advancePatrolDestination() {
+        if (!m_patrolActive) {
+            return;
+        }
+
+        m_patrolHeadingToEnd = !m_patrolHeadingToEnd;
+        m_patrolDestination = m_patrolHeadingToEnd ? m_patrolEnd : m_patrolStart;
+    }
+
     void Unit::buildAt(Building* site) {
         if (m_action == ActionType::Dead) return;
         clearGatherState(true);
         clearAttackMoveOrder();
+        clearPatrolOrder();
         if (!isWorker() || !site || site->isComplete() ||
             site->getAction() == ActionType::Dead) {
             m_buildTarget = nullptr;
@@ -791,8 +897,25 @@ namespace rts::core::model {
         return m_action == ActionType::Hold;
     }
 
+    bool Unit::isPatrolActive() const noexcept {
+        return m_patrolActive;
+    }
+
+    bool Unit::isPatrolSearching() const noexcept {
+        return m_patrolActive &&
+               (m_action == ActionType::Patrol || m_action == ActionType::Idle);
+    }
+
+    bool Unit::needsPatrolResume() const noexcept {
+        return m_patrolActive && m_action == ActionType::Idle;
+    }
+
     const Vector2D& Unit::attackMoveTarget() const noexcept {
         return m_attackMoveTarget;
+    }
+
+    const Vector2D& Unit::patrolDestination() const noexcept {
+        return m_patrolDestination;
     }
 
     ResourceNode::ResourceType Unit::targetGatherType() const noexcept {

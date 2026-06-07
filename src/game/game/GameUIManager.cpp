@@ -245,6 +245,10 @@ namespace rts::core::manager {
             case WorldOrderMode::AttackMove:
                 m_logicBus.push(std::make_unique<command::AttackMoveCommand>(-1, worldPos));
                 break;
+            case WorldOrderMode::Patrol:
+                m_logicBus.push(std::make_unique<command::PatrolCommand>(
+                    -1, core::model::Vector2D{}, worldPos));
+                break;
             case WorldOrderMode::Gather:
                 m_logicBus.push(std::make_unique<command::GatherCommand>(worldPos));
                 break;
@@ -292,6 +296,8 @@ namespace rts::core::manager {
                 m_worldOrderMode = WorldOrderMode::Build;
                 break;
             case command::GameplayInputAction::Patrol:
+                m_worldOrderMode = WorldOrderMode::Patrol;
+                break;
             case command::GameplayInputAction::ReturnResource:
             case command::GameplayInputAction::Repair:
             case command::GameplayInputAction::UseAbility:
@@ -390,6 +396,7 @@ namespace rts::core::manager {
         if (m_isDragging) {
             cursorId = 102; // Cursor_03
         } else if (m_worldOrderMode == WorldOrderMode::Move ||
+                   m_worldOrderMode == WorldOrderMode::Patrol ||
                    m_worldOrderMode == WorldOrderMode::Gather) {
             cursorId = 103; // Cursor_04
         } else if (m_worldOrderMode == WorldOrderMode::Attack ||

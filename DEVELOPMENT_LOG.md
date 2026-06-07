@@ -1,5 +1,24 @@
 # Development Log
 
+## 2026-06-07 - Patrol 기본 명령 연결
+
+### 변경 내용
+- `PatrolCommand` 라우터를 실제 게임 로직에 연결하고, `P` 핫키/HUD `Patrol` 버튼이 다음 우클릭 위치를 순찰 목적지로 발행하도록 구현.
+- `Unit`에 순찰 시작점/도착점/다음 목적지 상태를 추가해 A↔B 왕복 이동을 유지.
+- 순찰 중 적 발견 시 기존 공격 루프를 사용해 교전하고, 대상이 사망하면 남은 순찰 경로로 복귀하도록 연결.
+- `MovementSystem`에 `issuePatrol()`을 추가해 일반 이동과 같은 A* 경로/충돌 회피를 순찰에도 적용.
+- 순찰 중 충돌 회피가 발생해도 Patrol 상태와 순찰 루트가 보존되도록 회피 경로 주입을 보강.
+
+### 동작 결과
+- 선택 유닛 → `P` 또는 HUD `Patrol` → 우클릭 목적지: 현재 위치와 클릭 지점 사이를 왕복.
+- 순찰 이동 중 적 유닛/건물을 발견하면 공격.
+- 교전 대상이 사망하면 순찰을 재개.
+
+### 검증
+- `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j1` 빌드 성공.
+- `cmake-build-debug\RTS.exe`를 5초 동안 실행해 조기 종료 없이 유지되는 것을 확인.
+- 한계: 실제 `P` 입력 후 왕복 순찰/교전 복귀 체감은 수동 플레이 검증 필요.
+
 ## 2026-06-07 - Hold Position 기본 전투 동작 연결
 
 ### 변경 내용

@@ -50,6 +50,7 @@ namespace rts::core::manager {
         void handleMoveCommand(const command::MoveCommand& cmd);
         void handleAttackCommand(const command::AttackCommand& cmd);
         void handleAttackMoveCommand(const command::AttackMoveCommand& cmd);
+        void handlePatrolCommand(const command::PatrolCommand& cmd);
         void handleGatherCommand(const command::GatherCommand& cmd);
         void handleTrainCommand(const command::TrainUnitCommand& cmd);
         void handleCancelProduction(const command::CancelProductionCommand& cmd);
@@ -79,6 +80,8 @@ namespace rts::core::manager {
         void handleAttackMoveOrders();
         std::shared_ptr<model::IGameElement> findClosestHoldTarget(const model::Unit& unit) const;
         void handleHoldPositionOrders();
+        std::shared_ptr<model::IGameElement> findClosestPatrolTarget(const model::Unit& unit) const;
+        void handlePatrolOrders();
 
         // Production helpers
         void registerBuildingSpawn(model::Building& building);

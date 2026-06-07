@@ -35,6 +35,12 @@ namespace {
         Vector2D finalTarget;
     };
 
+    enum class PathOrderKind {
+        Move,
+        AttackMove,
+        Patrol
+    };
+
     rts::core::path::PathOptions movementPathOptions() {
         rts::core::path::PathOptions options;
         options.allowDiagonal = true;
@@ -207,7 +213,13 @@ namespace {
             return false;
         }
 
-        unit.setMoveTargetWithPath(path, unit.finalTargetWorld());
+        if (unit.isAttackMoveActive()) {
+            unit.setAttackMoveTargetWithPath(path, unit.finalTargetWorld());
+        } else if (unit.isPatrolActive()) {
+            unit.setPatrolTargetWithPath(path, unit.finalTargetWorld());
+        } else {
+            unit.setMoveTargetWithPath(path, unit.finalTargetWorld());
+        }
         return true;
     }
 
@@ -215,8 +227,10 @@ namespace {
         GameWorld& world,
         Unit& unit,
         const Vector2D& target,
-        bool attackMove) {
+        PathOrderKind kind,
+        std::optional<Vector2D> patrolStart = std::nullopt) {
         const auto& transform = world.gridTransform();
+        const Vector2D from = patrolStart.value_or(unit.getPosition());
         const auto start = transform.worldToGrid(unit.getPosition());
         const auto goal = transform.worldToGrid(target);
         auto options = movementPathOptions();
@@ -229,19 +243,41 @@ namespace {
             options
         );
 
-        unit.stop();
+        if (kind != PathOrderKind::Patrol || patrolStart.has_value()) {
+            unit.stop();
+        }
         if (path && !path->empty()) {
-            if (attackMove) {
-                unit.setAttackMoveTargetWithPath(*path, target);
-            } else {
-                unit.setMoveTargetWithPath(*path, target);
+            switch (kind) {
+                case PathOrderKind::Move:
+                    unit.setMoveTargetWithPath(*path, target);
+                    break;
+                case PathOrderKind::AttackMove:
+                    unit.setAttackMoveTargetWithPath(*path, target);
+                    break;
+                case PathOrderKind::Patrol:
+                    if (patrolStart.has_value()) {
+                        unit.setPatrolRouteWithPath(*path, target, from, target);
+                    } else {
+                        unit.setPatrolTargetWithPath(*path, target);
+                    }
+                    break;
             }
         } else if (auto approach = findApproachPath(world, start, goal, target, options)) {
             // Occupied goals are approached through a nearby free cell instead of retrying forever.
-            if (attackMove) {
-                unit.setAttackMoveTargetWithPath(approach->path, approach->finalTarget);
-            } else {
-                unit.setMoveTargetWithPath(approach->path, approach->finalTarget);
+            switch (kind) {
+                case PathOrderKind::Move:
+                    unit.setMoveTargetWithPath(approach->path, approach->finalTarget);
+                    break;
+                case PathOrderKind::AttackMove:
+                    unit.setAttackMoveTargetWithPath(approach->path, approach->finalTarget);
+                    break;
+                case PathOrderKind::Patrol:
+                    if (patrolStart.has_value()) {
+                        unit.setPatrolRouteWithPath(approach->path, approach->finalTarget, from, target);
+                    } else {
+                        unit.setPatrolTargetWithPath(approach->path, approach->finalTarget);
+                    }
+                    break;
             }
         }
     }
@@ -255,7 +291,8 @@ namespace rts::core::manager {
         for (const auto& element : world.getElements()) {
             if (auto unit = std::dynamic_pointer_cast<model::Unit>(element)) {
                 const auto previousPosition = unit->getPosition();
-                if (unit->getAction() == model::ActionType::Move) {
+                if (unit->getAction() == model::ActionType::Move ||
+                    unit->getAction() == model::ActionType::Patrol) {
                     unit->updateMove(dt, world.gridTransform());
                 } else {
                     unit->tick(dt);
@@ -308,7 +345,7 @@ namespace rts::core::manager {
                     continue;
                 }
 
-                issuePathOrder(world, *unit, target, false);
+                issuePathOrder(world, *unit, target, PathOrderKind::Move);
             }
         }
     }
@@ -320,7 +357,7 @@ namespace rts::core::manager {
         for (const auto& weak : selected) {
             if (auto unit = std::dynamic_pointer_cast<model::Unit>(weak.lock());
                 unit && unit->getAction() != model::ActionType::Dead) {
-                issuePathOrder(world, *unit, target, true);
+                issuePathOrder(world, *unit, target, PathOrderKind::AttackMove);
             }
         }
     }
@@ -333,6 +370,29 @@ namespace rts::core::manager {
             return;
         }
 
-        issuePathOrder(world, unit, target, true);
+        issuePathOrder(world, unit, target, PathOrderKind::AttackMove);
+    }
+
+    void MovementSystem::issuePatrol(
+        world::GameWorld& world,
+        const SelectionSystem::SelectedList& selected,
+        const model::Vector2D& target) const {
+        for (const auto& weak : selected) {
+            if (auto unit = std::dynamic_pointer_cast<model::Unit>(weak.lock());
+                unit && unit->getAction() != model::ActionType::Dead) {
+                issuePathOrder(world, *unit, target, PathOrderKind::Patrol, unit->getPosition());
+            }
+        }
+    }
+
+    void MovementSystem::issuePatrol(
+        world::GameWorld& world,
+        model::Unit& unit,
+        const model::Vector2D& target) const {
+        if (unit.getAction() == model::ActionType::Dead) {
+            return;
+        }
+
+        issuePathOrder(world, unit, target, PathOrderKind::Patrol);
     }
 }

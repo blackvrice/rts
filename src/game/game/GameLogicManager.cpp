@@ -202,8 +202,8 @@ namespace rts::core::manager {
             }
         });
 
-        m_router.on<command::PatrolCommand>([this](const command::PatrolCommand &) {
-            // TODO
+        m_router.on<command::PatrolCommand>([this](const command::PatrolCommand &cmd) {
+            handlePatrolCommand(cmd);
         });
 
         m_router.on<command::ControlGroupAddCommand>([this](const auto &cmd) {
@@ -228,6 +228,7 @@ namespace rts::core::manager {
         auto lock = m_world.acquireWriteLock();
         m_movement.update(m_world, dt, m_collision);
         handleAttackMoveOrders();
+        handlePatrolOrders();
         handleHoldPositionOrders();
         applyReadyResourceDeliveries();
         handleGatherRedirects();
@@ -481,6 +482,58 @@ namespace rts::core::manager {
         }
     }
 
+    std::shared_ptr<model::IGameElement> GameLogicManager::findClosestPatrolTarget(
+        const model::Unit& unit) const {
+        std::shared_ptr<model::IGameElement> bestTarget;
+        float bestDistanceSq = std::numeric_limits<float>::max();
+        const float acquireRadius = std::max(kAttackMoveAcquireRadius, unit.getAttackRange());
+        const float acquireRadiusSq = acquireRadius * acquireRadius;
+
+        for (const auto& element : m_world.getElements()) {
+            auto candidate = std::dynamic_pointer_cast<model::IGameElement>(element);
+            if (!candidate ||
+                candidate.get() == &unit ||
+                candidate->getAction() == model::ActionType::Dead ||
+                !isOpposingTeam(unit.getTeamId(), candidate->getTeamId())) {
+                continue;
+            }
+
+            const float candidateDistanceSq = distanceSq(
+                candidate->getPosition(),
+                unit.getPosition()
+            );
+            if (candidateDistanceSq <= acquireRadiusSq &&
+                candidateDistanceSq < bestDistanceSq) {
+                bestDistanceSq = candidateDistanceSq;
+                bestTarget = candidate;
+            }
+        }
+
+        return bestTarget;
+    }
+
+    void GameLogicManager::handlePatrolOrders() {
+        for (const auto& element : m_world.getElements()) {
+            auto unit = std::dynamic_pointer_cast<model::Unit>(element);
+            if (!unit ||
+                unit->getAction() == model::ActionType::Dead ||
+                !unit->isPatrolActive()) {
+                continue;
+            }
+
+            if (unit->isPatrolSearching()) {
+                if (auto target = findClosestPatrolTarget(*unit)) {
+                    unit->patrolEngage(target.get());
+                    continue;
+                }
+            }
+
+            if (unit->needsPatrolResume()) {
+                m_movement.issuePatrol(m_world, *unit, unit->patrolDestination());
+            }
+        }
+    }
+
     std::shared_ptr<model::IGameElement> GameLogicManager::findClosestHoldTarget(
         const model::Unit& unit) const {
         std::shared_ptr<model::IGameElement> bestTarget;
@@ -574,6 +627,13 @@ namespace rts::core::manager {
         if (inputLocked()) return;
 
         m_movement.issueAttackMove(m_world, m_selection.selected(), cmd.target());
+    }
+
+    void GameLogicManager::handlePatrolCommand(const command::PatrolCommand& cmd) {
+        auto lock = m_world.acquireWriteLock();
+        if (inputLocked()) return;
+
+        m_movement.issuePatrol(m_world, m_selection.selected(), cmd.to());
     }
 
     void GameLogicManager::handleGatherCommand(const command::GatherCommand& cmd) {

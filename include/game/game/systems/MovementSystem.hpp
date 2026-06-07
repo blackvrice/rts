@@ -26,5 +26,11 @@ namespace rts::core::manager {
         void issueAttackMove(world::GameWorld& world,
                              model::Unit& unit,
                              const model::Vector2D& target) const;
+        void issuePatrol(world::GameWorld& world,
+                         const SelectionSystem::SelectedList& selected,
+                         const model::Vector2D& target) const;
+        void issuePatrol(world::GameWorld& world,
+                         model::Unit& unit,
+                         const model::Vector2D& target) const;
     };
 }

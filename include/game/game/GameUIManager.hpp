@@ -52,6 +52,7 @@ namespace rts::core::manager {
             Move,
             Attack,
             AttackMove,
+            Patrol,
             Gather,
             Build
         };
