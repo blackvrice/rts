@@ -1155,7 +1155,7 @@ struct EntityId
 
 ## Epic 2.5 고급 명령
 
-현재 상태: `[35%]`
+현재 상태: `[55%]`
 
 ---
 
@@ -1192,10 +1192,10 @@ struct EntityId
 #### Task
 
 ```text
-[ ] HoldCommand 추가
-[ ] 위치 고정
-[ ] 사거리 내 적만 공격
-[ ] 사거리 밖 적 추격 금지
+[x] HoldCommand 추가 (기존 HoldPositionCommand 런타임 동작 연결)
+[x] 위치 고정
+[x] 사거리 내 적만 공격
+[x] 사거리 밖 적 추격 금지
 ```
 
 ---

@@ -65,10 +65,12 @@ namespace rts::core::model {
         bool isAttackMoveActive() const noexcept;
         bool isAttackMoveSearching() const noexcept;
         bool needsAttackMoveResume() const noexcept;
+        bool isHoldingPosition() const noexcept;
         const Vector2D& attackMoveTarget() const noexcept;
         ResourceNode::ResourceType targetGatherType() const noexcept;
         void redirectToDropOff(Building* newDropOff);
         void attackMoveEngage(IGameElement* target);
+        void holdEngage(IGameElement* target);
         std::optional<ResourceDelivery> takeReadyResourceDelivery();
         std::string displayName() const override;
 
@@ -122,6 +124,7 @@ namespace rts::core::model {
         };
 
         void applyStaticData(const core::data::UnitStaticData& staticData);
+        void updateHold(float dt);
         void updateGather(float dt);
         void updateBuild(float dt);
         bool moveToward(const Vector2D& target, float stopDistance, float dt);

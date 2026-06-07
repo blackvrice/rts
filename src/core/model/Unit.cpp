@@ -120,6 +120,24 @@ namespace rts::core::model {
         m_gridPath.clear();
     }
 
+    void Unit::holdEngage(IGameElement* target) {
+        if (m_action == ActionType::Dead) return;
+        if (!target || target->getAction() == ActionType::Dead) return;
+        if (target->getTeamId() == m_teamId && m_teamId != TeamId::Neutral) return;
+
+        const float rangeSq = attackRange * attackRange;
+        if (distanceSq(target->getPosition(), m_position) > rangeSq) {
+            return;
+        }
+
+        clearGatherState(true);
+        clearAttackMoveOrder();
+        m_action = ActionType::Hold;
+        m_attackTarget = target;
+        m_animationAction = ActionType::Attack;
+        m_gridPath.clear();
+    }
+
     void Unit::tick(float dt) {
         if (m_action == ActionType::Dead)
             return;
@@ -131,6 +149,9 @@ namespace rts::core::model {
         case ActionType::Attack:
             updateAttack(dt);
             break;
+        case ActionType::Hold:
+            updateHold(dt);
+            break;
         case ActionType::Gather:
             updateGather(dt);
             break;
@@ -139,6 +160,33 @@ namespace rts::core::model {
             break;
         default:
             break;
+        }
+    }
+
+    void Unit::updateHold(float dt) {
+        if (m_action != ActionType::Hold) {
+            return;
+        }
+
+        if (!m_attackTarget || m_attackTarget->getAction() == ActionType::Dead) {
+            m_attackTarget = nullptr;
+            m_animationAction = ActionType::Hold;
+            return;
+        }
+
+        const float rangeSq = attackRange * attackRange;
+        if (distanceSq(m_attackTarget->getPosition(), m_position) > rangeSq) {
+            // Hold position never chases; targets outside weapon range are released.
+            m_attackTarget = nullptr;
+            m_animationAction = ActionType::Hold;
+            return;
+        }
+
+        m_animationAction = ActionType::Attack;
+        attackTimer -= dt;
+        if (attackTimer <= 0.f) {
+            attackTimer = attackCooldown;
+            m_attackTarget->takeDamage(attackDamage, this);
         }
     }
 
@@ -275,6 +323,11 @@ namespace rts::core::model {
             m_attackTarget = nullptr;
             clearAttackMoveOrder();
             clearGatherState(true);
+            return;
+        }
+
+        if (attacker && m_action == ActionType::Hold && attacker->getTeamId() != m_teamId) {
+            holdEngage(attacker);
             return;
         }
 
@@ -732,6 +785,10 @@ namespace rts::core::model {
 
         constexpr float kResumeEpsilonSq = 4.0f;
         return distanceSq(m_position, m_attackMoveTarget) > kResumeEpsilonSq;
+    }
+
+    bool Unit::isHoldingPosition() const noexcept {
+        return m_action == ActionType::Hold;
     }
 
     const Vector2D& Unit::attackMoveTarget() const noexcept {

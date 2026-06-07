@@ -1,5 +1,24 @@
 # Development Log
 
+## 2026-06-07 - Hold Position 기본 전투 동작 연결
+
+### 변경 내용
+- 기존 `HoldPositionCommand`를 실제 전투 동작과 연결해 선택 유닛이 Hold 상태에서 위치를 고정하도록 유지.
+- `Unit`에 Hold 전용 공격 루프를 추가. 사거리 안의 적만 공격하고, 적이 사거리 밖으로 나가면 추격하지 않고 타겟을 해제.
+- Hold 중 피격되더라도 공격자가 사거리 안에 있을 때만 반격하고, 사거리 밖이면 위치를 유지.
+- `GameLogicManager`가 매 tick Hold 유닛을 검사해 공격 사거리 안의 가장 가까운 적 유닛/건물을 배정.
+- 결과 확정 후 Stop/Hold 명령도 입력 잠금 규칙을 따르도록 보강.
+
+### 동작 결과
+- 선택 유닛 → `H` 또는 HUD `Hold` → 유닛이 제자리에서 대기.
+- 적이 해당 유닛의 공격 사거리 안에 들어오면 공격.
+- 적이 사거리 밖으로 이동하거나 죽으면 추격하지 않고 Hold 상태 유지.
+
+### 검증
+- `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j1` 빌드 성공.
+- `cmake-build-debug\RTS.exe`를 5초 동안 실행해 조기 종료 없이 유지되는 것을 확인.
+- 한계: 실제 `H` 입력 후 사거리 안/밖 전투 체감은 수동 플레이 검증 필요.
+
 ## 2026-06-07 - AttackMove 기본 명령 연결
 
 ### 변경 내용

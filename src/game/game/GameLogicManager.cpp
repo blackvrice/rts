@@ -184,6 +184,7 @@ namespace rts::core::manager {
 
         m_router.on<command::StopCommand>([this](const command::StopCommand &) {
             auto lock = m_world.acquireWriteLock();
+            if (inputLocked()) return;
             for (auto &weak: m_selection.selected()) {
                 if (auto element = weak.lock(); element && element->getAction() != model::ActionType::Dead) {
                     element->stop();
@@ -193,6 +194,7 @@ namespace rts::core::manager {
 
         m_router.on<command::HoldPositionCommand>([this](const command::HoldPositionCommand &) {
             auto lock = m_world.acquireWriteLock();
+            if (inputLocked()) return;
             for (auto &weak: m_selection.selected()) {
                 if (auto element = weak.lock(); element && element->getAction() != model::ActionType::Dead) {
                     element->holdPosition();
@@ -226,6 +228,7 @@ namespace rts::core::manager {
         auto lock = m_world.acquireWriteLock();
         m_movement.update(m_world, dt, m_collision);
         handleAttackMoveOrders();
+        handleHoldPositionOrders();
         applyReadyResourceDeliveries();
         handleGatherRedirects();
         flushPendingSpawns();
@@ -474,6 +477,50 @@ namespace rts::core::manager {
                 m_movement.issueAttackMove(m_world, *unit, unit->attackMoveTarget());
             } else if (unit->getAction() == model::ActionType::Idle) {
                 unit->stop();
+            }
+        }
+    }
+
+    std::shared_ptr<model::IGameElement> GameLogicManager::findClosestHoldTarget(
+        const model::Unit& unit) const {
+        std::shared_ptr<model::IGameElement> bestTarget;
+        float bestDistanceSq = std::numeric_limits<float>::max();
+        const float rangeSq = unit.getAttackRange() * unit.getAttackRange();
+
+        for (const auto& element : m_world.getElements()) {
+            auto candidate = std::dynamic_pointer_cast<model::IGameElement>(element);
+            if (!candidate ||
+                candidate.get() == &unit ||
+                candidate->getAction() == model::ActionType::Dead ||
+                !isOpposingTeam(unit.getTeamId(), candidate->getTeamId())) {
+                continue;
+            }
+
+            const float candidateDistanceSq = distanceSq(
+                candidate->getPosition(),
+                unit.getPosition()
+            );
+            if (candidateDistanceSq <= rangeSq &&
+                candidateDistanceSq < bestDistanceSq) {
+                bestDistanceSq = candidateDistanceSq;
+                bestTarget = candidate;
+            }
+        }
+
+        return bestTarget;
+    }
+
+    void GameLogicManager::handleHoldPositionOrders() {
+        for (const auto& element : m_world.getElements()) {
+            auto unit = std::dynamic_pointer_cast<model::Unit>(element);
+            if (!unit ||
+                unit->getAction() == model::ActionType::Dead ||
+                !unit->isHoldingPosition()) {
+                continue;
+            }
+
+            if (auto target = findClosestHoldTarget(*unit)) {
+                unit->holdEngage(target.get());
             }
         }
     }

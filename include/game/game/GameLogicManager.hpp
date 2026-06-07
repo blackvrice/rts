@@ -77,6 +77,8 @@ namespace rts::core::manager {
         void handleGatherRedirects();
         std::shared_ptr<model::IGameElement> findClosestAttackMoveTarget(const model::Unit& unit) const;
         void handleAttackMoveOrders();
+        std::shared_ptr<model::IGameElement> findClosestHoldTarget(const model::Unit& unit) const;
+        void handleHoldPositionOrders();
 
         // Production helpers
         void registerBuildingSpawn(model::Building& building);
