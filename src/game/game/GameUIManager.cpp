@@ -69,6 +69,16 @@ namespace rts::core::manager {
                    static_cast<bool>(modifier & KM::System);
         }
 
+        bool isShiftKey(const core::model::Key key) {
+            return key == core::model::Key::LShift ||
+                   key == core::model::Key::RShift;
+        }
+
+        bool isControlKey(const core::model::Key key) {
+            return key == core::model::Key::LControl ||
+                   key == core::model::Key::RControl;
+        }
+
         bool starCraftHotkeyAction(
             const core::model::Key key,
             command::GameplayInputAction& action) {
@@ -165,8 +175,8 @@ namespace rts::core::manager {
                 const core::model::Key &key = cmd.getCode();
                 using KM = core::model::KeyModifier;
                 const KM &modifier = cmd.getMods();
-                if (static_cast<bool>(modifier & KM::Ctrl)) m_ctrl = false;
-                if (static_cast<bool>(modifier & KM::Shift)) m_shift = false;
+                if (isControlKey(key) || static_cast<bool>(modifier & KM::Ctrl)) m_ctrl = true;
+                if (isShiftKey(key) || static_cast<bool>(modifier & KM::Shift)) m_shift = true;
 
                 command::GameplayInputAction hotkeyAction {};
                 // StarCraft-style command hotkeys mirror the HUD command buttons
@@ -221,10 +231,19 @@ namespace rts::core::manager {
         );
 
         router.on<command::KeyReleasedCommand>([this](const command::KeyReleasedCommand &cmd) {
+            const core::model::Key &key = cmd.getCode();
             using KM = core::model::KeyModifier;
             const KM &modifier = cmd.getMods();
-            if (static_cast<bool>(modifier & KM::Ctrl)) m_ctrl = false;
-            if (static_cast<bool>(modifier & KM::Shift)) m_shift = false;
+            if (isControlKey(key)) {
+                m_ctrl = static_cast<bool>(modifier & KM::Ctrl);
+            } else if (!static_cast<bool>(modifier & KM::Ctrl)) {
+                m_ctrl = false;
+            }
+            if (isShiftKey(key)) {
+                m_shift = static_cast<bool>(modifier & KM::Shift);
+            } else if (!static_cast<bool>(modifier & KM::Shift)) {
+                m_shift = false;
+            }
         });
         m_elements.push_back(std::make_unique<core::ui::SelectBox>(logicBus, m_camera));
     }
@@ -237,10 +256,10 @@ namespace rts::core::manager {
 
         switch (m_worldOrderMode) {
             case WorldOrderMode::Move:
-                m_logicBus.push(std::make_unique<command::MoveCommand>(worldPos));
+                m_logicBus.push(std::make_unique<command::MoveCommand>(worldPos, m_shift));
                 break;
             case WorldOrderMode::Attack:
-                m_logicBus.push(std::make_unique<command::AttackCommand>(worldPos));
+                m_logicBus.push(std::make_unique<command::AttackCommand>(worldPos, m_shift));
                 break;
             case WorldOrderMode::AttackMove:
                 m_logicBus.push(std::make_unique<command::AttackMoveCommand>(-1, worldPos));

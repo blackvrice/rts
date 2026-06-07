@@ -363,6 +363,8 @@ namespace rts::core::model {
             m_animationAction = ActionType::Dead;
             m_attackTarget = nullptr;
             clearAttackMoveOrder();
+            clearPatrolOrder();
+            clearOrderQueue();
             clearGatherState(true);
             return;
         }
@@ -596,6 +598,29 @@ namespace rts::core::model {
 
     const Vector2D& Unit::finalTargetWorld() const noexcept {
         return m_finalTargetWorld;
+    }
+
+    void Unit::enqueueOrder(const UnitOrder& order) {
+        if (m_action == ActionType::Dead) return;
+        m_orderQueue.push_back(order);
+    }
+
+    void Unit::clearOrderQueue() {
+        m_orderQueue.clear();
+    }
+
+    bool Unit::hasQueuedOrders() const noexcept {
+        return !m_orderQueue.empty();
+    }
+
+    std::optional<UnitOrder> Unit::popNextOrder() {
+        if (m_orderQueue.empty()) {
+            return std::nullopt;
+        }
+
+        auto order = m_orderQueue.front();
+        m_orderQueue.pop_front();
+        return order;
     }
 
 

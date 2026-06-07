@@ -84,14 +84,16 @@ namespace rts::core::command {
     // =========================================================
     class MoveCommand final : public LogicCommand {
     public:
-        MoveCommand(core::model::Vector2D target)
-            : m_target(target) {
+        MoveCommand(core::model::Vector2D target, bool append = false)
+            : m_target(target), m_append(append) {
         }
 
         core::model::Vector2D target() const noexcept { return m_target; }
+        bool append() const noexcept { return m_append; }
 
     private:
         core::model::Vector2D m_target;
+        bool m_append { false };
     };
 
     class StopCommand final : public LogicCommand {
@@ -120,24 +122,26 @@ namespace rts::core::command {
 
     class AttackCommand final : public LogicCommand {
     public:
-        explicit AttackCommand(core::model::Vector2D target)
-            : m_target(target), m_hasWorldTarget(true) {
+        explicit AttackCommand(core::model::Vector2D target, bool append = false)
+            : m_target(target), m_hasWorldTarget(true), m_append(append) {
         }
 
-        AttackCommand(int unitId, int targetId)
-            : m_unitId(unitId), m_targetId(targetId) {
+        AttackCommand(int unitId, int targetId, bool append = false)
+            : m_unitId(unitId), m_targetId(targetId), m_append(append) {
         }
 
         int unitId() const noexcept { return m_unitId; }
         int targetId() const noexcept { return m_targetId; }
         core::model::Vector2D target() const noexcept { return m_target; }
         bool hasWorldTarget() const noexcept { return m_hasWorldTarget; }
+        bool append() const noexcept { return m_append; }
 
     private:
         int m_unitId { -1 };
         int m_targetId { -1 };
         core::model::Vector2D m_target {};
         bool m_hasWorldTarget { false };
+        bool m_append { false };
     };
 
     class AttackMoveCommand final : public LogicCommand {

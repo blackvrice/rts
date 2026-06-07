@@ -331,7 +331,8 @@ namespace rts::core::manager {
     void MovementSystem::issueMove(
         world::GameWorld& world,
         const SelectionSystem::SelectedList& selected,
-        const model::Vector2D& target) const {
+        const model::Vector2D& target,
+        bool clearQueuedOrders) const {
         for (const auto& weak : selected) {
             if (auto element = weak.lock()) {
                 if (element->getAction() == model::ActionType::Dead) {
@@ -345,9 +346,27 @@ namespace rts::core::manager {
                     continue;
                 }
 
+                if (clearQueuedOrders) {
+                    unit->clearOrderQueue();
+                }
                 issuePathOrder(world, *unit, target, PathOrderKind::Move);
             }
         }
+    }
+
+    void MovementSystem::issueMove(
+        world::GameWorld& world,
+        model::Unit& unit,
+        const model::Vector2D& target,
+        bool clearQueuedOrders) const {
+        if (unit.getAction() == model::ActionType::Dead) {
+            return;
+        }
+
+        if (clearQueuedOrders) {
+            unit.clearOrderQueue();
+        }
+        issuePathOrder(world, unit, target, PathOrderKind::Move);
     }
 
     void MovementSystem::issueAttackMove(

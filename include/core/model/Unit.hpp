@@ -21,6 +21,25 @@ namespace rts::core::world {
 
 namespace rts::core::model {
     class Building;
+
+    enum class OrderType {
+        Move,
+        Attack,
+        AttackMove,
+        Patrol,
+        Gather,
+        Build,
+        Ability
+    };
+
+    struct UnitOrder {
+        OrderType type { OrderType::Move };
+        int targetEntityId { -1 };
+        Vector2D targetPosition {};
+        int abilityId { -1 };
+        int buildingTypeId { -1 };
+    };
+
     class Unit : public IGameElement{
     public:
         explicit Unit();
@@ -111,6 +130,10 @@ namespace rts::core::model {
         void setPatrolTargetWithPath(const std::vector<path::GridPos>& gridPath,
                                      const Vector2D& finalWorldTarget);
         const Vector2D& finalTargetWorld() const noexcept;
+        void enqueueOrder(const UnitOrder& order);
+        void clearOrderQueue();
+        bool hasQueuedOrders() const noexcept;
+        std::optional<UnitOrder> popNextOrder();
 
     private:
         enum class GatherPhase {
@@ -146,6 +169,7 @@ namespace rts::core::model {
         void advancePatrolDestination();
 
         std::deque<path::GridPos> m_gridPath; // 다음 노드부터 pop_front
+        std::deque<UnitOrder> m_orderQueue;
         Vector2D m_finalTargetWorld{};
         path::Path m_path;
         size_t m_pathIndex{0};

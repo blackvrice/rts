@@ -187,6 +187,9 @@ namespace rts::core::manager {
             if (inputLocked()) return;
             for (auto &weak: m_selection.selected()) {
                 if (auto element = weak.lock(); element && element->getAction() != model::ActionType::Dead) {
+                    if (auto unit = std::dynamic_pointer_cast<model::Unit>(element)) {
+                        unit->clearOrderQueue();
+                    }
                     element->stop();
                 }
             }
@@ -197,6 +200,9 @@ namespace rts::core::manager {
             if (inputLocked()) return;
             for (auto &weak: m_selection.selected()) {
                 if (auto element = weak.lock(); element && element->getAction() != model::ActionType::Dead) {
+                    if (auto unit = std::dynamic_pointer_cast<model::Unit>(element)) {
+                        unit->clearOrderQueue();
+                    }
                     element->holdPosition();
                 }
             }
@@ -230,6 +236,7 @@ namespace rts::core::manager {
         handleAttackMoveOrders();
         handlePatrolOrders();
         handleHoldPositionOrders();
+        handleQueuedOrders();
         applyReadyResourceDeliveries();
         handleGatherRedirects();
         flushPendingSpawns();
@@ -258,6 +265,12 @@ namespace rts::core::manager {
     void GameLogicManager::handleMoveCommand(const command::MoveCommand& cmd) {
         auto lock = m_world.acquireWriteLock();
         if (inputLocked()) return;
+
+        if (cmd.append()) {
+            queueMoveOrderForSelected(cmd.target());
+            return;
+        }
+
         // A move order on a selected production building sets its rally point instead
         // of moving the (immobile) building.
         for (const auto& weak : m_selection.selected()) {
@@ -343,10 +356,12 @@ namespace rts::core::manager {
 
             auto dropOff = findClosestDropOffFor(*worker);
             if (!dropOff) {
+                worker->clearOrderQueue();
                 worker->stop();
                 continue;
             }
 
+            worker->clearOrderQueue();
             worker->gather(&resource, dropOff.get());
         }
     }
@@ -578,6 +593,60 @@ namespace rts::core::manager {
         }
     }
 
+    void GameLogicManager::clearSelectedUnitOrderQueues() {
+        for (const auto& weak : m_selection.selected()) {
+            auto unit = std::dynamic_pointer_cast<model::Unit>(weak.lock());
+            if (unit && unit->getAction() != model::ActionType::Dead) {
+                unit->clearOrderQueue();
+            }
+        }
+    }
+
+    void GameLogicManager::queueMoveOrderForSelected(const model::Vector2D& target) {
+        for (const auto& weak : m_selection.selected()) {
+            auto unit = std::dynamic_pointer_cast<model::Unit>(weak.lock());
+            if (!unit || unit->getAction() == model::ActionType::Dead) {
+                continue;
+            }
+
+            unit->enqueueOrder(model::UnitOrder {
+                .type = model::OrderType::Move,
+                .targetPosition = target
+            });
+
+            // Shift-clicking while idle should still begin the first queued waypoint.
+            if (unit->getAction() == model::ActionType::Idle) {
+                issueNextQueuedOrder(*unit);
+            }
+        }
+    }
+
+    void GameLogicManager::issueNextQueuedOrder(model::Unit& unit) {
+        while (auto order = unit.popNextOrder()) {
+            switch (order->type) {
+                case model::OrderType::Move:
+                    m_movement.issueMove(m_world, unit, order->targetPosition, false);
+                    return;
+                default:
+                    // Other order payload fields are reserved for later command-queue slices.
+                    break;
+            }
+        }
+    }
+
+    void GameLogicManager::handleQueuedOrders() {
+        for (const auto& element : m_world.getElements()) {
+            auto unit = std::dynamic_pointer_cast<model::Unit>(element);
+            if (!unit ||
+                unit->getAction() != model::ActionType::Idle ||
+                !unit->hasQueuedOrders()) {
+                continue;
+            }
+
+            issueNextQueuedOrder(*unit);
+        }
+    }
+
     void GameLogicManager::handleAttackCommand(const command::AttackCommand& cmd) {
         auto lock = m_world.acquireWriteLock();
         if (inputLocked()) return;
@@ -596,11 +665,23 @@ namespace rts::core::manager {
 
         const auto target = findCommandTargetAt(cmd.target(), m_selection.selected());
         if (!target) {
+            if (cmd.append()) {
+                queueMoveOrderForSelected(cmd.target());
+                return;
+            }
             m_movement.issueMove(m_world, m_selection.selected(), cmd.target());
             return;
         }
 
+        if (cmd.append()) {
+            if (!isOpposingTeam(attackerTeam, target->getTeamId())) {
+                queueMoveOrderForSelected(target->getPosition());
+            }
+            return;
+        }
+
         if (auto resource = std::dynamic_pointer_cast<model::ResourceNode>(target)) {
+            clearSelectedUnitOrderQueues();
             issueGatherToResource(*resource);
             return;
         }
@@ -612,6 +693,7 @@ namespace rts::core::manager {
             return;
         }
 
+        clearSelectedUnitOrderQueues();
         for (const auto& weak : m_selection.selected()) {
             if (auto attacker = weak.lock();
                 attacker &&
@@ -626,6 +708,7 @@ namespace rts::core::manager {
         auto lock = m_world.acquireWriteLock();
         if (inputLocked()) return;
 
+        clearSelectedUnitOrderQueues();
         m_movement.issueAttackMove(m_world, m_selection.selected(), cmd.target());
     }
 
@@ -633,6 +716,7 @@ namespace rts::core::manager {
         auto lock = m_world.acquireWriteLock();
         if (inputLocked()) return;
 
+        clearSelectedUnitOrderQueues();
         m_movement.issuePatrol(m_world, m_selection.selected(), cmd.to());
     }
 
@@ -650,6 +734,7 @@ namespace rts::core::manager {
             return;
         }
 
+        clearSelectedUnitOrderQueues();
         issueGatherToResource(*resource);
     }
 
@@ -819,6 +904,8 @@ namespace rts::core::manager {
         if (!worker) {
             return;
         }
+
+        worker->clearOrderQueue();
 
         // Resolve the requested building type; reject ids outside the known range.
         if (cmd.buildingTypeId() < 0) {

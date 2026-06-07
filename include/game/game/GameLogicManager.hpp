@@ -82,6 +82,10 @@ namespace rts::core::manager {
         void handleHoldPositionOrders();
         std::shared_ptr<model::IGameElement> findClosestPatrolTarget(const model::Unit& unit) const;
         void handlePatrolOrders();
+        void clearSelectedUnitOrderQueues();
+        void queueMoveOrderForSelected(const model::Vector2D& target);
+        void issueNextQueuedOrder(model::Unit& unit);
+        void handleQueuedOrders();
 
         // Production helpers
         void registerBuildingSpawn(model::Building& building);

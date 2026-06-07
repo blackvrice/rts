@@ -1114,7 +1114,7 @@ struct EntityId
 
 ## Epic 2.4 Command Queue
 
-현재 상태: `[0%]`
+현재 상태: `[45%]` (Move 예약 큐 기준)
 
 ---
 
@@ -1123,12 +1123,12 @@ struct EntityId
 #### Task
 
 ```text
-[ ] UnitOrder 타입 정의
-[ ] OrderType 정의
-[ ] TargetEntityId 추가
-[ ] TargetPosition 추가
-[ ] AbilityId 추가
-[ ] BuildingTypeId 추가
+[x] UnitOrder 타입 정의
+[x] OrderType 정의
+[x] TargetEntityId 추가
+[x] TargetPosition 추가
+[x] AbilityId 추가
+[x] BuildingTypeId 추가
 ```
 
 ---
@@ -1138,11 +1138,11 @@ struct EntityId
 #### Task
 
 ```text
-[ ] 일반 명령 시 기존 Queue Clear
-[ ] Shift 명령 시 Queue 뒤에 추가
-[ ] 현재 명령 완료 시 다음 명령 Pop
-[ ] Stop 시 Queue Clear
-[ ] Hold 시 Queue Clear 후 Hold 상태
+[x] 일반 명령 시 기존 Queue Clear (Move/Attack/Gather/Build/AttackMove/Patrol)
+[x] Shift 명령 시 Queue 뒤에 추가 (Move waypoint)
+[x] 현재 명령 완료 시 다음 명령 Pop (Move waypoint)
+[x] Stop 시 Queue Clear
+[x] Hold 시 Queue Clear 후 Hold 상태
 ```
 
 #### 완료 기준

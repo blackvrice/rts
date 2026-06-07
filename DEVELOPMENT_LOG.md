@@ -1,5 +1,24 @@
 # Development Log
 
+## 2026-06-07 - Command Queue: Shift 우클릭 이동 예약
+
+### 변경 내용
+- `UnitOrder`/`OrderType` 구조와 `Unit` 내부 예약 큐를 추가해 이후 Attack/Gather/Build 예약으로 확장할 수 있는 명령 payload를 마련.
+- `MoveCommand`와 스마트 우클릭용 `AttackCommand`에 append 플래그를 추가하고, `GameUIManager`가 Shift 눌림 상태를 보존해 우클릭 명령에 전달하도록 수정.
+- Shift 우클릭이 빈 땅이나 아군/중립 접근 대상이면 선택 유닛의 Move waypoint 큐 뒤에 추가되도록 연결.
+- 유닛이 Idle 상태가 되면 `GameLogicManager`가 다음 queued Move를 꺼내 `MovementSystem`의 기존 A* 이동 경로로 실행.
+- 일반 Move/Attack/Gather/Build/AttackMove/Patrol 명령은 기존 큐를 비우고, Stop/Hold도 큐를 비운 뒤 즉시 상태를 전환하도록 정리.
+
+### 동작 결과
+- 일반 우클릭 이동은 기존처럼 즉시 명령을 바꾸고 예약 큐를 초기화.
+- Shift 우클릭 이동은 현재 명령을 유지한 채 다음 이동 지점으로 예약.
+- 현재 이동이 끝나 유닛이 Idle이 되면 예약된 다음 지점으로 자동 이동.
+
+### 검증
+- `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j1` 빌드 성공.
+- `cmake-build-debug\RTS.exe`를 5초 동안 실행했고 조기 종료 없이 유지되는 것을 확인한 뒤 종료.
+- 한계: 이번 slice는 Move waypoint 큐가 대상이며, 적 공격/채집/건설의 Shift 예약 실행은 후속 Command Queue 확장 범위.
+
 ## 2026-06-07 - Patrol 기본 명령 연결
 
 ### 변경 내용
