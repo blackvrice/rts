@@ -18,6 +18,7 @@
 namespace {
     constexpr float kAttackTargetPickRadius = 64.0f;
     constexpr float kAttackTargetPickRadiusSq = kAttackTargetPickRadius * kAttackTargetPickRadius;
+    constexpr float kAttackMoveAcquireRadius = 220.0f;
 
     float distanceSq(
         const rts::core::model::Vector2D& a,
@@ -161,6 +162,10 @@ namespace rts::core::manager {
             handleAttackCommand(cmd);
         });
 
+        m_router.on<command::AttackMoveCommand>([this](const command::AttackMoveCommand &cmd) {
+            handleAttackMoveCommand(cmd);
+        });
+
         m_router.on<command::GatherCommand>([this](const command::GatherCommand &cmd) {
             handleGatherCommand(cmd);
         });
@@ -220,6 +225,7 @@ namespace rts::core::manager {
     void GameLogicManager::tick(float dt) {
         auto lock = m_world.acquireWriteLock();
         m_movement.update(m_world, dt, m_collision);
+        handleAttackMoveOrders();
         applyReadyResourceDeliveries();
         handleGatherRedirects();
         flushPendingSpawns();
@@ -418,6 +424,60 @@ namespace rts::core::manager {
         }
     }
 
+    std::shared_ptr<model::IGameElement> GameLogicManager::findClosestAttackMoveTarget(
+        const model::Unit& unit) const {
+        std::shared_ptr<model::IGameElement> bestTarget;
+        float bestDistanceSq = std::numeric_limits<float>::max();
+        const float acquireRadius = std::max(kAttackMoveAcquireRadius, unit.getAttackRange());
+        const float acquireRadiusSq = acquireRadius * acquireRadius;
+
+        for (const auto& element : m_world.getElements()) {
+            auto candidate = std::dynamic_pointer_cast<model::IGameElement>(element);
+            if (!candidate ||
+                candidate.get() == &unit ||
+                candidate->getAction() == model::ActionType::Dead ||
+                !isOpposingTeam(unit.getTeamId(), candidate->getTeamId())) {
+                continue;
+            }
+
+            const float candidateDistanceSq = distanceSq(
+                candidate->getPosition(),
+                unit.getPosition()
+            );
+            if (candidateDistanceSq <= acquireRadiusSq &&
+                candidateDistanceSq < bestDistanceSq) {
+                bestDistanceSq = candidateDistanceSq;
+                bestTarget = candidate;
+            }
+        }
+
+        return bestTarget;
+    }
+
+    void GameLogicManager::handleAttackMoveOrders() {
+        for (const auto& element : m_world.getElements()) {
+            auto unit = std::dynamic_pointer_cast<model::Unit>(element);
+            if (!unit ||
+                unit->getAction() == model::ActionType::Dead ||
+                !unit->isAttackMoveActive()) {
+                continue;
+            }
+
+            if (unit->isAttackMoveSearching()) {
+                if (auto target = findClosestAttackMoveTarget(*unit)) {
+                    unit->attackMoveEngage(target.get());
+                    continue;
+                }
+            }
+
+            if (unit->needsAttackMoveResume()) {
+                m_movement.issueAttackMove(m_world, *unit, unit->attackMoveTarget());
+            } else if (unit->getAction() == model::ActionType::Idle) {
+                unit->stop();
+            }
+        }
+    }
+
     void GameLogicManager::handleAttackCommand(const command::AttackCommand& cmd) {
         auto lock = m_world.acquireWriteLock();
         if (inputLocked()) return;
@@ -460,6 +520,13 @@ namespace rts::core::manager {
                 attacker->attack(target.get());
             }
         }
+    }
+
+    void GameLogicManager::handleAttackMoveCommand(const command::AttackMoveCommand& cmd) {
+        auto lock = m_world.acquireWriteLock();
+        if (inputLocked()) return;
+
+        m_movement.issueAttackMove(m_world, m_selection.selected(), cmd.target());
     }
 
     void GameLogicManager::handleGatherCommand(const command::GatherCommand& cmd) {
@@ -759,7 +826,7 @@ namespace rts::core::manager {
                         unit->getTeamId() == model::TeamId::Enemy &&
                         !unit->isWorker() &&
                         unit->getAction() == model::ActionType::Idle) {
-                        unit->attack(target.get());
+                        m_movement.issueAttackMove(m_world, *unit, target->getPosition());
                     }
                 }
             }

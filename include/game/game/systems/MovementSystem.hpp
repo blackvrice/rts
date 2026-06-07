@@ -3,6 +3,7 @@
 #include "game/game/systems/SelectionSystem.hpp"
 
 namespace rts::core::model {
+    class Unit;
     struct Vector2D;
 }
 
@@ -19,5 +20,11 @@ namespace rts::core::manager {
         void issueMove(world::GameWorld& world,
                        const SelectionSystem::SelectedList& selected,
                        const model::Vector2D& target) const;
+        void issueAttackMove(world::GameWorld& world,
+                             const SelectionSystem::SelectedList& selected,
+                             const model::Vector2D& target) const;
+        void issueAttackMove(world::GameWorld& world,
+                             model::Unit& unit,
+                             const model::Vector2D& target) const;
     };
 }

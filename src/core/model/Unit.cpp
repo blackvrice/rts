@@ -70,6 +70,7 @@ namespace rts::core::model {
     void Unit::moveTo(const Vector2D& target) {
         if (m_action == ActionType::Dead) return;
         clearGatherState(true);
+        clearAttackMoveOrder();
         m_action = ActionType::Move;
         m_animationAction = ActionType::Move;
         m_attackTarget = nullptr;
@@ -79,12 +80,18 @@ namespace rts::core::model {
     }
 
     void Unit::attack(IGameElement* target) {
+        beginAttack(target, false);
+    }
+
+    void Unit::beginAttack(IGameElement* target, bool preserveAttackMove) {
         if (m_action == ActionType::Dead) return;
         if (!target) return;
         if (target->getAction() == ActionType::Dead) return;
         if (target->getTeamId() == m_teamId && m_teamId != TeamId::Neutral) return;
 
+        const bool keepAttackMove = preserveAttackMove && m_attackMoveActive;
         clearGatherState(true);
+        m_attackMoveActive = keepAttackMove;
         m_action = ActionType::Attack;
         m_attackTarget = target;
         m_moveTarget = target->getPosition();
@@ -93,6 +100,23 @@ namespace rts::core::model {
         m_animationAction = distanceSq(m_moveTarget, m_position) <= attackRange * attackRange
                                 ? ActionType::Attack
                                 : ActionType::Move;
+        m_gridPath.clear();
+    }
+
+    void Unit::attackMoveEngage(IGameElement* target) {
+        beginAttack(target, true);
+    }
+
+    void Unit::attackMove(const Vector2D& target) {
+        if (m_action == ActionType::Dead) return;
+        clearGatherState(true);
+        m_attackMoveActive = true;
+        m_attackMoveTarget = target;
+        m_action = ActionType::Move;
+        m_animationAction = ActionType::Move;
+        m_attackTarget = nullptr;
+        m_moveTarget = target;
+        m_finalTargetWorld = target;
         m_gridPath.clear();
     }
 
@@ -130,6 +154,7 @@ namespace rts::core::model {
             m_position = m_moveTarget;
             m_action = ActionType::Idle;
             m_animationAction = ActionType::Idle;
+            m_attackMoveActive = false;
             return;
         }
 
@@ -169,6 +194,7 @@ namespace rts::core::model {
             m_position = target;
             m_action = ActionType::Idle;
             m_animationAction = ActionType::Idle;
+            m_attackMoveActive = false;
             return;
         }
 
@@ -247,12 +273,13 @@ namespace rts::core::model {
             m_action = ActionType::Dead;
             m_animationAction = ActionType::Dead;
             m_attackTarget = nullptr;
+            clearAttackMoveOrder();
             clearGatherState(true);
             return;
         }
 
         if (attacker && m_action != ActionType::Attack && attacker->getTeamId() != m_teamId) {
-            attack(attacker);
+            beginAttack(attacker, m_attackMoveActive);
         }
     }
 
@@ -348,6 +375,7 @@ namespace rts::core::model {
     void Unit::idle() {
         if (m_action == ActionType::Dead) return;
         clearGatherState(true);
+        clearAttackMoveOrder();
         m_action = ActionType::Idle;
         m_animationAction = ActionType::Idle;
         m_attackTarget = nullptr;
@@ -365,6 +393,7 @@ namespace rts::core::model {
     void Unit::holdPosition() {
         if (m_action == ActionType::Dead) return;
         clearGatherState(true);
+        clearAttackMoveOrder();
         m_action = ActionType::Hold;
         m_animationAction = ActionType::Hold;
         m_attackTarget = nullptr;
@@ -407,6 +436,25 @@ namespace rts::core::model {
         m_attackTarget = nullptr;
     }
 
+    void Unit::setAttackMoveTargetWithPath(const std::vector<path::GridPos>& gridPath,
+                                           const Vector2D& finalWorldTarget)
+    {
+        if (m_action == ActionType::Dead) return;
+        clearGatherState(true);
+        m_gridPath.clear();
+        for (std::size_t i = 1; i < gridPath.size(); ++i) {
+            m_gridPath.push_back(gridPath[i]);
+        }
+
+        m_attackMoveActive = true;
+        m_attackMoveTarget = finalWorldTarget;
+        m_finalTargetWorld = finalWorldTarget;
+        m_moveTarget = finalWorldTarget;
+        m_action = ActionType::Move;
+        m_animationAction = ActionType::Move;
+        m_attackTarget = nullptr;
+    }
+
     const Vector2D& Unit::finalTargetWorld() const noexcept {
         return m_finalTargetWorld;
     }
@@ -415,6 +463,7 @@ namespace rts::core::model {
     void Unit::stop() {
         if (m_action == ActionType::Dead) return;
         clearGatherState(true);
+        clearAttackMoveOrder();
         m_action = ActionType::Idle;
         m_animationAction = ActionType::Idle;
         m_attackTarget = nullptr;
@@ -433,6 +482,7 @@ namespace rts::core::model {
         if (m_action == ActionType::Dead) return;
 
         clearGatherState(true);
+        clearAttackMoveOrder();
         if (!isWorker() ||
             !resource ||
             !dropOff ||
@@ -601,9 +651,15 @@ namespace rts::core::model {
         m_buildTarget = nullptr;
     }
 
+    void Unit::clearAttackMoveOrder() {
+        m_attackMoveActive = false;
+        m_attackMoveTarget = {};
+    }
+
     void Unit::buildAt(Building* site) {
         if (m_action == ActionType::Dead) return;
         clearGatherState(true);
+        clearAttackMoveOrder();
         if (!isWorker() || !site || site->isComplete() ||
             site->getAction() == ActionType::Dead) {
             m_buildTarget = nullptr;
@@ -658,6 +714,28 @@ namespace rts::core::model {
     bool Unit::isNeedingDropOffRedirect() const noexcept {
         return m_action == ActionType::Gather &&
                m_gatherState.phase == GatherPhase::NeedNewDropOff;
+    }
+
+    bool Unit::isAttackMoveActive() const noexcept {
+        return m_attackMoveActive;
+    }
+
+    bool Unit::isAttackMoveSearching() const noexcept {
+        return m_attackMoveActive &&
+               (m_action == ActionType::Move || m_action == ActionType::Idle);
+    }
+
+    bool Unit::needsAttackMoveResume() const noexcept {
+        if (!m_attackMoveActive || m_action != ActionType::Idle) {
+            return false;
+        }
+
+        constexpr float kResumeEpsilonSq = 4.0f;
+        return distanceSq(m_position, m_attackMoveTarget) > kResumeEpsilonSq;
+    }
+
+    const Vector2D& Unit::attackMoveTarget() const noexcept {
+        return m_attackMoveTarget;
     }
 
     ResourceNode::ResourceType Unit::targetGatherType() const noexcept {

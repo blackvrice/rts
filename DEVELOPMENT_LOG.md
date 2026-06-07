@@ -1,5 +1,24 @@
 # Development Log
 
+## 2026-06-07 - AttackMove 기본 명령 연결
+
+### 변경 내용
+- `AttackMoveCommand`를 `GameLogicManager` 라우터에 연결하고, 선택 유닛에게 공격이동 경로를 발행하도록 구현.
+- `Unit`에 공격이동 목적지/활성 상태를 추가해 이동 중 적을 발견하면 교전하고, 대상이 사망하면 원래 목적지로 복귀하게 함.
+- `MovementSystem`에 일반 이동과 같은 경로 탐색을 쓰는 `issueAttackMove()`를 추가.
+- `GameUIManager`에서 `A` 핫키와 HUD `Attack` 버튼을 공격이동 모드로 연결. 기본 우클릭 스마트 명령은 기존 `AttackCommand` 흐름을 유지.
+- 적 AI 웨이브가 직접 타운홀 타겟 공격 대신 AttackMove로 플레이어 기지까지 전진하도록 전환.
+
+### 동작 결과
+- 선택 유닛 → `A` 또는 HUD `Attack` → 우클릭 목적지: 유닛이 목적지로 이동하면서 반경 내 적 유닛/건물을 발견하면 공격.
+- 공격 대상이 사망하면 남은 공격이동 목적지까지 다시 이동.
+- 목적지 도착 후 추가 적이 없으면 Idle 상태로 종료.
+
+### 검증
+- `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j1` 빌드 성공.
+- `cmake-build-debug\RTS.exe`를 5초 동안 실행해 조기 종료 없이 유지되는 것을 확인.
+- 한계: 수동 입력 기반 `A` 클릭/교전 복귀 플레이 검증은 아직 필요. 빌드와 런타임 연결 경로는 코드 레벨에서 확인.
+
 ## 2026-06-07 - Gold 자원: Gold Stone 단계별 스프라이트 + Highlight 애니메이션
 
 ### 변경 내용

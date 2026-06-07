@@ -724,7 +724,7 @@ Idle
 [x] 일정 시간마다 공격 웨이브 생성 (kAiWaveInterval 35s)
 [x] AI 전투 유닛 목록 수집 (Idle 적 전투 유닛)
 [x] 플레이어 타운홀 위치 탐색 (findTownHall)
-[x] AttackMove 명령 발행 (AttackMove 미구현이라 attack-target으로 대체)
+[x] AttackMove 명령 발행 (AttackMoveCommand 런타임 연결)
 [x] 웨이브 쿨다운 적용 (m_aiWaveTimer)
 ```
 
@@ -1155,7 +1155,7 @@ struct EntityId
 
 ## Epic 2.5 고급 명령
 
-현재 상태: `[0%]`
+현재 상태: `[35%]`
 
 ---
 
@@ -1164,11 +1164,11 @@ struct EntityId
 #### Task
 
 ```text
-[ ] AttackMoveCommand 추가
-[ ] 목적지로 이동
-[ ] 이동 중 적 발견 시 공격
-[ ] 적 사망 후 원래 목적지로 복귀
-[ ] 목적지 도착 시 Idle 또는 Guard 상태
+[x] AttackMoveCommand 추가
+[x] 목적지로 이동
+[x] 이동 중 적 발견 시 공격
+[x] 적 사망 후 원래 목적지로 복귀
+[x] 목적지 도착 시 Idle 또는 Guard 상태
 ```
 
 ---

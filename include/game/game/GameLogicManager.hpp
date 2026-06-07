@@ -49,6 +49,7 @@ namespace rts::core::manager {
         void selectElement(model::IGameElement &element);
         void handleMoveCommand(const command::MoveCommand& cmd);
         void handleAttackCommand(const command::AttackCommand& cmd);
+        void handleAttackMoveCommand(const command::AttackMoveCommand& cmd);
         void handleGatherCommand(const command::GatherCommand& cmd);
         void handleTrainCommand(const command::TrainUnitCommand& cmd);
         void handleCancelProduction(const command::CancelProductionCommand& cmd);
@@ -74,6 +75,8 @@ namespace rts::core::manager {
         void issueGatherToResource(model::ResourceNode& resource);
         void applyReadyResourceDeliveries();
         void handleGatherRedirects();
+        std::shared_ptr<model::IGameElement> findClosestAttackMoveTarget(const model::Unit& unit) const;
+        void handleAttackMoveOrders();
 
         // Production helpers
         void registerBuildingSpawn(model::Building& building);

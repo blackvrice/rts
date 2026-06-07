@@ -242,6 +242,9 @@ namespace rts::core::manager {
             case WorldOrderMode::Attack:
                 m_logicBus.push(std::make_unique<command::AttackCommand>(worldPos));
                 break;
+            case WorldOrderMode::AttackMove:
+                m_logicBus.push(std::make_unique<command::AttackMoveCommand>(-1, worldPos));
+                break;
             case WorldOrderMode::Gather:
                 m_logicBus.push(std::make_unique<command::GatherCommand>(worldPos));
                 break;
@@ -265,7 +268,7 @@ namespace rts::core::manager {
                 break;
             case command::GameplayInputAction::Attack:
             case command::GameplayInputAction::AttackMove:
-                m_worldOrderMode = WorldOrderMode::Attack;
+                m_worldOrderMode = WorldOrderMode::AttackMove;
                 break;
             case command::GameplayInputAction::Gather:
                 m_worldOrderMode = WorldOrderMode::Gather;
@@ -389,7 +392,8 @@ namespace rts::core::manager {
         } else if (m_worldOrderMode == WorldOrderMode::Move ||
                    m_worldOrderMode == WorldOrderMode::Gather) {
             cursorId = 103; // Cursor_04
-        } else if (m_worldOrderMode == WorldOrderMode::Attack) {
+        } else if (m_worldOrderMode == WorldOrderMode::Attack ||
+                   m_worldOrderMode == WorldOrderMode::AttackMove) {
             core::model::Vector2D worldPos = m_camera.screenToWorld(m_mousePos);
             bool hoverEnemy = false;
             for (const auto& element : m_world.getElements()) {

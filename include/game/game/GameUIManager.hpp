@@ -51,6 +51,7 @@ namespace rts::core::manager {
         enum class WorldOrderMode {
             Move,
             Attack,
+            AttackMove,
             Gather,
             Build
         };

@@ -210,6 +210,41 @@ namespace {
         unit.setMoveTargetWithPath(path, unit.finalTargetWorld());
         return true;
     }
+
+    void issuePathOrder(
+        GameWorld& world,
+        Unit& unit,
+        const Vector2D& target,
+        bool attackMove) {
+        const auto& transform = world.gridTransform();
+        const auto start = transform.worldToGrid(unit.getPosition());
+        const auto goal = transform.worldToGrid(target);
+        auto options = movementPathOptions();
+
+        const auto path = world.path().findPath(
+            world.gridQuery(),
+            world.collisionVersion(),
+            start,
+            goal,
+            options
+        );
+
+        unit.stop();
+        if (path && !path->empty()) {
+            if (attackMove) {
+                unit.setAttackMoveTargetWithPath(*path, target);
+            } else {
+                unit.setMoveTargetWithPath(*path, target);
+            }
+        } else if (auto approach = findApproachPath(world, start, goal, target, options)) {
+            // Occupied goals are approached through a nearby free cell instead of retrying forever.
+            if (attackMove) {
+                unit.setAttackMoveTargetWithPath(approach->path, approach->finalTarget);
+            } else {
+                unit.setMoveTargetWithPath(approach->path, approach->finalTarget);
+            }
+        }
+    }
 }
 
 namespace rts::core::manager {
@@ -260,9 +295,6 @@ namespace rts::core::manager {
         world::GameWorld& world,
         const SelectionSystem::SelectedList& selected,
         const model::Vector2D& target) const {
-        const auto& transform = world.gridTransform();
-        const auto goal = transform.worldToGrid(target);
-
         for (const auto& weak : selected) {
             if (auto element = weak.lock()) {
                 if (element->getAction() == model::ActionType::Dead) {
@@ -276,25 +308,31 @@ namespace rts::core::manager {
                     continue;
                 }
 
-                auto options = movementPathOptions();
-
-                const auto start = transform.worldToGrid(unit->getPosition());
-                const auto path = world.path().findPath(
-                    world.gridQuery(),
-                    world.collisionVersion(),
-                    start,
-                    goal,
-                    options
-                );
-
-                unit->stop();
-                if (path && !path->empty()) {
-                    unit->setMoveTargetWithPath(*path, target);
-                } else if (auto approach = findApproachPath(world, start, goal, target, options)) {
-                    // Occupied goals are approached through a nearby free cell instead of retrying forever.
-                    unit->setMoveTargetWithPath(approach->path, approach->finalTarget);
-                }
+                issuePathOrder(world, *unit, target, false);
             }
         }
+    }
+
+    void MovementSystem::issueAttackMove(
+        world::GameWorld& world,
+        const SelectionSystem::SelectedList& selected,
+        const model::Vector2D& target) const {
+        for (const auto& weak : selected) {
+            if (auto unit = std::dynamic_pointer_cast<model::Unit>(weak.lock());
+                unit && unit->getAction() != model::ActionType::Dead) {
+                issuePathOrder(world, *unit, target, true);
+            }
+        }
+    }
+
+    void MovementSystem::issueAttackMove(
+        world::GameWorld& world,
+        model::Unit& unit,
+        const model::Vector2D& target) const {
+        if (unit.getAction() == model::ActionType::Dead) {
+            return;
+        }
+
+        issuePathOrder(world, unit, target, true);
     }
 }
