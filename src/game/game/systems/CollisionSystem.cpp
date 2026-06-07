@@ -1,5 +1,9 @@
 #include "game/game/systems/CollisionSystem.hpp"
 
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+
 #include <core/model/Building.hpp>
 #include <core/model/ResourceNode.hpp>
 #include <core/model/Unit.hpp>
@@ -13,6 +17,9 @@ namespace {
     constexpr float kUnitCollisionRadius = 28.f;
     constexpr float kResourceCollisionRadius = 44.f;
     constexpr float kBuildingCollisionRadius = 52.f;
+    constexpr float kMaxLocalAvoidancePush = 8.f;
+    constexpr float kOverlapPadding = 0.5f;
+    constexpr float kTinyDistanceSq = 0.0001f;
 
     float collisionRadiusFor(const rts::core::model::IGameElement& element) {
         if (dynamic_cast<const rts::core::model::Unit*>(&element)) {
@@ -27,6 +34,21 @@ namespace {
             return kBuildingCollisionRadius;
         }
         return kUnitCollisionRadius;
+    }
+
+    std::size_t elementOrdinal(
+        const rts::core::world::GameWorld& world,
+        const rts::core::model::IGameElement& target) {
+        std::size_t ordinal = 0;
+        for (const auto& element : world.getElements()) {
+            const auto candidate = std::dynamic_pointer_cast<rts::core::model::IGameElement>(element);
+            if (candidate && candidate.get() == &target) {
+                return ordinal;
+            }
+            ++ordinal;
+        }
+
+        return ordinal;
     }
 }
 
@@ -70,6 +92,64 @@ namespace rts::core::manager {
         }
 
         return std::nullopt;
+    }
+
+    std::optional<model::Vector2D> CollisionSystem::localAvoidancePush(
+        const world::GameWorld& world,
+        const model::Unit& unit,
+        const model::Vector2D& pos) const {
+        model::Vector2D push {};
+        const auto selfOrdinal = elementOrdinal(world, unit);
+
+        std::size_t otherOrdinal = 0;
+        for (const auto& element : world.getElements()) {
+            const auto otherUnit = std::dynamic_pointer_cast<model::Unit>(element);
+            if (!otherUnit ||
+                otherUnit.get() == &unit ||
+                otherUnit->getAction() == model::ActionType::Dead) {
+                ++otherOrdinal;
+                continue;
+            }
+
+            const auto otherPosition = otherUnit->getPosition();
+            const float dx = pos.x - otherPosition.x;
+            const float dy = pos.y - otherPosition.y;
+            const float minDistance = movingUnitRadius() + kUnitCollisionRadius;
+            const float distSq = dx * dx + dy * dy;
+            if (distSq >= minDistance * minDistance) {
+                ++otherOrdinal;
+                continue;
+            }
+
+            float dist = std::sqrt(distSq);
+            model::Vector2D away {};
+            if (distSq > kTinyDistanceSq) {
+                away = { dx / dist, dy / dist };
+            } else {
+                // Fully stacked units need a deterministic fallback direction until
+                // stable EntityId ordering exists; world insertion order is stable here.
+                away = otherOrdinal < selfOrdinal
+                    ? model::Vector2D { 1.0f, 0.0f }
+                    : model::Vector2D { -1.0f, 0.0f };
+                dist = 0.0f;
+            }
+
+            const float overlap = std::max(0.0f, minDistance - dist + kOverlapPadding);
+            push = push + away * overlap;
+            ++otherOrdinal;
+        }
+
+        const float pushLenSq = push.x * push.x + push.y * push.y;
+        if (pushLenSq <= kTinyDistanceSq) {
+            return std::nullopt;
+        }
+
+        const float pushLen = std::sqrt(pushLenSq);
+        if (pushLen > kMaxLocalAvoidancePush) {
+            push = push * (kMaxLocalAvoidancePush / pushLen);
+        }
+
+        return push;
     }
 
     float CollisionSystem::movingUnitRadius() const noexcept {

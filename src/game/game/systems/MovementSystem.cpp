@@ -359,6 +359,17 @@ namespace rts::core::manager {
                 if (unit->getAction() == model::ActionType::Move ||
                     unit->getAction() == model::ActionType::Patrol) {
                     unit->updateMove(dt, world.gridTransform());
+                    const bool stillMoving =
+                        unit->getAction() == model::ActionType::Move ||
+                        unit->getAction() == model::ActionType::Patrol;
+                    if (stillMoving) {
+                        if (auto push = collision.localAvoidancePush(world, *unit, unit->getPosition())) {
+                            const auto pushedPosition = unit->getPosition() + *push;
+                            if (!collision.findMoveBlocker(world, *unit, pushedPosition).has_value()) {
+                                unit->setPosition(pushedPosition);
+                            }
+                        }
+                    }
                 } else {
                     unit->tick(dt);
                 }

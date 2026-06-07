@@ -1,5 +1,24 @@
 # Development Log
 
+## 2026-06-07 - Local Avoidance 기본 push 적용
+
+### 변경 내용
+- `CollisionSystem`에 주변 유닛을 검색해 겹침 위험이 있는 경우 제한된 local avoidance push vector를 계산하는 `localAvoidancePush()`를 추가.
+- 완전히 같은 위치에 겹친 유닛은 EntityId 시스템 도입 전까지 World 삽입 순서를 fallback 방향 결정에 사용.
+- push 크기를 tick당 최대 8px로 제한해 지나치게 밀리는 현상을 줄임.
+- `MovementSystem`이 이동/순찰 중인 유닛에 push를 적용하되, push 결과 위치가 여전히 blocker와 충돌하면 기존 재경로/정지 흐름을 유지.
+- `updateMove()`가 도착 처리로 유닛을 Idle로 바꾼 경우에는 push를 적용하지 않도록 보호.
+- `DEVELOPMENT_PLAN.md`의 Epic 3.4를 EntityId 순서 전환만 남은 상태로 갱신.
+
+### 동작 결과
+- 이동 중인 유닛이 다른 살아있는 유닛과 너무 가까워지면 작은 push로 부드럽게 비켜남.
+- 안전하게 밀 수 없는 상황은 기존 collision blocker, avoidance path, stop 흐름이 처리.
+- 건물/자원은 local push 대상에서 제외하고 기존 blocker 판정을 유지.
+
+### 검증
+- `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j1` 빌드 성공.
+- `cmake-build-debug\RTS.exe`를 5초 동안 실행했고 조기 종료 없이 유지되는 것을 확인한 뒤 종료.
+
 ## 2026-06-07 - 타입별 충돌 반경 기반 겹침 방지
 
 ### 변경 내용

@@ -1266,17 +1266,17 @@ struct EntityId
 
 ## Epic 3.4 Local Avoidance
 
-현재 상태: `[0%]`
+현재 상태: `[80%]` (EntityId 기반 결정 순서 전환 필요)
 
 ### Task
 
 ```text
-[ ] 주변 유닛 검색
-[ ] 충돌 예상 검사
-[ ] Push Vector 계산
-[ ] EntityId 순서로 결정론적 처리
-[ ] 이동 중 부드러운 회피 적용
-[ ] 지나치게 밀리는 현상 제한
+[x] 주변 유닛 검색
+[x] 충돌 예상 검사
+[x] Push Vector 계산
+[ ] EntityId 순서로 결정론적 처리 (현재 World 삽입 순서 fallback)
+[x] 이동 중 부드러운 회피 적용
+[x] 지나치게 밀리는 현상 제한
 ```
 
 ### 초기 구현 추천

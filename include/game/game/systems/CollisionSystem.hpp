@@ -29,6 +29,10 @@ namespace rts::core::manager {
                                                     const model::Unit& unit,
                                                     const model::Vector2D& pos) const;
 
+        std::optional<model::Vector2D> localAvoidancePush(const world::GameWorld& world,
+                                                          const model::Unit& unit,
+                                                          const model::Vector2D& pos) const;
+
         float movingUnitRadius() const noexcept;
     };
 }
