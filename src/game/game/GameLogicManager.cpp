@@ -700,7 +700,24 @@ namespace rts::core::manager {
             }
         }
 
-        const auto target = findCommandTargetAt(cmd.target(), m_selection.selected());
+        // Prefer the EntityId the UI captured under the cursor, but only when it
+        // resolves to a live resource or opposing unit near the click — otherwise
+        // fall back to selection-aware positional resolution (unchanged UX).
+        std::shared_ptr<model::IGameElement> target;
+        if (core::ecs::isValid(cmd.targetEntityId())) {
+            if (auto byId = m_world.resolve(cmd.targetEntityId())) {
+                const bool validKind = std::dynamic_pointer_cast<model::ResourceNode>(byId) ||
+                                       isOpposingTeam(attackerTeam, byId->getTeamId());
+                const bool nearClick =
+                    distanceSq(byId->getPosition(), cmd.target()) <= kAttackTargetPickRadiusSq;
+                if (validKind && nearClick) {
+                    target = std::move(byId);
+                }
+            }
+        }
+        if (!target) {
+            target = findCommandTargetAt(cmd.target(), m_selection.selected());
+        }
         if (!target) {
             if (cmd.append()) {
                 queueMoveOrderForSelected(cmd.target());

@@ -7,6 +7,7 @@
 
 
 #include "Command.hpp"
+#include "core/ecs/EntityId.hpp"
 #include "core/model/Rect.hpp"
 #include "core/model/Vector2D.hpp"
 
@@ -122,8 +123,13 @@ namespace rts::core::command {
 
     class AttackCommand final : public LogicCommand {
     public:
-        explicit AttackCommand(core::model::Vector2D target, bool append = false)
-            : m_target(target), m_hasWorldTarget(true), m_append(append) {
+        // targetEntityId optionally names the exact element under the cursor; the
+        // logic prefers it over positional resolution when it is a live, valid
+        // target near the click (see GameLogicManager::handleAttackCommand).
+        explicit AttackCommand(core::model::Vector2D target, bool append = false,
+                               core::ecs::EntityId targetEntityId = core::ecs::InvalidEntityId)
+            : m_target(target), m_targetEntityId(targetEntityId),
+              m_hasWorldTarget(true), m_append(append) {
         }
 
         AttackCommand(int unitId, int targetId, bool append = false)
@@ -132,6 +138,7 @@ namespace rts::core::command {
 
         int unitId() const noexcept { return m_unitId; }
         int targetId() const noexcept { return m_targetId; }
+        core::ecs::EntityId targetEntityId() const noexcept { return m_targetEntityId; }
         core::model::Vector2D target() const noexcept { return m_target; }
         bool hasWorldTarget() const noexcept { return m_hasWorldTarget; }
         bool append() const noexcept { return m_append; }
@@ -139,6 +146,7 @@ namespace rts::core::command {
     private:
         int m_unitId { -1 };
         int m_targetId { -1 };
+        core::ecs::EntityId m_targetEntityId { core::ecs::InvalidEntityId };
         core::model::Vector2D m_target {};
         bool m_hasWorldTarget { false };
         bool m_append { false };

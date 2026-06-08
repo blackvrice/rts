@@ -931,7 +931,7 @@ Vertical Slice 단계에서는 Wave Attack AI만 먼저 구현해도 충분합�
 
 ## Epic 1.3 EntityId 시스템
 
-현재 상태: `[85% — 1.3.1/1.3.2 완료, 1.3.3 attack target·IsAlive 완료 / command-wire·gather 대상 EntityId화는 후속]`
+현재 상태: `[100% 완료]`
 
 ---
 
@@ -979,16 +979,16 @@ struct EntityId
 
 ```text
 [x] IGameElement에 EntityId 부여 (GameWorld::addElement가 부여, entityId()/setEntityId())
-[~] 기존 포인터 참조를 EntityId 참조로 점진 교체 (attack target 완료 / gather·build·dropOff 포인터는 후속)
-[x] Target 포인터를 TargetEntityId로 변경 (Unit m_attackTarget → m_attackTargetId + resolver)
-[ ] Command 대상도 EntityId 사용 (현재 명령은 클릭 위치 기반 해석 — wire 레벨 EntityId화는 후속)
+[x] 기존 포인터 참조를 EntityId 참조로 점진 교체 (attack target·gather 자원/드롭오프·build 대상 모두 핸들화)
+[x] Target 포인터를 TargetEntityId로 변경 (Unit m_attackTarget/targetResource/targetDropOff/buildTarget → EntityId + resolver)
+[x] Command 대상도 EntityId 사용 (AttackCommand가 대상 EntityId를 싣고, 로직이 검증 후 우선 사용·위치 폴백)
 ```
 
 #### 완료 기준
 
 ```text
 - 죽은 유닛을 참조해도 IsAlive로 검증 가능하다. ✅ (GameWorld::isAlive(EntityId) + pruneDeadEntities)
-- 명령과 타겟팅이 EntityId 기반으로 동작한다. (런타임 타겟팅 ✅ EntityId 기반 / 명령 wire는 위치 기반 유지 — 후속)
+- 명령과 타겟팅이 EntityId 기반으로 동작한다. ✅ (런타임 타겟팅 전부 EntityId; AttackCommand가 대상 EntityId 전달)
 ```
 
 ---

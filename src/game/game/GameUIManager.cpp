@@ -258,9 +258,29 @@ namespace rts::core::manager {
             case WorldOrderMode::Move:
                 m_logicBus.push(std::make_unique<command::MoveCommand>(worldPos, m_shift));
                 break;
-            case WorldOrderMode::Attack:
-                m_logicBus.push(std::make_unique<command::AttackCommand>(worldPos, m_shift));
+            case WorldOrderMode::Attack: {
+                // Name the element under the cursor by EntityId so the command
+                // targets that exact entity; the logic still validates it and
+                // falls back to positional resolution when needed.
+                core::ecs::EntityId targetId = core::ecs::InvalidEntityId;
+                {
+                    const auto lock = m_world.acquireReadLock();
+                    float bestDist = 64.0f;
+                    for (const auto& element : m_world.getElements()) {
+                        auto ge = std::dynamic_pointer_cast<core::model::IGameElement>(element);
+                        if (!ge || ge->getAction() == core::model::ActionType::Dead) {
+                            continue;
+                        }
+                        const float dist = ge->getPosition().distanceTo(worldPos);
+                        if (dist < bestDist) {
+                            bestDist = dist;
+                            targetId = ge->entityId();
+                        }
+                    }
+                }
+                m_logicBus.push(std::make_unique<command::AttackCommand>(worldPos, m_shift, targetId));
                 break;
+            }
             case WorldOrderMode::AttackMove:
                 m_logicBus.push(std::make_unique<command::AttackMoveCommand>(-1, worldPos));
                 break;

@@ -155,8 +155,8 @@ namespace rts::core::model {
         };
 
         struct WorkerGatherState {
-            ResourceNode* targetResource { nullptr };
-            Building* targetDropOff { nullptr };
+            ecs::EntityId targetResourceId { ecs::InvalidEntityId };
+            ecs::EntityId targetDropOffId { ecs::InvalidEntityId };
             ResourceNode::ResourceType carryingType {};
             int carryingAmount { 0 };
             int maxCarryAmount { 10 };
@@ -175,8 +175,11 @@ namespace rts::core::model {
         void clearAttackMoveOrder();
         void clearPatrolOrder();
         void advancePatrolDestination();
-        // Resolves the current attack target EntityId to a live element pointer
-        // (nullptr if it has died or no resolver was injected).
+        // Resolves an EntityId to a live element via the injected resolver
+        // (nullptr if dead/recycled or no resolver). Typed helpers downcast.
+        IGameElement* resolveEntity(ecs::EntityId id) const;
+        ResourceNode* resolveResource(ecs::EntityId id) const;
+        Building* resolveBuilding(ecs::EntityId id) const;
         IGameElement* attackTarget() const;
 
         std::deque<path::GridPos> m_gridPath; // 다음 노드부터 pop_front
@@ -206,7 +209,7 @@ namespace rts::core::model {
 
         ::rts::UnitType m_unitType { ::rts::UnitType::Warrior };
         WorkerGatherState m_gatherState {};
-        Building* m_buildTarget { nullptr };
+        ecs::EntityId m_buildTargetId { ecs::InvalidEntityId };
         std::string m_displayName { "Unit" };
         float moveSpeed = 120.f;
 

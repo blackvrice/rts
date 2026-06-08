@@ -94,11 +94,23 @@ namespace rts::core::model {
         m_resolveEntity = std::move(resolver);
     }
 
-    IGameElement* Unit::attackTarget() const {
-        if (!m_resolveEntity || m_attackTargetId == ecs::InvalidEntityId) {
+    IGameElement* Unit::resolveEntity(const ecs::EntityId id) const {
+        if (!m_resolveEntity || id == ecs::InvalidEntityId) {
             return nullptr;
         }
-        return m_resolveEntity(m_attackTargetId);
+        return m_resolveEntity(id);
+    }
+
+    ResourceNode* Unit::resolveResource(const ecs::EntityId id) const {
+        return dynamic_cast<ResourceNode*>(resolveEntity(id));
+    }
+
+    Building* Unit::resolveBuilding(const ecs::EntityId id) const {
+        return dynamic_cast<Building*>(resolveEntity(id));
+    }
+
+    IGameElement* Unit::attackTarget() const {
+        return resolveEntity(m_attackTargetId);
     }
 
     void Unit::beginAttack(IGameElement* target, bool preserveAttackMove, bool preservePatrol) {
@@ -482,8 +494,8 @@ namespace rts::core::model {
         m_gatherState.carryingAmount = 0;
         m_gatherState.deliveryReady = false;
 
-        auto* resource = m_gatherState.targetResource;
-        auto* dropOff = m_gatherState.targetDropOff;
+        auto* resource = resolveResource(m_gatherState.targetResourceId);
+        auto* dropOff = resolveBuilding(m_gatherState.targetDropOffId);
         if (resource &&
             dropOff &&
             resource->getAction() != ActionType::Dead &&
@@ -720,8 +732,8 @@ namespace rts::core::model {
         m_attackTargetId = ecs::InvalidEntityId;
         m_gridPath.clear();
         m_gatherState = WorkerGatherState {
-            .targetResource = resource,
-            .targetDropOff = dropOff,
+            .targetResourceId = resource->entityId(),
+            .targetDropOffId = dropOff->entityId(),
             .carryingType = resource->type(),
             .carryingAmount = 0,
             .maxCarryAmount = resource->gatherAmountPerTrip(),
@@ -740,9 +752,14 @@ namespace rts::core::model {
             return;
         }
 
-        auto* resource = m_gatherState.targetResource;
-        auto* dropOff = m_gatherState.targetDropOff;
-        if (!isWorker() || !resource) {
+        auto* resource = resolveResource(m_gatherState.targetResourceId);
+        auto* dropOff = resolveBuilding(m_gatherState.targetDropOffId);
+        // The resource handle is only required while heading to or mining it; a
+        // worker already carrying ore keeps delivering even if the node depleted.
+        const bool needsResource =
+            m_gatherState.phase == GatherPhase::MoveToResource ||
+            m_gatherState.phase == GatherPhase::Gathering;
+        if (!isWorker() || (needsResource && !resource)) {
             clearGatherState(true);
             m_action = ActionType::Idle;
             m_animationAction = ActionType::Idle;
@@ -752,7 +769,7 @@ namespace rts::core::model {
         if (!dropOff || dropOff->getAction() == ActionType::Dead) {
             if (m_gatherState.carryingAmount > 0) {
                 m_gatherState.phase = GatherPhase::NeedNewDropOff;
-                m_gatherState.targetDropOff = nullptr;
+                m_gatherState.targetDropOffId = ecs::InvalidEntityId;
             } else {
                 clearGatherState(true);
                 m_action = ActionType::Idle;
@@ -861,15 +878,17 @@ namespace rts::core::model {
     }
 
     void Unit::clearGatherState(bool releaseReservation) {
-        if (releaseReservation && m_gatherState.targetResource) {
-            m_gatherState.targetResource->releaseGatherSlot(*this);
+        if (releaseReservation) {
+            if (auto* resource = resolveResource(m_gatherState.targetResourceId)) {
+                resource->releaseGatherSlot(*this);
+            }
         }
 
         m_gatherState = WorkerGatherState {};
         // Every action-transition entry point clears gather state, so cancelling an
         // in-progress build order here keeps the two worker jobs mutually exclusive.
-        // buildAt() reassigns m_buildTarget after its own clearGatherState() call.
-        m_buildTarget = nullptr;
+        // buildAt() reassigns m_buildTargetId after its own clearGatherState() call.
+        m_buildTargetId = ecs::InvalidEntityId;
     }
 
     void Unit::clearAttackMoveOrder() {
@@ -902,13 +921,13 @@ namespace rts::core::model {
         clearPatrolOrder();
         if (!isWorker() || !site || site->isComplete() ||
             site->getAction() == ActionType::Dead) {
-            m_buildTarget = nullptr;
+            m_buildTargetId = ecs::InvalidEntityId;
             m_action = ActionType::Idle;
             m_animationAction = ActionType::Idle;
             return;
         }
 
-        m_buildTarget = site;
+        m_buildTargetId = site->entityId();
         m_action = ActionType::Build;
         m_animationAction = ActionType::Move;
         m_attackTargetId = ecs::InvalidEntityId;
@@ -918,16 +937,16 @@ namespace rts::core::model {
     }
 
     void Unit::updateBuild(float dt) {
-        auto* site = m_buildTarget;
+        auto* site = resolveBuilding(m_buildTargetId);
         if (!isWorker() || !site || site->getAction() == ActionType::Dead) {
-            m_buildTarget = nullptr;
+            m_buildTargetId = ecs::InvalidEntityId;
             m_action = ActionType::Idle;
             m_animationAction = ActionType::Idle;
             return;
         }
 
         if (site->isComplete()) {
-            m_buildTarget = nullptr;
+            m_buildTargetId = ecs::InvalidEntityId;
             m_action = ActionType::Idle;
             m_animationAction = ActionType::Idle;
             return;
@@ -939,7 +958,7 @@ namespace rts::core::model {
             // advanceConstruction once accumulated progress reaches build time.
             m_animationAction = ActionType::Attack;
             if (site->advanceConstruction(dt)) {
-                m_buildTarget = nullptr;
+                m_buildTargetId = ecs::InvalidEntityId;
                 m_action = ActionType::Idle;
                 m_animationAction = ActionType::Idle;
             }
@@ -1016,7 +1035,7 @@ namespace rts::core::model {
 
     void Unit::redirectToDropOff(Building* newDropOff) {
         if (!newDropOff || m_gatherState.phase != GatherPhase::NeedNewDropOff) return;
-        m_gatherState.targetDropOff = newDropOff;
+        m_gatherState.targetDropOffId = newDropOff->entityId();
         m_gatherState.phase = GatherPhase::MoveToDropOff;
         m_moveTarget = newDropOff->getPosition();
         m_finalTargetWorld = m_moveTarget;

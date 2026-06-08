@@ -1,5 +1,19 @@
 # Development Log
 
+## 2026-06-08 - Epic 1.3 마무리: gather/build/dropOff·명령 대상 EntityId화 (100%)
+
+### 변경 내용
+- **gather/build/dropOff 핸들화**: `WorkerGatherState`의 `ResourceNode* targetResource`/`Building* targetDropOff` → `EntityId targetResourceId`/`targetDropOffId`, `Building* m_buildTarget` → `EntityId m_buildTargetId`. Unit에 `resolveEntity()`/`resolveResource()`/`resolveBuilding()`(resolver + dynamic_cast) 추가. 채집·건설 FSM의 모든 대상 접근을 매 사용 시 해석으로 교체.
+  - 회귀 방지: `ResourceNode::getAction()`이 고갈 시 Dead → prune이 자원 id를 파괴하므로, `updateGather`의 "자원 null이면 클리어" 가드를 **자원이 필요한 단계(MoveToResource/Gathering)에서만** 적용하도록 재구성. 운반 중(MoveToDropOff/DropResource) 자원이 사라져도 적재물 정상 배달.
+- **명령 대상 EntityId화**: `AttackCommand`에 `targetEntityId` 추가. GameUIManager가 클릭 시 커서 아래 최근접 요소의 EntityId를 실어 보냄(read lock). `handleAttackCommand`는 그 id가 **살아있는 자원/적대 유닛이고 클릭 근방(pick 반경 내)** 일 때만 우선 사용하고, 아니면 기존 선택-인지 위치 기반 해석으로 폴백 → UX 불변.
+
+### 검증
+- 빌드 성공, 실행 6초 — 크래시/경고 없음, `loaded ... 30 sprites`.
+- 한계: 인게임 채집/건설/전투의 실제 동작은 수동 검증 필요(자동화 환경). 로직 경로·빌드/구동 안정성·회귀 가드는 검토 완료.
+
+### 결과
+- Epic 1.3 EntityId 시스템 100% 완료. 모든 런타임 대상 참조(attack/gather/build/dropOff)가 generation 기반 EntityId 핸들이고, 죽거나 재사용된 대상은 nullptr로 해석. 명령(AttackCommand)도 대상 EntityId를 전달.
+
 ## 2026-06-08 - Epic 1.3: EntityId 시스템 (generation 기반 핸들 + IsAlive)
 
 ### 변경 내용
