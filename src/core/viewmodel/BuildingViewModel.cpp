@@ -1,21 +1,19 @@
 #include "core/viewmodel/BuildingViewModel.hpp"
 #include "core/model/Building.hpp"
+#include "core/data/DataRegistry.hpp"
 #include "core/render/RenderCommand.hpp"
 #include "core/render/RenderQueue.hpp"
 
-namespace {
-    // Texture IDs defined in SfmlRenderManager
-    constexpr int kBlueTownHallId  = 300;
-    constexpr int kBlueBarracksId  = 301;
-    constexpr int kRedTownHallId   = 310;
-    constexpr int kRedBarracksId   = 311;
+#include <string>
 
-    int textureIdFor(rts::core::model::BuildingType type, int teamId) {
-        namespace TeamId = rts::core::model::TeamId;
-        if (teamId == TeamId::Enemy) {
-            return type == rts::core::model::BuildingType::TownHall ? kRedTownHallId : kRedBarracksId;
-        }
-        return type == rts::core::model::BuildingType::TownHall ? kBlueTownHallId : kBlueBarracksId;
+namespace {
+    const char* buildingIdStr(rts::core::model::BuildingType type) {
+        return type == rts::core::model::BuildingType::TownHall ? "town_hall" : "barracks";
+    }
+
+    std::string buildingSpriteKey(rts::core::model::BuildingType type, int teamId) {
+        const std::string team = teamId == rts::core::model::TeamId::Enemy ? "red" : "blue";
+        return std::string("building.") + buildingIdStr(type) + "." + team;
     }
 }
 
@@ -35,8 +33,7 @@ namespace rts::core::viewmodel {
     void BuildingViewModel::buildRenderCommands(render::RenderQueue& out) const {
         if (!m_building || m_building->getAction() == model::ActionType::Dead) return;
 
-        const auto  pos   = m_building->getPosition();
-        const int   texId = textureIdFor(m_building->buildingType(), m_building->getTeamId());
+        const auto pos = m_building->getPosition();
 
         // Selection ring
         if (m_building->state().selected) {
@@ -48,16 +45,22 @@ namespace rts::core::viewmodel {
                 });
         }
 
-        // Building sprite (128×128 world pixels)
-        out.emplace(render::RenderLayer::World, 5,
-            render::DrawSprite{
-                .x = pos.x - 64.f, .y = pos.y - 88.f,
-                .w = 128.f,         .h = 128.f,
-                .textureId    = texId,
-                .frameCount   = 1,
-                .framesPerSecond = 0.f,
-                .trimTransparent = true
-            });
+        // Building sprite resolved from data (data/animations.json).
+        if (const auto* clip = core::data::DataRegistry::global().sprite(
+                buildingSpriteKey(m_building->buildingType(), m_building->getTeamId()))) {
+            out.emplace(render::RenderLayer::World, 5,
+                render::DrawSprite{
+                    .x = pos.x - clip->anchorX, .y = pos.y - clip->anchorY,
+                    .w = clip->displayW,         .h = clip->displayH,
+                    .textureId    = 0,
+                    .texturePath  = clip->texture,
+                    .sourceX = clip->sourceX, .sourceY = clip->sourceY,
+                    .sourceW = clip->sourceW, .sourceH = clip->sourceH,
+                    .frameCount   = clip->frameCount,
+                    .framesPerSecond = clip->fps,
+                    .trimTransparent = clip->trim
+                });
+        }
 
         // HP bar background
         const float barW = 84.f;

@@ -113,6 +113,71 @@ namespace rts::core::data {
             { "gold", ResourceType::Gold },
             { "wood", ResourceType::Wood },
         };
+
+        seedSprites();
+    }
+
+    void DataRegistry::seedSprites() {
+        // Built-in clips mirror the previously hard-coded Tiny Swords layout, so
+        // rendering still works when data/animations.json is absent.
+        auto unitClip = [](std::string texture, int frameCount, float fps) {
+            return SpriteClip {
+                .texture = std::move(texture), .frameCount = frameCount, .fps = fps,
+                .sourceX = 0, .sourceY = 0, .sourceW = 192, .sourceH = 192,
+                .displayW = 96.f, .displayH = 96.f, .anchorX = 48.f, .anchorY = 96.f,
+                .trim = true
+            };
+        };
+        m_sprites["unit.warrior.blue.idle"]   = unitClip("Units/Blue Units/Warrior/Warrior_Idle.png", 8, 6.f);
+        m_sprites["unit.warrior.blue.move"]   = unitClip("Units/Blue Units/Warrior/Warrior_Run.png", 6, 10.f);
+        m_sprites["unit.warrior.blue.attack"] = unitClip("Units/Blue Units/Warrior/Warrior_Attack1.png", 4, 8.f);
+        m_sprites["unit.warrior.blue.hold"]   = unitClip("Units/Blue Units/Warrior/Warrior_Guard.png", 6, 6.f);
+        m_sprites["unit.warrior.red.idle"]    = unitClip("Units/Red Units/Warrior/Warrior_Idle.png", 8, 6.f);
+        m_sprites["unit.warrior.red.move"]    = unitClip("Units/Red Units/Warrior/Warrior_Run.png", 6, 10.f);
+        m_sprites["unit.warrior.red.attack"]  = unitClip("Units/Red Units/Warrior/Warrior_Attack1.png", 4, 8.f);
+        m_sprites["unit.warrior.red.hold"]    = unitClip("Units/Red Units/Warrior/Warrior_Guard.png", 6, 6.f);
+        m_sprites["unit.pawn.blue.idle"]      = unitClip("Units/Blue Units/Pawn/Pawn_Idle.png", 8, 6.f);
+        m_sprites["unit.pawn.blue.move"]      = unitClip("Units/Blue Units/Pawn/Pawn_Run.png", 6, 10.f);
+        m_sprites["unit.pawn.blue.attack"]    = unitClip("Units/Blue Units/Pawn/Pawn_Interact Hammer.png", 3, 8.f);
+        m_sprites["unit.pawn.red.idle"]       = unitClip("Units/Red Units/Pawn/Pawn_Idle.png", 8, 6.f);
+        m_sprites["unit.pawn.red.move"]       = unitClip("Units/Red Units/Pawn/Pawn_Run.png", 6, 10.f);
+        m_sprites["unit.pawn.red.attack"]     = unitClip("Units/Red Units/Pawn/Pawn_Interact Hammer.png", 3, 8.f);
+
+        m_unitSpriteSets = {
+            { "warrior", "warrior" }, { "archer", "warrior" },
+            { "marine", "warrior" }, { "worker", "pawn" },
+        };
+
+        auto buildingClip = [](std::string texture) {
+            return SpriteClip {
+                .texture = std::move(texture), .frameCount = 1, .fps = 0.f,
+                .sourceX = 0, .sourceY = 0, .sourceW = 0, .sourceH = 0,
+                .displayW = 128.f, .displayH = 128.f, .anchorX = 64.f, .anchorY = 88.f,
+                .trim = true
+            };
+        };
+        m_sprites["building.town_hall.blue"] = buildingClip("Buildings/Blue Buildings/Castle.png");
+        m_sprites["building.barracks.blue"]  = buildingClip("Buildings/Blue Buildings/Barracks.png");
+        m_sprites["building.town_hall.red"]  = buildingClip("Buildings/Red Buildings/Castle.png");
+        m_sprites["building.barracks.red"]   = buildingClip("Buildings/Red Buildings/Barracks.png");
+
+        for (int stage = 1; stage <= 6; ++stage) {
+            m_sprites["resource.gold." + std::to_string(stage)] = SpriteClip {
+                .texture = "Terrain/Resources/Gold/Gold Stones/Gold Stone "
+                    + std::to_string(stage) + "_Highlight.png",
+                .frameCount = 6, .fps = 8.f,
+                .sourceX = 0, .sourceY = 0, .sourceW = 128, .sourceH = 128,
+                .displayW = 64.f, .displayH = 64.f, .anchorX = 32.f, .anchorY = 48.f,
+                .trim = false
+            };
+        }
+        m_sprites["resource.wood"] = SpriteClip {
+            .texture = "Terrain/Resources/Wood/Wood Resource/Wood Resource.png",
+            .frameCount = 1, .fps = 0.f,
+            .sourceX = 0, .sourceY = 0, .sourceW = 0, .sourceH = 0,
+            .displayW = 64.f, .displayH = 64.f, .anchorX = 32.f, .anchorY = 48.f,
+            .trim = false
+        };
     }
 
     bool DataRegistry::loadFromDirectory(const std::string& dir) {
@@ -244,9 +309,49 @@ namespace rts::core::data {
             allOk = false;
         }
 
+        // ----- Sprites / animations -----
+        int spriteCount = 0;
+        if (json doc; readJsonFile(base + "animations.json", doc)) {
+            // A readable file is authoritative: drop the seeded clips so entries
+            // removed from JSON are actually gone (add/remove/change via data).
+            m_sprites.clear();
+            m_unitSpriteSets.clear();
+            // Bind to named objects: .items() on a temporary json would dangle.
+            const json sets = doc.value("unitSpriteSets", json::object());
+            for (const auto& [id, set] : sets.items()) {
+                m_unitSpriteSets[id] = set.get<std::string>();
+            }
+            const json sprites = doc.value("sprites", json::object());
+            for (const auto& [key, e] : sprites.items()) {
+                // Merge over any seeded default for this key so partial overrides work.
+                SpriteClip c = m_sprites.count(key) ? m_sprites[key] : SpriteClip{};
+                c.texture     = e.value("texture", c.texture);
+                c.frameCount  = e.value("frameCount", c.frameCount);
+                c.fps         = e.value("fps", c.fps);
+                c.sourceX     = e.value("sourceX", c.sourceX);
+                c.sourceY     = e.value("sourceY", c.sourceY);
+                c.sourceW     = e.value("sourceW", c.sourceW);
+                c.sourceH     = e.value("sourceH", c.sourceH);
+                c.displayW    = e.value("displayW", c.displayW);
+                c.displayH    = e.value("displayH", c.displayH);
+                c.anchorX     = e.value("anchorX", c.anchorX);
+                c.anchorY     = e.value("anchorY", c.anchorY);
+                c.trim        = e.value("trim", c.trim);
+                if (c.texture.empty()) {
+                    std::cerr << "[DataRegistry] sprite '" << key << "' has no texture, skipped\n";
+                    allOk = false;
+                    continue;
+                }
+                m_sprites[key] = std::move(c);
+                ++spriteCount;
+            }
+        } else {
+            allOk = false;
+        }
+
         std::cout << "[DataRegistry] loaded " << unitCount << " units, "
                   << buildingCount << " buildings, " << resourceCount
-                  << " resources from " << dir
+                  << " resources, " << spriteCount << " sprites from " << dir
                   << (allOk ? "" : " (with warnings)") << std::endl;
         return allOk;
     }
@@ -289,6 +394,16 @@ namespace rts::core::data {
     const ResourceStaticData* DataRegistry::resourceById(const std::string& id) const {
         const auto it = m_resourceIds.find(id);
         return it == m_resourceIds.end() ? nullptr : &resource(it->second);
+    }
+
+    const SpriteClip* DataRegistry::sprite(const std::string& key) const {
+        const auto it = m_sprites.find(key);
+        return it == m_sprites.end() ? nullptr : &it->second;
+    }
+
+    std::string DataRegistry::unitSpriteSet(const std::string& unitId) const {
+        const auto it = m_unitSpriteSets.find(unitId);
+        return it == m_unitSpriteSets.end() ? unitId : it->second;
     }
 
     // ----- Registry-backed free functions declared in the *StaticData headers -----

@@ -392,6 +392,38 @@ namespace {
         return result;
     }
 
+    // Data-driven loader: resolves a texture by its asset-relative path, cached
+    // by path. Used for DrawSprite commands carrying a texturePath.
+    const sf::Texture* tinySwordsTextureByPath(const std::string& relativePath) {
+        static std::unordered_map<std::string, std::unique_ptr<sf::Texture>> textures;
+
+        if (const auto it = textures.find(relativePath); it != textures.end()) {
+            return it->second.get();
+        }
+
+        auto texture = std::make_unique<sf::Texture>();
+        texture->setSmooth(false);
+        const std::filesystem::path path =
+            std::filesystem::path(rts::platform::sfml::TinySwordsRoot) / relativePath;
+        if (!texture->loadFromFile(path.string())) {
+            textures.emplace(relativePath, nullptr);  // cache the miss
+            return nullptr;
+        }
+
+        const sf::Texture* result = texture.get();
+        textures.emplace(relativePath, std::move(texture));
+        return result;
+    }
+
+    // Chooses the data-driven path loader when a DrawSprite carries a texturePath,
+    // otherwise falls back to the legacy integer textureId mapping.
+    const sf::Texture* spriteTextureFor(const rts::core::render::DrawSprite& r) {
+        if (!r.texturePath.empty()) {
+            return tinySwordsTextureByPath(r.texturePath);
+        }
+        return tinySwordsSpriteTexture(r.textureId);
+    }
+
     sf::IntRect tileSourceRect(const sf::Texture& texture, const int tileIndex) {
         const auto textureSize = texture.getSize();
         const int columns = static_cast<int>(textureSize.x) / kWorldTileSize;
@@ -499,7 +531,7 @@ namespace {
             return;
         }
 
-        const sf::Texture* texture = tinySwordsSpriteTexture(selected->textureId);
+        const sf::Texture* texture = spriteTextureFor(*selected);
         if (!texture) {
             return;
         }
@@ -674,7 +706,7 @@ namespace rts::platform::sfml {
         sf::RenderWindow &window,
         const core::render::DrawSprite &r
     ) {
-        const sf::Texture* texture = tinySwordsSpriteTexture(r.textureId);
+        const sf::Texture* texture = spriteTextureFor(r);
         if (!texture) {
             return;
         }

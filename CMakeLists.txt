@@ -104,6 +104,7 @@ add_executable(RTS
         include/core/data/UnitStaticData.hpp
         include/core/data/BuildingStaticData.hpp
         include/core/data/ResourceStaticData.hpp
+        include/core/data/SpriteData.hpp
         include/core/data/DataRegistry.hpp
         include/core/data/DataPaths.hpp.in
         src/core/data/DataRegistry.cpp

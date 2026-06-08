@@ -5,6 +5,7 @@
 
 #include "core/data/BuildingStaticData.hpp"
 #include "core/data/ResourceStaticData.hpp"
+#include "core/data/SpriteData.hpp"
 #include "core/data/UnitStaticData.hpp"
 
 namespace rts::core::data {
@@ -33,9 +34,17 @@ namespace rts::core::data {
         const BuildingStaticData* buildingById(const std::string& id) const;
         const ResourceStaticData* resourceById(const std::string& id) const;
 
+        // Sprite/animation clip by key (e.g. "unit.warrior.blue.move",
+        // "building.barracks.red", "resource.gold.3"); nullptr when unknown.
+        const SpriteClip* sprite(const std::string& key) const;
+        // Maps a unit string id to its sprite-set name (e.g. "archer" -> "warrior");
+        // returns the id itself when no mapping is defined.
+        std::string unitSpriteSet(const std::string& unitId) const;
+
     private:
         DataRegistry();
         void seedDefaults();
+        void seedSprites();
 
         std::unordered_map<::rts::UnitType, UnitStaticData> m_units;
         std::unordered_map<::rts::core::model::BuildingType, BuildingStaticData> m_buildings;
@@ -44,5 +53,8 @@ namespace rts::core::data {
         std::unordered_map<std::string, ::rts::UnitType> m_unitIds;
         std::unordered_map<std::string, ::rts::core::model::BuildingType> m_buildingIds;
         std::unordered_map<std::string, ResourceType> m_resourceIds;
+
+        std::unordered_map<std::string, SpriteClip> m_sprites;
+        std::unordered_map<std::string, std::string> m_unitSpriteSets;
     };
 }

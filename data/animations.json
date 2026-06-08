@@ -1,0 +1,41 @@
+{
+  "_comment": "Sprite/animation clips. Add, remove, or edit entries here (plus the PNG) to change visuals without recompiling. Keys: unit.<set>.<team>.<action>, building.<type>.<team>, resource.gold.<stage 1-6>, resource.wood. texture paths are relative to the Tiny Swords asset root.",
+
+  "unitSpriteSets": {
+    "warrior": "warrior",
+    "archer": "warrior",
+    "marine": "warrior",
+    "worker": "pawn"
+  },
+
+  "sprites": {
+    "unit.warrior.blue.idle":   { "texture": "Units/Blue Units/Warrior/Warrior_Idle.png",     "frameCount": 8, "fps": 6,  "sourceW": 192, "sourceH": 192, "displayW": 96, "displayH": 96, "anchorX": 48, "anchorY": 96, "trim": true },
+    "unit.warrior.blue.move":   { "texture": "Units/Blue Units/Warrior/Warrior_Run.png",      "frameCount": 6, "fps": 10, "sourceW": 192, "sourceH": 192, "displayW": 96, "displayH": 96, "anchorX": 48, "anchorY": 96, "trim": true },
+    "unit.warrior.blue.attack": { "texture": "Units/Blue Units/Warrior/Warrior_Attack1.png",  "frameCount": 4, "fps": 8,  "sourceW": 192, "sourceH": 192, "displayW": 96, "displayH": 96, "anchorX": 48, "anchorY": 96, "trim": true },
+    "unit.warrior.blue.hold":   { "texture": "Units/Blue Units/Warrior/Warrior_Guard.png",    "frameCount": 6, "fps": 6,  "sourceW": 192, "sourceH": 192, "displayW": 96, "displayH": 96, "anchorX": 48, "anchorY": 96, "trim": true },
+    "unit.warrior.red.idle":    { "texture": "Units/Red Units/Warrior/Warrior_Idle.png",      "frameCount": 8, "fps": 6,  "sourceW": 192, "sourceH": 192, "displayW": 96, "displayH": 96, "anchorX": 48, "anchorY": 96, "trim": true },
+    "unit.warrior.red.move":    { "texture": "Units/Red Units/Warrior/Warrior_Run.png",       "frameCount": 6, "fps": 10, "sourceW": 192, "sourceH": 192, "displayW": 96, "displayH": 96, "anchorX": 48, "anchorY": 96, "trim": true },
+    "unit.warrior.red.attack":  { "texture": "Units/Red Units/Warrior/Warrior_Attack1.png",   "frameCount": 4, "fps": 8,  "sourceW": 192, "sourceH": 192, "displayW": 96, "displayH": 96, "anchorX": 48, "anchorY": 96, "trim": true },
+    "unit.warrior.red.hold":    { "texture": "Units/Red Units/Warrior/Warrior_Guard.png",     "frameCount": 6, "fps": 6,  "sourceW": 192, "sourceH": 192, "displayW": 96, "displayH": 96, "anchorX": 48, "anchorY": 96, "trim": true },
+
+    "unit.pawn.blue.idle":   { "texture": "Units/Blue Units/Pawn/Pawn_Idle.png",            "frameCount": 8, "fps": 6,  "sourceW": 192, "sourceH": 192, "displayW": 96, "displayH": 96, "anchorX": 48, "anchorY": 96, "trim": true },
+    "unit.pawn.blue.move":   { "texture": "Units/Blue Units/Pawn/Pawn_Run.png",             "frameCount": 6, "fps": 10, "sourceW": 192, "sourceH": 192, "displayW": 96, "displayH": 96, "anchorX": 48, "anchorY": 96, "trim": true },
+    "unit.pawn.blue.attack": { "texture": "Units/Blue Units/Pawn/Pawn_Interact Hammer.png", "frameCount": 3, "fps": 8,  "sourceW": 192, "sourceH": 192, "displayW": 96, "displayH": 96, "anchorX": 48, "anchorY": 96, "trim": true },
+    "unit.pawn.red.idle":    { "texture": "Units/Red Units/Pawn/Pawn_Idle.png",             "frameCount": 8, "fps": 6,  "sourceW": 192, "sourceH": 192, "displayW": 96, "displayH": 96, "anchorX": 48, "anchorY": 96, "trim": true },
+    "unit.pawn.red.move":    { "texture": "Units/Red Units/Pawn/Pawn_Run.png",              "frameCount": 6, "fps": 10, "sourceW": 192, "sourceH": 192, "displayW": 96, "displayH": 96, "anchorX": 48, "anchorY": 96, "trim": true },
+    "unit.pawn.red.attack":  { "texture": "Units/Red Units/Pawn/Pawn_Interact Hammer.png",  "frameCount": 3, "fps": 8,  "sourceW": 192, "sourceH": 192, "displayW": 96, "displayH": 96, "anchorX": 48, "anchorY": 96, "trim": true },
+
+    "building.town_hall.blue": { "texture": "Buildings/Blue Buildings/Castle.png",   "frameCount": 1, "fps": 0, "displayW": 128, "displayH": 128, "anchorX": 64, "anchorY": 88, "trim": true },
+    "building.barracks.blue":  { "texture": "Buildings/Blue Buildings/Barracks.png", "frameCount": 1, "fps": 0, "displayW": 128, "displayH": 128, "anchorX": 64, "anchorY": 88, "trim": true },
+    "building.town_hall.red":  { "texture": "Buildings/Red Buildings/Castle.png",    "frameCount": 1, "fps": 0, "displayW": 128, "displayH": 128, "anchorX": 64, "anchorY": 88, "trim": true },
+    "building.barracks.red":   { "texture": "Buildings/Red Buildings/Barracks.png",  "frameCount": 1, "fps": 0, "displayW": 128, "displayH": 128, "anchorX": 64, "anchorY": 88, "trim": true },
+
+    "resource.gold.1": { "texture": "Terrain/Resources/Gold/Gold Stones/Gold Stone 1_Highlight.png", "frameCount": 6, "fps": 8, "sourceW": 128, "sourceH": 128, "displayW": 64, "displayH": 64, "anchorX": 32, "anchorY": 48, "trim": false },
+    "resource.gold.2": { "texture": "Terrain/Resources/Gold/Gold Stones/Gold Stone 2_Highlight.png", "frameCount": 6, "fps": 8, "sourceW": 128, "sourceH": 128, "displayW": 64, "displayH": 64, "anchorX": 32, "anchorY": 48, "trim": false },
+    "resource.gold.3": { "texture": "Terrain/Resources/Gold/Gold Stones/Gold Stone 3_Highlight.png", "frameCount": 6, "fps": 8, "sourceW": 128, "sourceH": 128, "displayW": 64, "displayH": 64, "anchorX": 32, "anchorY": 48, "trim": false },
+    "resource.gold.4": { "texture": "Terrain/Resources/Gold/Gold Stones/Gold Stone 4_Highlight.png", "frameCount": 6, "fps": 8, "sourceW": 128, "sourceH": 128, "displayW": 64, "displayH": 64, "anchorX": 32, "anchorY": 48, "trim": false },
+    "resource.gold.5": { "texture": "Terrain/Resources/Gold/Gold Stones/Gold Stone 5_Highlight.png", "frameCount": 6, "fps": 8, "sourceW": 128, "sourceH": 128, "displayW": 64, "displayH": 64, "anchorX": 32, "anchorY": 48, "trim": false },
+    "resource.gold.6": { "texture": "Terrain/Resources/Gold/Gold Stones/Gold Stone 6_Highlight.png", "frameCount": 6, "fps": 8, "sourceW": 128, "sourceH": 128, "displayW": 64, "displayH": 64, "anchorX": 32, "anchorY": 48, "trim": false },
+    "resource.wood":   { "texture": "Terrain/Resources/Wood/Wood Resource/Wood Resource.png",         "frameCount": 1, "fps": 0,                                 "displayW": 64, "displayH": 64, "anchorX": 32, "anchorY": 48, "trim": false }
+  }
+}

@@ -1,53 +1,28 @@
-﻿#include "core/viewmodel/UnitViewModel.hpp"
+#include "core/viewmodel/UnitViewModel.hpp"
 #include "core/model/Unit.hpp"
+#include "core/data/DataRegistry.hpp"
+
+#include <string>
 
 namespace {
-    // Texture id layout shared with SfmlRenderManager:
-    //   Warrior: Blue base 1 (idle/run/attack/guard = +0..+3), Red base 11
-    //   Pawn:    Blue base 21 (idle/run/interact),             Red base 31
-    constexpr int kBlueWarriorBase = 1;
-    constexpr int kRedWarriorBase = 11;
-    constexpr int kBluePawnBase = 21;
-    constexpr int kRedPawnBase = 31;
-
-    struct UnitSpriteClip {
-        int textureId;
-        int frameCount;
-        float framesPerSecond;
-    };
-
-    UnitSpriteClip spriteClipFor(const rts::UnitType unitType,
-                                 const int teamId,
-                                 const rts::core::model::ActionType action) {
-        using rts::core::model::ActionType;
-        const bool isEnemy = teamId == rts::core::model::TeamId::Enemy;
-
-        if (unitType == rts::UnitType::Worker) {
-            // Pawn sheets: Idle 8 frames, Run 6, Interact (used for work/attack) 3.
-            // Pawn has no guard sheet, so Hold falls back to Idle.
-            const int base = isEnemy ? kRedPawnBase : kBluePawnBase;
-            switch (action) {
-                case ActionType::Move:
-                    return {base + 1, 6, 10.0f};
-                case ActionType::Attack:
-                    return {base + 2, 3, 8.0f};
-                default:
-                    return {base + 0, 8, 6.0f};
-            }
-        }
-
-        // Warrior sheets cover all combat unit types for now.
-        const int base = isEnemy ? kRedWarriorBase : kBlueWarriorBase;
+    const char* actionKey(const rts::core::model::ActionType action) {
+        using A = rts::core::model::ActionType;
         switch (action) {
-            case ActionType::Move:
-                return {base + 1, 6, 10.0f};
-            case ActionType::Attack:
-                return {base + 2, 4, 8.0f};
-            case ActionType::Hold:
-                return {base + 3, 6, 6.0f};
-            default:
-                return {base + 0, 8, 6.0f};
+            case A::Move:   return "move";
+            case A::Attack: return "attack";
+            case A::Hold:   return "hold";
+            default:        return "idle";
         }
+    }
+
+    const char* unitIdStr(const rts::UnitType type) {
+        switch (type) {
+            case rts::UnitType::Warrior: return "warrior";
+            case rts::UnitType::Archer:  return "archer";
+            case rts::UnitType::Marine:  return "marine";
+            case rts::UnitType::Worker:  return "worker";
+        }
+        return "warrior";
     }
 }
 
@@ -115,25 +90,34 @@ namespace rts::core::viewmodel {
                 });
         }
 
-        const UnitSpriteClip clip = spriteClipFor(unit->unitType(), unit->getTeamId(), m_action);
+        // Resolve the sprite clip from data (data/animations.json), falling back
+        // to the unit's idle clip when the action-specific one is missing.
+        auto& registry = core::data::DataRegistry::global();
+        const std::string set = registry.unitSpriteSet(unitIdStr(unit->unitType()));
+        const std::string team = unit->getTeamId() == model::TeamId::Enemy ? "red" : "blue";
+        const std::string base = "unit." + set + "." + team + ".";
+        const core::data::SpriteClip* clip = registry.sprite(base + actionKey(m_action));
+        if (!clip) clip = registry.sprite(base + "idle");
+        if (!clip) return;
 
         // Trimmed unit sprites are bottom-centered so the model position stays at the feet.
         out.emplace(
             core::render::RenderLayer::World,
             10,
             render::DrawSprite{
-                .x = pos.x - 48.0f,
-                .y = pos.y - 96.0f,
-                .w = 96.0f,
-                .h = 96.0f,
-                .textureId = clip.textureId,
-                .sourceX = 0,
-                .sourceY = 0,
-                .sourceW = 192,
-                .sourceH = 192,
-                .frameCount = clip.frameCount,
-                .framesPerSecond = clip.framesPerSecond,
-                .trimTransparent = true,
+                .x = pos.x - clip->anchorX,
+                .y = pos.y - clip->anchorY,
+                .w = clip->displayW,
+                .h = clip->displayH,
+                .textureId = 0,
+                .texturePath = clip->texture,
+                .sourceX = clip->sourceX,
+                .sourceY = clip->sourceY,
+                .sourceW = clip->sourceW,
+                .sourceH = clip->sourceH,
+                .frameCount = clip->frameCount,
+                .framesPerSecond = clip->fps,
+                .trimTransparent = clip->trim,
                 .showInHud = unit->state().selected
             });
     }

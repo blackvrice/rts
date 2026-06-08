@@ -21,7 +21,7 @@ cmake --build build
 - `src/` contains application, core, game, and platform implementations.
 - `external/tmxlite/` is the tmxlite dependency used for map loading. Treat it as third-party code unless the task explicitly targets it.
 - `external/json/` vendors the nlohmann/json single header (`nlohmann/json.hpp`) used by the DataRegistry. Third-party code.
-- `data/` holds runtime JSON design data (`units.json`, `buildings.json`, `resources.json`) loaded by `DataRegistry`; edit these to retune stats without recompiling.
+- `data/` holds runtime JSON design data (`units.json`, `buildings.json`, `resources.json`, `animations.json`) loaded by `DataRegistry`; edit these to retune stats or change sprites/animations without recompiling.
 - `Tiny Swords (Free Pack)/` contains art assets used by the game.
 - `cmake-build-debug/` is a local build output folder and should not be treated as source.
 
@@ -34,7 +34,8 @@ cmake --build build
 - `include/core/scene` defines scene interfaces.
 - `include/core/ecs` contains the custom ECS registry and entity primitives.
 - `include/core/entity`, `include/core/model`, and `include/core/data` define gameplay data, entities, and model types.
-- `include/core/data` + `src/core/data/DataRegistry.cpp`: `DataRegistry` is the central authority for static unit/building/resource data. It seeds built-in defaults, then `loadFromDirectory()` overlays JSON from `data/`. `unitStaticDataFor`/`buildingStaticDataFor`/`resourceStaticDataFor` delegate to the global registry; the `default*StaticDataFor` helpers in the `*StaticData.hpp` headers are the built-in fallbacks. `DataPaths.hpp` (generated from `.hpp.in`) provides the configured `data/` path.
+- `include/core/data` + `src/core/data/DataRegistry.cpp`: `DataRegistry` is the central authority for static unit/building/resource data and sprite/animation clips. It seeds built-in defaults, then `loadFromDirectory()` overlays JSON from `data/`. `unitStaticDataFor`/`buildingStaticDataFor`/`resourceStaticDataFor` delegate to the global registry; the `default*StaticDataFor` helpers in the `*StaticData.hpp` headers are the built-in fallbacks. `DataPaths.hpp` (generated from `.hpp.in`) provides the configured `data/` path.
+- Sprite/animation data: `SpriteData.hpp` defines `SpriteClip`; `DataRegistry` loads `data/animations.json` into a keyed clip map (`sprite(key)`) plus a unit→sprite-set map (`unitSpriteSet`). The view models look up clips by key and fill `DrawSprite.texturePath`; `SfmlRenderManager` loads textures by path (cached). A readable `animations.json` is authoritative (replaces seeds), so clips can be added/removed/changed via data alone.
 - `include/core/model/PlayerResourceState.hpp` defines the player resource snapshot stored by `GameWorld` and forwarded to the HUD.
 - `include/core/factory` and `include/core/prototype` create game objects from static/prototype data.
 - `include/core/world`, `include/core/path`, and `src/core/world` contain grid/world representation, coordinate transforms, path queries, and map-facing logic.

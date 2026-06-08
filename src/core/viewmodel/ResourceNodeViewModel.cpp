@@ -1,5 +1,6 @@
 #include "core/viewmodel/ResourceNodeViewModel.hpp"
 #include "core/model/ResourceNode.hpp"
+#include "core/data/DataRegistry.hpp"
 #include "core/render/RenderCommand.hpp"
 #include "core/render/RenderQueue.hpp"
 #include <algorithm>
@@ -7,17 +8,11 @@
 #include <string>
 
 namespace {
-    // Gold renders as the "Gold Stone" pile: stage 1..6 maps to texture ids
-    // 210..215, each a 6-frame highlight sheet (128px frames) animated by default.
-    constexpr int kGoldStoneHighlightBase = 210;
+    // Gold renders as the "Gold Stone" pile: a fuller pile shows a higher stage
+    // (1..6) and the pile shrinks toward stage 1 as it depletes. Each stage is a
+    // separate clip keyed "resource.gold.<stage>" in data/animations.json.
     constexpr int kGoldStoneStages = 6;
-    constexpr int kGoldStoneFrame = 128;
-    constexpr int kGoldStoneFrameCount = 6;
-    constexpr float kGoldStoneFps = 8.0f;
-    constexpr int kWoodTextureId = 201;
 
-    // Fuller piles show a higher stage; the pile shrinks toward stage 1 as it
-    // depletes. Depleted nodes are not rendered at all.
     int goldStoneStage(int remaining, int total) {
         if (total <= 0) return 1;
         const float ratio = static_cast<float>(remaining) / static_cast<float>(total);
@@ -54,26 +49,26 @@ namespace rts::core::viewmodel {
                 });
         }
 
-        // 스프라이트
+        // 스프라이트 (data/animations.json에서 해석)
+        std::string spriteKey;
         if (isGold) {
             const int stage = goldStoneStage(m_node->remaining(), m_node->totalAmount());
-            out.emplace(core::render::RenderLayer::World, 5,
-                core::render::DrawSprite{
-                    .x = pos.x - 32.f, .y = pos.y - 48.f,
-                    .w = 64.f,         .h = 64.f,
-                    .textureId = kGoldStoneHighlightBase + (stage - 1),
-                    .sourceX = 0, .sourceY = 0,
-                    .sourceW = kGoldStoneFrame, .sourceH = kGoldStoneFrame,
-                    .frameCount = kGoldStoneFrameCount,
-                    .framesPerSecond = kGoldStoneFps
-                });
+            spriteKey = "resource.gold." + std::to_string(stage);
         } else {
+            spriteKey = "resource.wood";
+        }
+        if (const auto* clip = core::data::DataRegistry::global().sprite(spriteKey)) {
             out.emplace(core::render::RenderLayer::World, 5,
                 core::render::DrawSprite{
-                    .x = pos.x - 32.f, .y = pos.y - 48.f,
-                    .w = 64.f,         .h = 64.f,
-                    .textureId = kWoodTextureId,
-                    .frameCount = 1, .framesPerSecond = 0.f
+                    .x = pos.x - clip->anchorX, .y = pos.y - clip->anchorY,
+                    .w = clip->displayW,         .h = clip->displayH,
+                    .textureId = 0,
+                    .texturePath = clip->texture,
+                    .sourceX = clip->sourceX, .sourceY = clip->sourceY,
+                    .sourceW = clip->sourceW, .sourceH = clip->sourceH,
+                    .frameCount = clip->frameCount,
+                    .framesPerSecond = clip->fps,
+                    .trimTransparent = clip->trim
                 });
         }
 

@@ -1,5 +1,30 @@
 # Development Log
 
+## 2026-06-08 - 스프라이트/애니메이션 데이터 주도화 (data/animations.json)
+
+### 변경 내용
+- **목표**: 소스 수정·재컴파일 없이 PNG + JSON 편집만으로 스프라이트/애니메이션을 추가·삭제·변경.
+- **SpriteClip** (`include/core/data/SpriteData.hpp`): 텍스처 경로(에셋 루트 상대)·frameCount·fps·source 사각형·displayW/H·anchorX/Y·trim 을 담는 디자인 타임 클립 구조체.
+- **DrawSprite 확장** (`RenderCommand.hpp`): `std::string texturePath` 필드 추가. 비어있지 않으면 렌더러가 경로로 로드, 비어있으면 기존 정수 textureId 폴백(커서/투사체 호환).
+- **DataRegistry 확장**: `data/animations.json` 로드. `sprites`(키→SpriteClip)와 `unitSpriteSets`(유닛 id→스프라이트셋) 파싱. 키 규칙: `unit.<set>.<team>.<action>`, `building.<type>.<team>`, `resource.gold.<1-6>`, `resource.wood`. 접근자 `sprite(key)`/`unitSpriteSet(id)` 추가. 빌트인 시드(`seedSprites`)로 JSON 부재 시에도 렌더 가능, **파일이 읽히면 시드를 비우고 JSON을 권위 소스로 사용**(삭제 반영). 미지/텍스처 누락 경고, 로드 요약에 sprite 수 추가.
+- **뷰모델 데이터화**: UnitViewModel/BuildingViewModel/ResourceNodeViewModel이 하드코딩 클립·텍스처 id 대신 레지스트리에서 키로 클립을 조회해 DrawSprite를 채움(앵커/크기/소스/프레임/fps/trim 모두 데이터). 유닛 액션→키(idle/move/attack/hold), 팀→blue/red, 골드는 잔량 기반 stage(1~6) 키.
+- **렌더러 경로 로더**: `tinySwordsTextureByPath(relativePath)` 추가(경로 키 캐시, 미스도 캐시). `spriteTextureFor(DrawSprite)`가 texturePath 우선·textureId 폴백. DrawSprite 그리기와 HUD 선택 미리보기 양쪽에 적용. 레거시 id→경로 switch는 커서/폴백용으로 유지.
+- **데이터 파일**: `data/animations.json` 신설(유닛 14·건물 4·자원 7 = 25 클립).
+
+### 검증
+- 빌드 성공(58/58). `RTS.exe` 실행 — `[DataRegistry] loaded 4 units, 2 buildings, 2 resources, 25 sprites` 출력, stderr 경고 없음, 크래시 없음.
+- 디버깅: `.items()`를 임시 json에 직접 호출해 dangling 참조로 `type_error(302)` 크래시 → 객체를 명명 변수에 바인딩 후 순회로 수정.
+- 한계: 자동화 환경에서 픽셀 단위 시각 확인 불가 → 실제 스프라이트 렌더는 수동 확인 필요. 로드·구동 안정성·로직 경로는 확인.
+
+### 사용법
+- 비주얼 변경: `data/animations.json`에서 해당 키의 `texture`/`frameCount`/`fps`/`anchorX,Y`/`displayW,H` 수정 후 재실행.
+- 추가: PNG를 에셋 루트에 두고 새 키 추가(예: 새 팀/액션). 삭제: 키 제거(시드 폴백은 파일이 읽히면 무시됨).
+- 한계: 새 유닛/건물 enum 자체 추가는 여전히 코드 필요(비주얼만 데이터 주도). weaponType 등과 동일하게 enum은 코드 개념.
+
+### Follow-up
+- 커서/월드 타일셋도 경로/데이터 주도로 통일(현재 커서는 id 유지).
+- 방향별(8-dir) 시트, 액션별 anchor 차이 등 확장 시 키/스키마 보강.
+
 ## 2026-06-08 - Epic 1.2 마무리: UnitStaticData / BuildingStaticData 필드 확장 (1.2.1 / 1.2.2)
 
 ### 변경 내용
