@@ -48,7 +48,9 @@ namespace rts::core::data {
         };
     }
 
-    inline BuildingStaticData buildingStaticDataFor(const ::rts::core::model::BuildingType type) {
+    // Built-in fallback table used to seed the DataRegistry and as a safety net
+    // when no JSON override exists for a type.
+    inline BuildingStaticData defaultBuildingStaticDataFor(const ::rts::core::model::BuildingType type) {
         switch (type) {
             case ::rts::core::model::BuildingType::TownHall:
                 return townHallStaticData();
@@ -57,6 +59,10 @@ namespace rts::core::data {
         }
         return barracksStaticData();
     }
+
+    // Registry-backed lookup (data/buildings.json overrides the defaults).
+    // Defined in DataRegistry.cpp.
+    BuildingStaticData buildingStaticDataFor(::rts::core::model::BuildingType type);
 }
 
 namespace rts::data {

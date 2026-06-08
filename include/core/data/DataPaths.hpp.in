@@ -1,0 +1,7 @@
+#pragma once
+
+namespace rts::core::data {
+    // Absolute path to the source-tree data/ directory, injected at configure
+    // time so the executable locates JSON data regardless of working directory.
+    inline constexpr const char* DataRoot = R"RTS(@RTS_DATA_ROOT@)RTS";
+}

@@ -13,6 +13,7 @@
 #include <core/model/ResourceNode.hpp>
 #include <core/data/UnitStaticData.hpp>
 #include <core/data/BuildingStaticData.hpp>
+#include <core/data/ResourceStaticData.hpp>
 #include <core/world/GameWorld.hpp>
 
 namespace {
@@ -134,17 +135,27 @@ namespace rts::core::manager {
             spawnUnitRow(core::model::TeamId::Enemy, 1200.f, 1000.f);
 
             // --- Resources (left edge, clear of the base footprints) ---
+            const auto goldData = core::data::resourceStaticDataFor(
+                core::model::ResourceNode::ResourceType::Gold);
             auto goldMine = std::make_shared<core::model::ResourceNode>(
                 core::model::Vector2D{120.f, 620.f},
-                core::model::ResourceNode::ResourceType::Gold,
-                5000
+                goldData.resourceType,
+                goldData.initialAmount,
+                goldData.gatherAmountPerTrip,
+                goldData.gatherDurationSeconds,
+                goldData.maxGatherers
             );
             m_world.addElement(goldMine);
 
+            const auto woodData = core::data::resourceStaticDataFor(
+                core::model::ResourceNode::ResourceType::Wood);
             auto woodForest = std::make_shared<core::model::ResourceNode>(
                 core::model::Vector2D{120.f, 760.f},
-                core::model::ResourceNode::ResourceType::Wood,
-                2000
+                woodData.resourceType,
+                woodData.initialAmount,
+                woodData.gatherAmountPerTrip,
+                woodData.gatherDurationSeconds,
+                woodData.maxGatherers
             );
             m_world.addElement(woodForest);
         }

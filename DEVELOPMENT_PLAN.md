@@ -847,7 +847,7 @@ Vertical Slice 단계에서는 Wave Attack AI만 먼저 구현해도 충분합�
 
 ## Epic 1.2 데이터 주도 설계 확장
 
-현재 상태: `[100% 기초]`
+현재 상태: `[1.2.3/1.2.4 완료 · 1.2.1/1.2.2 일부 필드 잔여]`
 
 ---
 
@@ -898,11 +898,11 @@ Vertical Slice 단계에서는 Wave Attack AI만 먼저 구현해도 충분합�
 #### Task
 
 ```text
-[ ] resourceType
-[ ] initialAmount
-[ ] gatherAmountPerTrip
-[ ] gatherDurationTick
-[ ] maxGatherers
+[x] resourceType
+[x] initialAmount
+[x] gatherAmountPerTrip
+[x] gatherDurationTick (gatherDurationSeconds로 구현 — ResourceNode 런타임 단위와 정렬)
+[x] maxGatherers
 ```
 
 ---
@@ -912,18 +912,19 @@ Vertical Slice 단계에서는 Wave Attack AI만 먼저 구현해도 충분합�
 #### Task
 
 ```text
-[ ] UnitTypeId 관리
-[ ] BuildingTypeId 관리
-[ ] ResourceTypeId 관리
-[ ] 문자열 ID → 내부 ID 변환
-[ ] 데이터 로드 실패 처리
-[ ] 데이터 검증 로그 출력
+[x] UnitTypeId 관리
+[x] BuildingTypeId 관리
+[x] ResourceTypeId 관리
+[x] 문자열 ID → 내부 ID 변환 (unitById/buildingById/resourceById)
+[x] 데이터 로드 실패 처리 (파일 누락·파싱 오류 시 빌트인 기본값 유지 + 로그)
+[x] 데이터 검증 로그 출력 (미지 ID·범위 위반 경고, 로드 요약 출력)
 ```
 
 #### 완료 기준
 
 ```text
-- 유닛/건물/자원 데이터가 코드 수정 없이 변경 가능하다.
+- 유닛/건물/자원 데이터가 코드 수정 없이 변경 가능하다. ✅
+  data/units.json·buildings.json·resources.json 편집 → 재실행만으로 반영.
 ```
 
 ---

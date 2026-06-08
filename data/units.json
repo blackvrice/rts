@@ -1,0 +1,56 @@
+{
+  "units": [
+    {
+      "id": "warrior",
+      "displayName": "Warrior",
+      "maxHp": 120.0,
+      "attackDamage": 12.0,
+      "attackRange": 80.0,
+      "attackCooldown": 0.75,
+      "moveSpeed": 120.0,
+      "armor": 1.0,
+      "goldCost": 75,
+      "woodCost": 0,
+      "foodCost": 1
+    },
+    {
+      "id": "archer",
+      "displayName": "Archer",
+      "maxHp": 80.0,
+      "attackDamage": 9.0,
+      "attackRange": 180.0,
+      "attackCooldown": 0.9,
+      "moveSpeed": 115.0,
+      "armor": 0.0,
+      "goldCost": 60,
+      "woodCost": 35,
+      "foodCost": 1
+    },
+    {
+      "id": "worker",
+      "displayName": "Worker",
+      "maxHp": 70.0,
+      "attackDamage": 4.0,
+      "attackRange": 48.0,
+      "attackCooldown": 1.0,
+      "moveSpeed": 110.0,
+      "armor": 0.0,
+      "goldCost": 50,
+      "woodCost": 0,
+      "foodCost": 1
+    },
+    {
+      "id": "marine",
+      "displayName": "Marine",
+      "maxHp": 80.0,
+      "attackDamage": 8.0,
+      "attackRange": 150.0,
+      "attackCooldown": 0.9,
+      "moveSpeed": 115.0,
+      "armor": 0.0,
+      "goldCost": 50,
+      "woodCost": 0,
+      "foodCost": 1
+    }
+  ]
+}

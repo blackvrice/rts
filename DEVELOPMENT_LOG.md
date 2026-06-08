@@ -1,5 +1,31 @@
 # Development Log
 
+## 2026-06-08 - Epic 1.2: DataRegistry + JSON 외부 데이터 로딩 (1.2.3 / 1.2.4)
+
+### 변경 내용
+- **JSON 라이브러리**: nlohmann/json 3.12.0 단일 헤더를 `external/json/nlohmann/json.hpp`로 벤더링. `CMakeLists.txt`의 `RTS` include 경로에 `external/json` 추가.
+- **데이터 경로 주입**: `include/core/data/DataPaths.hpp.in` 추가 → `configure_file`로 `RTS_DATA_ROOT`(= `${CMAKE_SOURCE_DIR}/data`)를 절대경로 상수 `data::DataRoot`로 생성. 실행 디렉터리와 무관하게 JSON을 찾음.
+- **ResourceStaticData** (`include/core/data/ResourceStaticData.hpp`, Feature 1.2.3): `resourceType`/`displayName`/`initialAmount`/`gatherAmountPerTrip`/`gatherDurationSeconds`/`maxGatherers`. Gold(5000)·Wood(2000) 프리셋. 타입 id는 기존 `ResourceNode::ResourceType` 재사용.
+- **DataRegistry** (`include/core/data/DataRegistry.hpp`, `src/core/data/DataRegistry.cpp`, Feature 1.2.4):
+  - 프로세스 전역 싱글턴 `DataRegistry::global()` — 생성 시 빌트인 기본값으로 시드.
+  - `loadFromDirectory(dir)`로 `units.json`/`buildings.json`/`resources.json` 로드. 각 엔트리는 시드 기본값 위에 머지되어 부분 정의도 유효.
+  - 문자열 ID → 내부 enum id 변환: `unitById`/`buildingById`/`resourceById`.
+  - 로드 실패 처리: 파일 누락·파싱 오류 시 해당 파일 건너뛰고 빌트인 기본값 유지(stderr 경고).
+  - 데이터 검증: 미지 ID·비양수 필드(maxHp/footprint/initialAmount) 경고 후 엔트리 스킵, 마지막에 로드 요약 1줄 출력.
+- **lookup 함수 레지스트리 위임**: `UnitStaticData.hpp`/`BuildingStaticData.hpp`/`ResourceStaticData.hpp`의 기존 인라인 switch를 `default*StaticDataFor()`(빌트인 시드)로 분리하고, `unitStaticDataFor`/`buildingStaticDataFor`/`resourceStaticDataFor`는 `DataRegistry.cpp`에서 레지스트리를 조회하도록 비인라인 정의로 전환. 모든 기존 호출부는 변경 없이 JSON 값을 사용.
+- **시작 시 로드**: `GameApp` 생성자 최상단에서 씬/유닛/건물 생성 전에 `DataRegistry::global().loadFromDirectory(data::DataRoot)` 호출.
+- **자원 노드 데이터 주도화**: `GameLogicManager`의 골드/우드 노드 스폰을 `resourceStaticDataFor()` 값(initialAmount·gatherAmount·gatherDuration·maxGatherers)으로 생성하도록 변경.
+- **데이터 파일**: `data/units.json`(4종)·`data/buildings.json`(2종)·`data/resources.json`(2종) 추가.
+
+### 검증
+- `cmake.exe --build cmake-build-debug --target RTS` 빌드 성공(58/58, 링크 완료).
+- `RTS.exe` 실행 — stdout에 `[DataRegistry] loaded 4 units, 2 buildings, 2 resources from D:/Game/RTS/data` 출력, stderr 경고 없음. 정상 구동 확인.
+- 완료 기준 충족: data/*.json 편집 → 재실행만으로 유닛/건물/자원 스탯 반영(코드 수정 불필요).
+
+### Follow-up
+- Feature 1.2.1 잔여 필드(sightRange·collisionRadius·buildTime·weaponType·armorType)와 1.2.2 잔여 필드(produces·providesSupply·isDropOff·requirements)를 struct·JSON·소비 코드에 확장.
+- `Unit()` 기본 생성자는 여전히 `warriorUnitStaticData()` 직접 사용 — 필요 시 레지스트리 경유로 통일.
+
 ## 2026-06-08 - 직접 공격 타겟 사망 시 재탐색
 
 ### 변경 내용

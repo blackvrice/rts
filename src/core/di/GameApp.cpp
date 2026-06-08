@@ -4,6 +4,8 @@
 // src/core/GameApp.cpp
 #include "core/app/GameApp.hpp"
 
+#include "core/data/DataPaths.hpp"
+#include "core/data/DataRegistry.hpp"
 #include "core/command/CommandRouterBase.hpp"
 #include "core/command/LogicCommandBus.hpp"
 #include "core/command/UICommandBus.hpp"
@@ -31,6 +33,10 @@
 namespace rts::core {
     GameApp::GameApp(DIContainer &di)
         : m_di(di) {
+        // Load design-time data before any scene/unit/building is constructed so
+        // every lookup sees the JSON-driven values (falls back to built-ins).
+        data::DataRegistry::global().loadFromDirectory(data::DataRoot);
+
         di.registerSingleton<command::LogicCommandBus>(
             [](auto &) { return std::make_shared<command::LogicCommandBus>(); }
         );

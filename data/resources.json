@@ -1,0 +1,20 @@
+{
+  "resources": [
+    {
+      "id": "gold",
+      "displayName": "Gold Mine",
+      "initialAmount": 5000,
+      "gatherAmountPerTrip": 10,
+      "gatherDurationSeconds": 1.5,
+      "maxGatherers": 3
+    },
+    {
+      "id": "wood",
+      "displayName": "Forest",
+      "initialAmount": 2000,
+      "gatherAmountPerTrip": 10,
+      "gatherDurationSeconds": 1.5,
+      "maxGatherers": 3
+    }
+  ]
+}

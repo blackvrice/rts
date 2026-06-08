@@ -83,7 +83,9 @@ namespace rts::core::data {
         return data;
     }
 
-    inline UnitStaticData unitStaticDataFor(const ::rts::UnitType type) {
+    // Built-in fallback table used to seed the DataRegistry and as a safety net
+    // when no JSON override exists for a type.
+    inline UnitStaticData defaultUnitStaticDataFor(const ::rts::UnitType type) {
         switch (type) {
             case ::rts::UnitType::Marine:
                 return marineUnitStaticData();
@@ -97,6 +99,10 @@ namespace rts::core::data {
 
         return warriorUnitStaticData();
     }
+
+    // Registry-backed lookup (data/units.json overrides the defaults). Defined
+    // in DataRegistry.cpp.
+    UnitStaticData unitStaticDataFor(::rts::UnitType type);
 }
 
 namespace rts::data {

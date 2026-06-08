@@ -13,6 +13,9 @@ endif()
 # SFML Root Directory 설정
 set(SFML_DIR "D:/Libs/SFML-3.0.2/lib/cmake/SFML")
 set(RTS_TINY_SWORDS_ROOT "${CMAKE_SOURCE_DIR}/Tiny Swords (Free Pack)/Tiny Swords (Free Pack)")
+# Data files (JSON) consumed at runtime by DataRegistry. Resolved via a
+# configured absolute path so the executable finds them regardless of CWD.
+set(RTS_DATA_ROOT "${CMAKE_SOURCE_DIR}/data")
 
 find_package(SFML 3 REQUIRED COMPONENTS System Window Graphics)
 find_package(OpenGL REQUIRED)
@@ -20,6 +23,12 @@ find_package(OpenGL REQUIRED)
 configure_file(
         "${CMAKE_SOURCE_DIR}/include/platform/sfml/SfmlAssetPaths.hpp.in"
         "${CMAKE_BINARY_DIR}/generated/platform/sfml/SfmlAssetPaths.hpp"
+        @ONLY
+)
+
+configure_file(
+        "${CMAKE_SOURCE_DIR}/include/core/data/DataPaths.hpp.in"
+        "${CMAKE_BINARY_DIR}/generated/core/data/DataPaths.hpp"
         @ONLY
 )
 
@@ -94,6 +103,10 @@ add_executable(RTS
         include/core/entity/UnitEntity.hpp
         include/core/data/UnitStaticData.hpp
         include/core/data/BuildingStaticData.hpp
+        include/core/data/ResourceStaticData.hpp
+        include/core/data/DataRegistry.hpp
+        include/core/data/DataPaths.hpp.in
+        src/core/data/DataRegistry.cpp
         include/core/entity/BuildingEntity.hpp
         include/core/factory/BuildingFactory.hpp
         include/core/data/TileStaticData.hpp
@@ -211,6 +224,7 @@ endif()
 target_include_directories(RTS PRIVATE
         include
         "${CMAKE_BINARY_DIR}/generated"
+        external/json
 )
 
 target_link_libraries(RTS PRIVATE
