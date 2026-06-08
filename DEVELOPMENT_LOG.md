@@ -1,5 +1,23 @@
 # Development Log
 
+## 2026-06-08 - 직접 공격 타겟 사망 시 재탐색
+
+### 변경 내용
+- `Unit`에 직접 공격 타겟이 사망했을 때만 남는 `attackRetarget` 요청 상태를 추가.
+- AttackMove/Patrol은 기존 검색/복귀 흐름을 그대로 사용하고, 직접 Attack 명령만 타겟 사망 후 주변 적을 재탐색하도록 분리.
+- 이동, 정지, 보류, 채집, 건설, 새 공격 명령 등 명시적인 명령 전환 시 오래된 재탐색 요청을 해제하도록 정리.
+- `GameLogicManager`가 재탐색 요청이 있는 Idle 유닛을 검사해 가까운 적을 찾으면 즉시 새 직접 공격을 발행하고, 없으면 요청을 해제.
+- `DEVELOPMENT_PLAN.md`의 기본 전투/Combat 안정화 항목에서 타겟 사망 재탐색을 완료 처리.
+
+### 동작 결과
+- 직접 공격 중 타겟이 죽어도 주변 적이 있으면 유닛이 멈추지 않고 다음 적을 이어서 공격.
+- 주변에 공격 가능한 적이 없으면 기존처럼 Idle 상태로 남음.
+- AttackMove, Patrol, Hold의 별도 타겟 탐색 정책은 유지.
+
+### 검증
+- `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j1` 빌드 성공.
+- `cmake-build-debug\RTS.exe`를 5초 동안 실행했고 조기 종료 없이 유지되는 것을 확인한 뒤 종료.
+
 ## 2026-06-07 - Formation 기본 grid-slot 이동 적용
 
 ### 변경 내용

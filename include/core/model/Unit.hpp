@@ -88,6 +88,8 @@ namespace rts::core::model {
         bool isPatrolActive() const noexcept;
         bool isPatrolSearching() const noexcept;
         bool needsPatrolResume() const noexcept;
+        bool needsAttackRetarget() const noexcept;
+        void clearAttackRetarget() noexcept;
         const Vector2D& attackMoveTarget() const noexcept;
         const Vector2D& patrolDestination() const noexcept;
         ResourceNode::ResourceType targetGatherType() const noexcept;
@@ -188,6 +190,7 @@ namespace rts::core::model {
         bool m_attackMoveActive { false };
         bool m_patrolActive { false };
         bool m_patrolHeadingToEnd { true };
+        bool m_attackRetargetRequested { false };
 
         ::rts::UnitType m_unitType { ::rts::UnitType::Warrior };
         WorkerGatherState m_gatherState {};

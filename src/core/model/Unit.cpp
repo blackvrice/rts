@@ -69,6 +69,7 @@ namespace rts::core::model {
 
     void Unit::moveTo(const Vector2D& target) {
         if (m_action == ActionType::Dead) return;
+        m_attackRetargetRequested = false;
         clearGatherState(true);
         clearAttackMoveOrder();
         clearPatrolOrder();
@@ -90,6 +91,7 @@ namespace rts::core::model {
         if (target->getAction() == ActionType::Dead) return;
         if (target->getTeamId() == m_teamId && m_teamId != TeamId::Neutral) return;
 
+        m_attackRetargetRequested = false;
         const bool keepAttackMove = preserveAttackMove && m_attackMoveActive;
         const bool keepPatrol = preservePatrol && m_patrolActive;
         clearGatherState(true);
@@ -114,6 +116,7 @@ namespace rts::core::model {
 
     void Unit::attackMove(const Vector2D& target) {
         if (m_action == ActionType::Dead) return;
+        m_attackRetargetRequested = false;
         clearGatherState(true);
         clearPatrolOrder();
         m_attackMoveActive = true;
@@ -128,6 +131,7 @@ namespace rts::core::model {
 
     void Unit::patrol(const Vector2D& a, const Vector2D& b) {
         if (m_action == ActionType::Dead) return;
+        m_attackRetargetRequested = false;
         clearGatherState(true);
         clearAttackMoveOrder();
         m_patrolActive = true;
@@ -153,6 +157,7 @@ namespace rts::core::model {
             return;
         }
 
+        m_attackRetargetRequested = false;
         clearGatherState(true);
         clearAttackMoveOrder();
         clearPatrolOrder();
@@ -307,6 +312,9 @@ namespace rts::core::model {
 
         if (!m_attackTarget || m_attackTarget->getAction() == ActionType::Dead) {
             m_attackTarget = nullptr;
+            // Direct attacks ask the logic layer for a nearby replacement target;
+            // attack-move and patrol keep using their existing search/resume flow.
+            m_attackRetargetRequested = !m_attackMoveActive && !m_patrolActive;
             m_action = ActionType::Idle;
             m_animationAction = ActionType::Idle;
             return;
@@ -362,6 +370,7 @@ namespace rts::core::model {
             m_action = ActionType::Dead;
             m_animationAction = ActionType::Dead;
             m_attackTarget = nullptr;
+            m_attackRetargetRequested = false;
             clearAttackMoveOrder();
             clearPatrolOrder();
             clearOrderQueue();
@@ -470,6 +479,7 @@ namespace rts::core::model {
 
     void Unit::idle() {
         if (m_action == ActionType::Dead) return;
+        m_attackRetargetRequested = false;
         clearGatherState(true);
         clearAttackMoveOrder();
         clearPatrolOrder();
@@ -489,6 +499,7 @@ namespace rts::core::model {
 
     void Unit::holdPosition() {
         if (m_action == ActionType::Dead) return;
+        m_attackRetargetRequested = false;
         clearGatherState(true);
         clearAttackMoveOrder();
         clearPatrolOrder();
@@ -520,6 +531,7 @@ namespace rts::core::model {
                                  const Vector2D& finalWorldTarget)
     {
         if (m_action == ActionType::Dead) return;
+        m_attackRetargetRequested = false;
         clearGatherState(true);
         m_gridPath.clear();
         // PathManager returns the start cell too; movement should begin at the next cell.
@@ -538,6 +550,7 @@ namespace rts::core::model {
                                            const Vector2D& finalWorldTarget)
     {
         if (m_action == ActionType::Dead) return;
+        m_attackRetargetRequested = false;
         clearGatherState(true);
         m_gridPath.clear();
         for (std::size_t i = 1; i < gridPath.size(); ++i) {
@@ -559,6 +572,7 @@ namespace rts::core::model {
                                       const Vector2D& to)
     {
         if (m_action == ActionType::Dead) return;
+        m_attackRetargetRequested = false;
         clearGatherState(true);
         clearAttackMoveOrder();
         m_gridPath.clear();
@@ -582,6 +596,7 @@ namespace rts::core::model {
                                        const Vector2D& finalWorldTarget)
     {
         if (m_action == ActionType::Dead || !m_patrolActive) return;
+        m_attackRetargetRequested = false;
         clearGatherState(true);
         m_gridPath.clear();
         for (std::size_t i = 1; i < gridPath.size(); ++i) {
@@ -626,6 +641,7 @@ namespace rts::core::model {
 
     void Unit::stop() {
         if (m_action == ActionType::Dead) return;
+        m_attackRetargetRequested = false;
         clearGatherState(true);
         clearAttackMoveOrder();
         clearPatrolOrder();
@@ -646,6 +662,7 @@ namespace rts::core::model {
     void Unit::gather(ResourceNode* resource, Building* dropOff) {
         if (m_action == ActionType::Dead) return;
 
+        m_attackRetargetRequested = false;
         clearGatherState(true);
         clearAttackMoveOrder();
         clearPatrolOrder();
@@ -841,6 +858,7 @@ namespace rts::core::model {
 
     void Unit::buildAt(Building* site) {
         if (m_action == ActionType::Dead) return;
+        m_attackRetargetRequested = false;
         clearGatherState(true);
         clearAttackMoveOrder();
         clearPatrolOrder();
@@ -933,6 +951,17 @@ namespace rts::core::model {
 
     bool Unit::needsPatrolResume() const noexcept {
         return m_patrolActive && m_action == ActionType::Idle;
+    }
+
+    bool Unit::needsAttackRetarget() const noexcept {
+        return m_attackRetargetRequested &&
+               m_action == ActionType::Idle &&
+               !m_attackMoveActive &&
+               !m_patrolActive;
+    }
+
+    void Unit::clearAttackRetarget() noexcept {
+        m_attackRetargetRequested = false;
     }
 
     const Vector2D& Unit::attackMoveTarget() const noexcept {

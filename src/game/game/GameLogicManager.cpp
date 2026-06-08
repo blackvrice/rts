@@ -235,6 +235,7 @@ namespace rts::core::manager {
     void GameLogicManager::tick(float dt) {
         auto lock = m_world.acquireWriteLock();
         m_movement.update(m_world, dt, m_collision);
+        handleAttackRetargets();
         handleAttackMoveOrders();
         handlePatrolOrders();
         handleHoldPositionOrders();
@@ -495,6 +496,23 @@ namespace rts::core::manager {
                 m_movement.issueAttackMove(m_world, *unit, unit->attackMoveTarget());
             } else if (unit->getAction() == model::ActionType::Idle) {
                 unit->stop();
+            }
+        }
+    }
+
+    void GameLogicManager::handleAttackRetargets() {
+        for (const auto& element : m_world.getElements()) {
+            auto unit = std::dynamic_pointer_cast<model::Unit>(element);
+            if (!unit ||
+                unit->getAction() == model::ActionType::Dead ||
+                !unit->needsAttackRetarget()) {
+                continue;
+            }
+
+            if (auto target = findClosestAttackMoveTarget(*unit)) {
+                unit->attack(target.get());
+            } else {
+                unit->clearAttackRetarget();
             }
         }
     }

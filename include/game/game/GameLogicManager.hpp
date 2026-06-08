@@ -78,6 +78,7 @@ namespace rts::core::manager {
         void handleGatherRedirects();
         std::shared_ptr<model::IGameElement> findClosestAttackMoveTarget(const model::Unit& unit) const;
         void handleAttackMoveOrders();
+        void handleAttackRetargets();
         std::shared_ptr<model::IGameElement> findClosestHoldTarget(const model::Unit& unit) const;
         void handleHoldPositionOrders();
         std::shared_ptr<model::IGameElement> findClosestPatrolTarget(const model::Unit& unit) const;
