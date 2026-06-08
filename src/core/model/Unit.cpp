@@ -80,7 +80,7 @@ namespace rts::core::model {
         clearPatrolOrder();
         m_action = ActionType::Move;
         m_animationAction = ActionType::Move;
-        m_attackTarget = nullptr;
+        m_attackTargetId = ecs::InvalidEntityId;
         m_moveTarget = target;
         m_finalTargetWorld = target;
         m_gridPath.clear();
@@ -88,6 +88,17 @@ namespace rts::core::model {
 
     void Unit::attack(IGameElement* target) {
         beginAttack(target, false);
+    }
+
+    void Unit::setEntityResolver(std::function<IGameElement*(ecs::EntityId)> resolver) {
+        m_resolveEntity = std::move(resolver);
+    }
+
+    IGameElement* Unit::attackTarget() const {
+        if (!m_resolveEntity || m_attackTargetId == ecs::InvalidEntityId) {
+            return nullptr;
+        }
+        return m_resolveEntity(m_attackTargetId);
     }
 
     void Unit::beginAttack(IGameElement* target, bool preserveAttackMove, bool preservePatrol) {
@@ -105,7 +116,7 @@ namespace rts::core::model {
             clearPatrolOrder();
         }
         m_action = ActionType::Attack;
-        m_attackTarget = target;
+        m_attackTargetId = target->entityId();
         m_moveTarget = target->getPosition();
         m_finalTargetWorld = m_moveTarget;
         // The order is attack, but the sprite should run until the weapon is in range.
@@ -128,7 +139,7 @@ namespace rts::core::model {
         m_attackMoveTarget = target;
         m_action = ActionType::Move;
         m_animationAction = ActionType::Move;
-        m_attackTarget = nullptr;
+        m_attackTargetId = ecs::InvalidEntityId;
         m_moveTarget = target;
         m_finalTargetWorld = target;
         m_gridPath.clear();
@@ -146,7 +157,7 @@ namespace rts::core::model {
         m_patrolHeadingToEnd = true;
         m_action = ActionType::Patrol;
         m_animationAction = ActionType::Move;
-        m_attackTarget = nullptr;
+        m_attackTargetId = ecs::InvalidEntityId;
         m_moveTarget = b;
         m_finalTargetWorld = b;
         m_gridPath.clear();
@@ -167,7 +178,7 @@ namespace rts::core::model {
         clearAttackMoveOrder();
         clearPatrolOrder();
         m_action = ActionType::Hold;
-        m_attackTarget = target;
+        m_attackTargetId = target->entityId();
         m_animationAction = ActionType::Attack;
         m_gridPath.clear();
     }
@@ -207,16 +218,17 @@ namespace rts::core::model {
             return;
         }
 
-        if (!m_attackTarget || m_attackTarget->getAction() == ActionType::Dead) {
-            m_attackTarget = nullptr;
+        IGameElement* target = attackTarget();
+        if (!target || target->getAction() == ActionType::Dead) {
+            m_attackTargetId = ecs::InvalidEntityId;
             m_animationAction = ActionType::Hold;
             return;
         }
 
         const float rangeSq = attackRange * attackRange;
-        if (distanceSq(m_attackTarget->getPosition(), m_position) > rangeSq) {
+        if (distanceSq(target->getPosition(), m_position) > rangeSq) {
             // Hold position never chases; targets outside weapon range are released.
-            m_attackTarget = nullptr;
+            m_attackTargetId = ecs::InvalidEntityId;
             m_animationAction = ActionType::Hold;
             return;
         }
@@ -225,7 +237,7 @@ namespace rts::core::model {
         attackTimer -= dt;
         if (attackTimer <= 0.f) {
             attackTimer = attackCooldown;
-            m_attackTarget->takeDamage(attackDamage, this);
+            target->takeDamage(attackDamage, this);
         }
     }
 
@@ -315,8 +327,9 @@ namespace rts::core::model {
         if (m_action != ActionType::Attack)
             return;
 
-        if (!m_attackTarget || m_attackTarget->getAction() == ActionType::Dead) {
-            m_attackTarget = nullptr;
+        IGameElement* target = attackTarget();
+        if (!target || target->getAction() == ActionType::Dead) {
+            m_attackTargetId = ecs::InvalidEntityId;
             // Direct attacks ask the logic layer for a nearby replacement target;
             // attack-move and patrol keep using their existing search/resume flow.
             m_attackRetargetRequested = !m_attackMoveActive && !m_patrolActive;
@@ -325,7 +338,7 @@ namespace rts::core::model {
             return;
         }
 
-        Vector2D targetPos = m_attackTarget->getPosition();
+        Vector2D targetPos = target->getPosition();
         m_moveTarget = targetPos;
         m_finalTargetWorld = targetPos;
 
@@ -358,7 +371,7 @@ namespace rts::core::model {
         attackTimer -= dt;
         if (attackTimer <= 0.f) {
             attackTimer = attackCooldown;
-            m_attackTarget->takeDamage(attackDamage, this);
+            target->takeDamage(attackDamage, this);
         }
     }
 
@@ -374,7 +387,7 @@ namespace rts::core::model {
             m_hp = 0.f;
             m_action = ActionType::Dead;
             m_animationAction = ActionType::Dead;
-            m_attackTarget = nullptr;
+            m_attackTargetId = ecs::InvalidEntityId;
             m_attackRetargetRequested = false;
             clearAttackMoveOrder();
             clearPatrolOrder();
@@ -510,7 +523,7 @@ namespace rts::core::model {
         clearPatrolOrder();
         m_action = ActionType::Idle;
         m_animationAction = ActionType::Idle;
-        m_attackTarget = nullptr;
+        m_attackTargetId = ecs::InvalidEntityId;
         m_gridPath.clear();
     }
 
@@ -530,7 +543,7 @@ namespace rts::core::model {
         clearPatrolOrder();
         m_action = ActionType::Hold;
         m_animationAction = ActionType::Hold;
-        m_attackTarget = nullptr;
+        m_attackTargetId = ecs::InvalidEntityId;
         m_gridPath.clear();
     }
 
@@ -568,7 +581,7 @@ namespace rts::core::model {
         m_moveTarget = finalWorldTarget;
         m_action = ActionType::Move;
         m_animationAction = ActionType::Move;
-        m_attackTarget = nullptr;
+        m_attackTargetId = ecs::InvalidEntityId;
     }
 
     void Unit::setAttackMoveTargetWithPath(const std::vector<path::GridPos>& gridPath,
@@ -588,7 +601,7 @@ namespace rts::core::model {
         m_moveTarget = finalWorldTarget;
         m_action = ActionType::Move;
         m_animationAction = ActionType::Move;
-        m_attackTarget = nullptr;
+        m_attackTargetId = ecs::InvalidEntityId;
     }
 
     void Unit::setPatrolRouteWithPath(const std::vector<path::GridPos>& gridPath,
@@ -614,7 +627,7 @@ namespace rts::core::model {
         m_moveTarget = finalWorldTarget;
         m_action = ActionType::Patrol;
         m_animationAction = ActionType::Move;
-        m_attackTarget = nullptr;
+        m_attackTargetId = ecs::InvalidEntityId;
     }
 
     void Unit::setPatrolTargetWithPath(const std::vector<path::GridPos>& gridPath,
@@ -633,7 +646,7 @@ namespace rts::core::model {
         m_moveTarget = finalWorldTarget;
         m_action = ActionType::Patrol;
         m_animationAction = ActionType::Move;
-        m_attackTarget = nullptr;
+        m_attackTargetId = ecs::InvalidEntityId;
     }
 
     const Vector2D& Unit::finalTargetWorld() const noexcept {
@@ -672,7 +685,7 @@ namespace rts::core::model {
         clearPatrolOrder();
         m_action = ActionType::Idle;
         m_animationAction = ActionType::Idle;
-        m_attackTarget = nullptr;
+        m_attackTargetId = ecs::InvalidEntityId;
         m_gridPath.clear();
     }
 
@@ -704,7 +717,7 @@ namespace rts::core::model {
 
         m_action = ActionType::Gather;
         m_animationAction = ActionType::Move;
-        m_attackTarget = nullptr;
+        m_attackTargetId = ecs::InvalidEntityId;
         m_gridPath.clear();
         m_gatherState = WorkerGatherState {
             .targetResource = resource,
@@ -898,7 +911,7 @@ namespace rts::core::model {
         m_buildTarget = site;
         m_action = ActionType::Build;
         m_animationAction = ActionType::Move;
-        m_attackTarget = nullptr;
+        m_attackTargetId = ecs::InvalidEntityId;
         m_gridPath.clear();
         m_moveTarget = site->getPosition();
         m_finalTargetWorld = m_moveTarget;

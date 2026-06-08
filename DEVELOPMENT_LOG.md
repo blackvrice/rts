@@ -1,5 +1,26 @@
 # Development Log
 
+## 2026-06-08 - Epic 1.3: EntityId 시스템 (generation 기반 핸들 + IsAlive)
+
+### 변경 내용
+- **EntityId** (`include/core/ecs/EntityId.hpp`, 1.3.1): `{uint32 index, uint32 generation}` 핸들. `InvalidEntityId` 센티넬({0xFFFFFFFF,0}), `operator==`(default), `std::hash<EntityId>` 특수화, `isValid()`.
+- **EntityManager** (`include/core/ecs/EntityManager.hpp`, 1.3.2): `create()`/`destroy()`/`isAlive()`/`generation()`/`aliveCount()`. free list로 슬롯 재사용, destroy 시 해당 슬롯 generation 증가 → 재사용 전 만들어진 핸들은 isAlive=false. 헤더 온리.
+- **IGameElement 연결** (1.3.3): `entityId()`/`setEntityId()` + `m_entityId` 멤버, 그리고 월드가 주입하는 `virtual setEntityResolver(std::function<IGameElement*(EntityId)>)`(기본 no-op).
+- **GameWorld**: `EntityManager` + `index→weak_ptr<IGameElement>` 레지스트리 소유. `addElement`가 게임 요소에 EntityId 부여·resolver 주입(생성 위치와 무관하게 전부 커버). `isAlive(EntityId)`(generation 일치 && 살아있음 && Dead 아님), `resolve(EntityId)→shared_ptr`, `pruneDeadEntities()`(Dead 요소의 id 파괴 → 슬롯 회수·generation bump). lock은 호출자 보유 전제(getElements와 동일).
+- **Unit 타겟 핸들화**: `IGameElement* m_attackTarget` → `ecs::EntityId m_attackTargetId` + `m_resolveEntity`. `attackTarget()`가 매 사용 시 resolver로 살아있는 포인터 해석(죽었으면 nullptr). 모든 대입/해제(~20곳)를 핸들 기반으로 교체. 전투 내부 로직·Dead 가드는 그대로 유지.
+- **GameLogicManager::tick**: 매 틱 `m_world.pruneDeadEntities()` 호출 → 이번 틱에 죽은 대상의 핸들이 즉시 무효화.
+
+### 설계 메모
+- 요소는 m_elements에서 erase되지 않으므로(원시 포인터 dangling은 기존에도 없었음) 본 작업의 실익은 **generation 기반 안전 핸들 + IsAlive 검증**과 슬롯 재사용 시 stale 핸들 무효화. 죽은 대상→자동 retarget 동작은 기존(Dead 체크)과 동일하게 보존.
+
+### 검증
+- 빌드 성공(19/19). 실행 6초 — 매 틱 prune·resolver 주입 정상, 크래시/경고 없음, `loaded ... 30 sprites`.
+- 한계: 자동화 환경에서 35초 AI 웨이브 전투를 관찰할 수 없어, EntityId 기반 타겟팅의 인게임 전투 동작은 수동 검증 필요. 빌드/구동 안정성·로직 경로는 확인. EntityManager 로직(create/destroy/isAlive/재사용)은 단순·검토 완료.
+
+### Follow-up (Epic 1.3 잔여)
+- gather/build/dropOff 대상 포인터도 EntityId 핸들로 전환(현재 attack target만 전환).
+- 명령(wire) 대상 EntityId화 — 현재 명령은 클릭 위치 기반 해석. 클릭 시 대상 EntityId를 실어 보내는 방식으로 확장 가능.
+
 ## 2026-06-08 - 스프라이트/애니메이션 데이터 주도화 (data/animations.json)
 
 ### 변경 내용

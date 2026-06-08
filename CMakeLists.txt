@@ -90,6 +90,8 @@ add_executable(RTS
         src/core/di/GameApp.cpp
         include/core/ecs/Entity.hpp
         include/core/ecs/Registry.hpp
+        include/core/ecs/EntityId.hpp
+        include/core/ecs/EntityManager.hpp
         include/core/ui/IUIElement.hpp
         include/core/manager/ILogicManager.hpp
         include/platform/IWindow.hpp

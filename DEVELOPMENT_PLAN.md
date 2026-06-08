@@ -931,7 +931,7 @@ Vertical Slice 단계에서는 Wave Attack AI만 먼저 구현해도 충분합�
 
 ## Epic 1.3 EntityId 시스템
 
-현재 상태: `[30%]`
+현재 상태: `[85% — 1.3.1/1.3.2 완료, 1.3.3 attack target·IsAlive 완료 / command-wire·gather 대상 EntityId화는 후속]`
 
 ---
 
@@ -940,11 +940,11 @@ Vertical Slice 단계에서는 Wave Attack AI만 먼저 구현해도 충분합�
 #### Task
 
 ```text
-[ ] EntityId 구조체 추가
-[ ] InvalidEntityId 정의
-[ ] index/generation 구조 결정
-[ ] 비교 연산자 추가
-[ ] Hash 함수 추가
+[x] EntityId 구조체 추가 (core/ecs/EntityId.hpp)
+[x] InvalidEntityId 정의 ({0xFFFFFFFF,0} 센티넬)
+[x] index/generation 구조 결정 (uint32 index + uint32 generation)
+[x] 비교 연산자 추가 (operator== = default)
+[x] Hash 함수 추가 (std::hash<EntityId> 특수화)
 ```
 
 #### 예시 구조
@@ -964,11 +964,11 @@ struct EntityId
 #### Task
 
 ```text
-[ ] CreateEntity
-[ ] DestroyEntity
-[ ] IsAlive
-[ ] GetGeneration
-[ ] Reuse index with generation increment
+[x] CreateEntity (core/ecs/EntityManager.hpp)
+[x] DestroyEntity
+[x] IsAlive
+[x] GetGeneration
+[x] Reuse index with generation increment (free list + generation bump on destroy)
 ```
 
 ---
@@ -978,17 +978,17 @@ struct EntityId
 #### Task
 
 ```text
-[ ] IGameElement에 EntityId 부여
-[ ] 기존 포인터 참조를 EntityId 참조로 점진 교체
-[ ] Target 포인터를 TargetEntityId로 변경
-[ ] Command 대상도 EntityId 사용
+[x] IGameElement에 EntityId 부여 (GameWorld::addElement가 부여, entityId()/setEntityId())
+[~] 기존 포인터 참조를 EntityId 참조로 점진 교체 (attack target 완료 / gather·build·dropOff 포인터는 후속)
+[x] Target 포인터를 TargetEntityId로 변경 (Unit m_attackTarget → m_attackTargetId + resolver)
+[ ] Command 대상도 EntityId 사용 (현재 명령은 클릭 위치 기반 해석 — wire 레벨 EntityId화는 후속)
 ```
 
 #### 완료 기준
 
 ```text
-- 죽은 유닛을 참조해도 IsAlive로 검증 가능하다.
-- 명령과 타겟팅이 EntityId 기반으로 동작한다.
+- 죽은 유닛을 참조해도 IsAlive로 검증 가능하다. ✅ (GameWorld::isAlive(EntityId) + pruneDeadEntities)
+- 명령과 타겟팅이 EntityId 기반으로 동작한다. (런타임 타겟팅 ✅ EntityId 기반 / 명령 wire는 위치 기반 유지 — 후속)
 ```
 
 ---

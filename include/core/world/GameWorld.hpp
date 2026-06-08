@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "core/ecs/EntityManager.hpp"
 #include "core/model/PlayerResourceState.hpp"
 #include "core/world/GridTransform.hpp"
 
@@ -24,6 +25,7 @@ namespace rts::core::manager {
 
 namespace rts::core::model {
     class IElement;
+    class IGameElement;
 }
 
 namespace rts::core::path {
@@ -63,6 +65,18 @@ namespace rts::core::world {
         const GridTransform& gridTransform() const noexcept;
 
         const std::vector<std::shared_ptr<model::IElement>>& getElements() const;
+
+        // EntityId handle layer. Callers must already hold a world lock (these do
+        // not lock, matching getElements()).
+        // True only while the handle's current occupant is live (generation match)
+        // and not Dead.
+        bool isAlive(ecs::EntityId id) const;
+        // Resolves a handle to its live element, or nullptr if stale/dead.
+        std::shared_ptr<model::IGameElement> resolve(ecs::EntityId id) const;
+        // Destroys EntityIds whose elements have died, so reused slots bump
+        // generation and stale handles stop validating. Call once per logic tick.
+        void pruneDeadEntities();
+
         const model::PlayerResourceState& playerResources(int playerId) const;
         void setPlayerResources(int playerId, const model::PlayerResourceState& resources);
 
@@ -77,6 +91,8 @@ namespace rts::core::world {
     private:
         std::unique_ptr<map::TileMapSoA> m_tileMap;
         std::vector<std::shared_ptr<model::IElement>> m_elements;
+        ecs::EntityManager m_entities;
+        std::unordered_map<std::uint32_t, std::weak_ptr<model::IGameElement>> m_entityByIndex;
         std::unordered_map<int, model::PlayerResourceState> m_playerResources;
 
         std::unique_ptr<GameWorldGridQuery> m_gridQuery;

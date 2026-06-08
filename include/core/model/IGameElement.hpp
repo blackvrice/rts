@@ -3,11 +3,13 @@
 //
 
 #pragma once
+#include <functional>
 #include <memory>
 #include <string>
 #include "IElement.hpp"
 #include "State.hpp"
 #include "Vector2D.hpp"
+#include "core/ecs/EntityId.hpp"
 
 namespace rts::core::model {
     enum class ActionType {
@@ -75,6 +77,16 @@ namespace rts::core::model {
         // 팀
         virtual int getTeamId() const { return TeamId::Neutral; }
         virtual void setTeamId(int) {}
+
+        // 엔티티 핸들 (GameWorld가 addElement 시 부여)
+        ecs::EntityId entityId() const noexcept { return m_entityId; }
+        void setEntityId(const ecs::EntityId id) noexcept { m_entityId = id; }
+        // GameWorld가 주입하는 리졸버. 타겟 EntityId를 살아있는 요소 포인터로
+        // 되돌리는 데 쓰며, 타겟을 갖지 않는 요소는 기본 no-op.
+        virtual void setEntityResolver(std::function<IGameElement*(ecs::EntityId)>) {}
+
+    protected:
+        ecs::EntityId m_entityId { ecs::InvalidEntityId };
     };
 
 }

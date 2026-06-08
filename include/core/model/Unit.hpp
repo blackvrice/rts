@@ -124,6 +124,7 @@ namespace rts::core::model {
 
         int getTeamId() const override;
         void setTeamId(int teamId) override;
+        void setEntityResolver(std::function<IGameElement*(ecs::EntityId)> resolver) override;
 
         void setPath(path::Path p);
         void setMoveTargetWithPath(const std::vector<path::GridPos>& gridPath,
@@ -174,6 +175,9 @@ namespace rts::core::model {
         void clearAttackMoveOrder();
         void clearPatrolOrder();
         void advancePatrolDestination();
+        // Resolves the current attack target EntityId to a live element pointer
+        // (nullptr if it has died or no resolver was injected).
+        IGameElement* attackTarget() const;
 
         std::deque<path::GridPos> m_gridPath; // 다음 노드부터 pop_front
         std::deque<UnitOrder> m_orderQueue;
@@ -191,7 +195,10 @@ namespace rts::core::model {
         Vector2D m_patrolEnd{};
         Vector2D m_patrolDestination{};
 
-        IGameElement* m_attackTarget = nullptr;
+        // Attack target referenced by handle, resolved through m_resolveEntity so
+        // a dead/recycled target stops resolving instead of dangling.
+        ecs::EntityId m_attackTargetId { ecs::InvalidEntityId };
+        std::function<IGameElement*(ecs::EntityId)> m_resolveEntity;
         bool m_attackMoveActive { false };
         bool m_patrolActive { false };
         bool m_patrolHeadingToEnd { true };

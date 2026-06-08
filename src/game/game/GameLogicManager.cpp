@@ -256,6 +256,9 @@ namespace rts::core::manager {
         handleGatherRedirects();
         flushPendingSpawns();
         recomputeSupply();
+        // Destroy EntityIds of units/buildings that died this tick so handles to
+        // them stop validating (and recycled slots bump generation).
+        m_world.pruneDeadEntities();
         updateAI(dt);
         checkVictoryDefeat();
     }

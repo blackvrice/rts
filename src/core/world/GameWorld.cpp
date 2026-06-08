@@ -29,7 +29,55 @@ namespace rts::core::world {
 
     void GameWorld::addElement(const std::shared_ptr<model::IElement>& element) {
         m_elements.push_back(element);
+
+        // Game elements get an EntityId handle and a resolver so they can refer to
+        // targets by id instead of raw pointers.
+        if (auto gameElement = std::dynamic_pointer_cast<model::IGameElement>(element)) {
+            const ecs::EntityId id = m_entities.create();
+            gameElement->setEntityId(id);
+            m_entityByIndex[id.index] = gameElement;
+            gameElement->setEntityResolver(
+                [this](const ecs::EntityId target) -> model::IGameElement* {
+                    return resolve(target).get();
+                });
+        }
+
         onCollisionChanged();
+    }
+
+    bool GameWorld::isAlive(const ecs::EntityId id) const {
+        if (!m_entities.isAlive(id)) {
+            return false;
+        }
+        const auto it = m_entityByIndex.find(id.index);
+        if (it == m_entityByIndex.end()) {
+            return false;
+        }
+        const auto element = it->second.lock();
+        return element && element->getAction() != model::ActionType::Dead;
+    }
+
+    std::shared_ptr<model::IGameElement> GameWorld::resolve(const ecs::EntityId id) const {
+        if (!m_entities.isAlive(id)) {
+            return nullptr;
+        }
+        const auto it = m_entityByIndex.find(id.index);
+        return it == m_entityByIndex.end() ? nullptr : it->second.lock();
+    }
+
+    void GameWorld::pruneDeadEntities() {
+        for (const auto& element : m_elements) {
+            const auto gameElement = std::dynamic_pointer_cast<model::IGameElement>(element);
+            if (!gameElement) {
+                continue;
+            }
+            const ecs::EntityId id = gameElement->entityId();
+            if (m_entities.isAlive(id) &&
+                gameElement->getAction() == model::ActionType::Dead) {
+                m_entities.destroy(id);
+                m_entityByIndex.erase(id.index);
+            }
+        }
     }
 
     int GameWorld::gridWidth() const noexcept {
