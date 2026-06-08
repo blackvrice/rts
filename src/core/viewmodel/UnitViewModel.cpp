@@ -109,7 +109,6 @@ namespace rts::core::viewmodel {
                 .y = pos.y - clip->anchorY,
                 .w = clip->displayW,
                 .h = clip->displayH,
-                .textureId = 0,
                 .texturePath = clip->texture,
                 .sourceX = clip->sourceX,
                 .sourceY = clip->sourceY,

@@ -37,60 +37,8 @@
 
 namespace {
     constexpr int kWorldTileSize = 64;
+    // Fallback tileset path used only when data/animations.json lacks "world.tileset".
     constexpr const char* kWorldTilesetPath = "Terrain/Tileset/Tilemap_color1.png";
-    // Unit texture ids match the layout in UnitViewModel: Blue Warrior 1-4,
-    // Red Warrior 11-14, Blue Pawn 21-23, Red Pawn 31-33.
-    constexpr int kBlueWarriorIdleTextureId = 1;
-    constexpr int kBlueWarriorRunTextureId = 2;
-    constexpr int kBlueWarriorAttackTextureId = 3;
-    constexpr int kBlueWarriorGuardTextureId = 4;
-    constexpr int kRedWarriorIdleTextureId = 11;
-    constexpr int kRedWarriorRunTextureId = 12;
-    constexpr int kRedWarriorAttackTextureId = 13;
-    constexpr int kRedWarriorGuardTextureId = 14;
-    constexpr int kBluePawnIdleTextureId = 21;
-    constexpr int kBluePawnRunTextureId = 22;
-    constexpr int kBluePawnInteractTextureId = 23;
-    constexpr int kRedPawnIdleTextureId = 31;
-    constexpr int kRedPawnRunTextureId = 32;
-    constexpr int kRedPawnInteractTextureId = 33;
-    constexpr int kCursorTextureId = 100;
-    constexpr int kCursor02TextureId = 101;
-    constexpr int kCursor03TextureId = 102;
-    constexpr int kCursor04TextureId = 103;
-    // Resource node texture ids (ResourceNodeViewModel).
-    // Gold Stone highlight piles: stage 1..6 -> 210..215 (each a 6-frame sheet).
-    constexpr int kGoldStoneHighlightFirstTextureId = 210;
-    constexpr int kWoodTextureId = 201;
-    // Building texture ids (BuildingViewModel): Blue 300/301, Red 310/311.
-    constexpr int kBlueTownHallTextureId = 300;
-    constexpr int kBlueBarracksTextureId = 301;
-    constexpr int kRedTownHallTextureId = 310;
-    constexpr int kRedBarracksTextureId = 311;
-
-    constexpr const char* kBlueWarriorIdlePath = "Units/Blue Units/Warrior/Warrior_Idle.png";
-    constexpr const char* kBlueWarriorRunPath = "Units/Blue Units/Warrior/Warrior_Run.png";
-    constexpr const char* kBlueWarriorAttackPath = "Units/Blue Units/Warrior/Warrior_Attack1.png";
-    constexpr const char* kBlueWarriorGuardPath = "Units/Blue Units/Warrior/Warrior_Guard.png";
-    constexpr const char* kRedWarriorIdlePath = "Units/Red Units/Warrior/Warrior_Idle.png";
-    constexpr const char* kRedWarriorRunPath = "Units/Red Units/Warrior/Warrior_Run.png";
-    constexpr const char* kRedWarriorAttackPath = "Units/Red Units/Warrior/Warrior_Attack1.png";
-    constexpr const char* kRedWarriorGuardPath = "Units/Red Units/Warrior/Warrior_Guard.png";
-    constexpr const char* kBluePawnIdlePath = "Units/Blue Units/Pawn/Pawn_Idle.png";
-    constexpr const char* kBluePawnRunPath = "Units/Blue Units/Pawn/Pawn_Run.png";
-    constexpr const char* kBluePawnInteractPath = "Units/Blue Units/Pawn/Pawn_Interact Hammer.png";
-    constexpr const char* kRedPawnIdlePath = "Units/Red Units/Pawn/Pawn_Idle.png";
-    constexpr const char* kRedPawnRunPath = "Units/Red Units/Pawn/Pawn_Run.png";
-    constexpr const char* kRedPawnInteractPath = "Units/Red Units/Pawn/Pawn_Interact Hammer.png";
-    constexpr const char* kWoodPath = "Terrain/Resources/Wood/Wood Resource/Wood Resource.png";
-    constexpr const char* kBlueTownHallPath = "Buildings/Blue Buildings/Castle.png";
-    constexpr const char* kBlueBarracksPath = "Buildings/Blue Buildings/Barracks.png";
-    constexpr const char* kRedTownHallPath = "Buildings/Red Buildings/Castle.png";
-    constexpr const char* kRedBarracksPath = "Buildings/Red Buildings/Barracks.png";
-    constexpr const char* kCursorPath = "UI Elements/UI Elements/Cursors/Cursor_01.png";
-    constexpr const char* kCursor02Path = "UI Elements/UI Elements/Cursors/Cursor_02.png";
-    constexpr const char* kCursor03Path = "UI Elements/UI Elements/Cursors/Cursor_03.png";
-    constexpr const char* kCursor04Path = "UI Elements/UI Elements/Cursors/Cursor_04.png";
 
     struct SpriteTrimCacheKey {
         const sf::Texture* texture;
@@ -293,116 +241,8 @@ namespace {
         return cursorKey;
     }
 
-    const sf::Texture* tinySwordsSpriteTexture(const int textureId) {
-        static std::unordered_map<int, std::unique_ptr<sf::Texture>> textures;
-
-        if (const auto it = textures.find(textureId); it != textures.end()) {
-            return it->second.get();
-        }
-
-        const char* relativePath = nullptr;
-        switch (textureId) {
-            case kBlueWarriorIdleTextureId:
-                relativePath = kBlueWarriorIdlePath;
-                break;
-            case kBlueWarriorRunTextureId:
-                relativePath = kBlueWarriorRunPath;
-                break;
-            case kBlueWarriorAttackTextureId:
-                relativePath = kBlueWarriorAttackPath;
-                break;
-            case kBlueWarriorGuardTextureId:
-                relativePath = kBlueWarriorGuardPath;
-                break;
-            case kRedWarriorIdleTextureId:
-                relativePath = kRedWarriorIdlePath;
-                break;
-            case kRedWarriorRunTextureId:
-                relativePath = kRedWarriorRunPath;
-                break;
-            case kRedWarriorAttackTextureId:
-                relativePath = kRedWarriorAttackPath;
-                break;
-            case kRedWarriorGuardTextureId:
-                relativePath = kRedWarriorGuardPath;
-                break;
-            case kBluePawnIdleTextureId:
-                relativePath = kBluePawnIdlePath;
-                break;
-            case kBluePawnRunTextureId:
-                relativePath = kBluePawnRunPath;
-                break;
-            case kBluePawnInteractTextureId:
-                relativePath = kBluePawnInteractPath;
-                break;
-            case kRedPawnIdleTextureId:
-                relativePath = kRedPawnIdlePath;
-                break;
-            case kRedPawnRunTextureId:
-                relativePath = kRedPawnRunPath;
-                break;
-            case kRedPawnInteractTextureId:
-                relativePath = kRedPawnInteractPath;
-                break;
-            case 210: case 211: case 212: case 213: case 214: case 215: {
-                static constexpr const char* kGoldStoneHighlightPaths[] = {
-                    "Terrain/Resources/Gold/Gold Stones/Gold Stone 1_Highlight.png",
-                    "Terrain/Resources/Gold/Gold Stones/Gold Stone 2_Highlight.png",
-                    "Terrain/Resources/Gold/Gold Stones/Gold Stone 3_Highlight.png",
-                    "Terrain/Resources/Gold/Gold Stones/Gold Stone 4_Highlight.png",
-                    "Terrain/Resources/Gold/Gold Stones/Gold Stone 5_Highlight.png",
-                    "Terrain/Resources/Gold/Gold Stones/Gold Stone 6_Highlight.png"
-                };
-                relativePath = kGoldStoneHighlightPaths[textureId - kGoldStoneHighlightFirstTextureId];
-                break;
-            }
-            case kWoodTextureId:
-                relativePath = kWoodPath;
-                break;
-            case kBlueTownHallTextureId:
-                relativePath = kBlueTownHallPath;
-                break;
-            case kBlueBarracksTextureId:
-                relativePath = kBlueBarracksPath;
-                break;
-            case kRedTownHallTextureId:
-                relativePath = kRedTownHallPath;
-                break;
-            case kRedBarracksTextureId:
-                relativePath = kRedBarracksPath;
-                break;
-            case kCursorTextureId:
-                relativePath = kCursorPath;
-                break;
-            case kCursor02TextureId:
-                relativePath = kCursor02Path;
-                break;
-            case kCursor03TextureId:
-                relativePath = kCursor03Path;
-                break;
-            case kCursor04TextureId:
-                relativePath = kCursor04Path;
-                break;
-            default:
-                return nullptr;
-        }
-
-        auto texture = std::make_unique<sf::Texture>();
-        texture->setSmooth(false);
-
-        const std::filesystem::path path =
-            std::filesystem::path(rts::platform::sfml::TinySwordsRoot) / relativePath;
-        if (!texture->loadFromFile(path.string())) {
-            return nullptr;
-        }
-
-        const sf::Texture* result = texture.get();
-        textures.emplace(textureId, std::move(texture));
-        return result;
-    }
-
     // Data-driven loader: resolves a texture by its asset-relative path, cached
-    // by path. Used for DrawSprite commands carrying a texturePath.
+    // by path. Every sprite/cursor/tileset texture is loaded through here.
     const sf::Texture* tinySwordsTextureByPath(const std::string& relativePath) {
         static std::unordered_map<std::string, std::unique_ptr<sf::Texture>> textures;
 
@@ -424,13 +264,8 @@ namespace {
         return result;
     }
 
-    // Chooses the data-driven path loader when a DrawSprite carries a texturePath,
-    // otherwise falls back to the legacy integer textureId mapping.
     const sf::Texture* spriteTextureFor(const rts::core::render::DrawSprite& r) {
-        if (!r.texturePath.empty()) {
-            return tinySwordsTextureByPath(r.texturePath);
-        }
-        return tinySwordsSpriteTexture(r.textureId);
+        return r.texturePath.empty() ? nullptr : tinySwordsTextureByPath(r.texturePath);
     }
 
     sf::IntRect tileSourceRect(const sf::Texture& texture, const int tileIndex) {

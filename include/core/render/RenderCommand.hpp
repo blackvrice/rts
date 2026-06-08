@@ -37,10 +37,8 @@ namespace rts::core::render {
         float y;
         float w;
         float h;
-        int textureId;
-        // Texture file path relative to the asset root. When non-empty the
-        // renderer loads by path (data-driven sprites); otherwise it falls back
-        // to the legacy textureId mapping.
+        // Texture file path relative to the asset root; the renderer loads and
+        // caches by path. Empty means nothing is drawn.
         std::string texturePath {};
         int sourceX { 0 };
         int sourceY { 0 };

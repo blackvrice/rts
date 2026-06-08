@@ -27,9 +27,16 @@
 - `data/animations.json`에 `cursor.default/attack/drag/move`(4)·`world.tileset`(1) 추가 → 총 30 클립.
 - 검증: 빌드 성공, 실행 시 `loaded ... 30 sprites`, 경고/크래시 없음. 이제 모든 렌더 텍스처(유닛·건물·자원·커서·타일셋)가 JSON 경유.
 
+### 추가 (같은 날): 레거시 정수 textureId 파이프라인 완전 제거
+- `DrawSprite`에서 `int textureId` 필드 삭제 → 모든 스프라이트가 `texturePath`만 사용. 뷰모델 3종의 `.textureId = 0` 제거.
+- `Projectile`의 `int textureId`를 `std::string texturePath`로 교체(생성자/접근자/멤버), `ProjectileViewModel`이 경로 사용. (참고: 현재 투사체를 생성하는 시스템은 아직 없음 — 향후 전투용.)
+- 렌더러에서 `tinySwordsSpriteTexture()` id→경로 switch 함수와 관련 정수 id/경로 상수 전부 삭제. 텍스처 로더는 경로 기반 `tinySwordsTextureByPath()` 하나로 단일화. `spriteTextureFor()`는 texturePath 비면 nullptr.
+- `kWorldTileSize`·`kWorldTilesetPath`(폴백)만 유지.
+- 검증: 빌드 성공(16/16), 실행 시 `loaded ... 30 sprites`, 경고/크래시 없음.
+
 ### Follow-up
-- 투사체 스프라이트, 방향별(8-dir) 시트, 액션별 anchor 차이 등 확장 시 키/스키마 보강.
-- 레거시 `tinySwordsSpriteTexture` id→경로 switch는 현재 투사체/폴백 전용으로만 잔존.
+- 투사체 스폰 시스템 도입 시 사용할 투사체 스프라이트 키를 animations.json에 추가.
+- 방향별(8-dir) 시트, 액션별 anchor 차이 등 확장 시 키/스키마 보강.
 
 ## 2026-06-08 - Epic 1.2 마무리: UnitStaticData / BuildingStaticData 필드 확장 (1.2.1 / 1.2.2)
 

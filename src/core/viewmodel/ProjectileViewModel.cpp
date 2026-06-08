@@ -27,7 +27,7 @@ namespace rts::core::viewmodel {
                 .y               = pos.y - 16.f,
                 .w               = 32.f,
                 .h               = 32.f,
-                .textureId       = m_proj->textureId(),
+                .texturePath     = m_proj->texturePath(),
                 .sourceX         = 0,
                 .sourceY         = 0,
                 .sourceW         = 0,
