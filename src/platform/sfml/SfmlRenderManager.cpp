@@ -25,6 +25,7 @@
 
 #include <SFML/Graphics/Image.hpp>
 
+#include "core/data/DataRegistry.hpp"
 #include "core/font/FontManager.hpp"
 #include "core/manager/CameraManager.hpp"
 #include "core/render/RenderCommand.hpp"
@@ -133,8 +134,16 @@ namespace {
             attemptedLoad = true;
             texture.setSmooth(false);
 
+            // Tileset path is data-driven via the "world.tileset" sprite entry;
+            // fall back to the built-in path when it is absent.
+            std::string relativePath = kWorldTilesetPath;
+            if (const auto* clip = rts::core::data::DataRegistry::global().sprite("world.tileset");
+                clip && !clip->texture.empty()) {
+                relativePath = clip->texture;
+            }
+
             const std::filesystem::path path =
-                std::filesystem::path(rts::platform::sfml::TinySwordsRoot) / kWorldTilesetPath;
+                std::filesystem::path(rts::platform::sfml::TinySwordsRoot) / relativePath;
             loaded = texture.loadFromFile(path.string());
         }
 
@@ -271,17 +280,17 @@ namespace {
         return {};
     }
 
-    int hudCursor(
+    std::string hudCursor(
         const rts::core::render::RenderQueue& queue
     ) {
-        int cursorId = 100;
+        std::string cursorKey = "default";
         for (const auto& command : queue.commands()) {
             const auto* cursor = std::get_if<rts::core::render::UpdateHudCursor>(&command.data);
             if (cursor) {
-                cursorId = cursor->cursorTextureId;
+                cursorKey = cursor->cursorKey;
             }
         }
-        return cursorId;
+        return cursorKey;
     }
 
     const sf::Texture* tinySwordsSpriteTexture(const int textureId) {
@@ -503,8 +512,12 @@ namespace {
         }
     }
 
-    void drawMouseCursor(sf::RenderWindow& window, int cursorTextureId) {
-        const sf::Texture* texture = tinySwordsSpriteTexture(cursorTextureId);
+    void drawMouseCursor(sf::RenderWindow& window, const std::string& cursorKey) {
+        // Cursor texture resolved from data ("cursor.<key>" in animations.json).
+        const auto* clip = rts::core::data::DataRegistry::global().sprite("cursor." + cursorKey);
+        const sf::Texture* texture = (clip && !clip->texture.empty())
+            ? tinySwordsTextureByPath(clip->texture)
+            : nullptr;
         if (!texture) {
             return;
         }
@@ -617,7 +630,7 @@ namespace rts::platform::sfml {
         const auto selectedHudUnit = selectedHudSprite(queue);
         const auto resources = hudResources(queue);
         const auto selection = hudSelection(queue);
-        const auto cursorId = hudCursor(queue);
+        const auto cursorKey = hudCursor(queue);
         const auto cameraPosition = camera.position();
         sf::View worldView;
         worldView.setSize({
@@ -661,7 +674,7 @@ namespace rts::platform::sfml {
 
         m_hud->render(*sfWindow, resources, selection);
         drawSelectedHudSprite(*sfWindow, selectedHudUnit);
-        drawMouseCursor(*sfWindow, cursorId);
+        drawMouseCursor(*sfWindow, cursorKey);
     }
 
     void SfmlRenderManager::draw(sf::RenderWindow &window, const core::render::DrawRect &r) {

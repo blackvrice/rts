@@ -80,7 +80,9 @@ namespace rts::core::render {
     };
 
     struct UpdateHudCursor {
-        int cursorTextureId { 100 };
+        // Semantic cursor state; the renderer resolves "cursor.<key>" against the
+        // sprite registry (data/animations.json) to a texture.
+        std::string cursorKey { "default" };
     };
 
     using RenderCommandData = std::variant<

@@ -410,14 +410,14 @@ namespace rts::core::manager {
             std::move(selection)
         );
 
-        int cursorId = 100; // Cursor_01
+        std::string cursorKey = "default";
 
         if (m_isDragging) {
-            cursorId = 102; // Cursor_03
+            cursorKey = "drag";
         } else if (m_worldOrderMode == WorldOrderMode::Move ||
                    m_worldOrderMode == WorldOrderMode::Patrol ||
                    m_worldOrderMode == WorldOrderMode::Gather) {
-            cursorId = 103; // Cursor_04
+            cursorKey = "move";
         } else if (m_worldOrderMode == WorldOrderMode::Attack ||
                    m_worldOrderMode == WorldOrderMode::AttackMove) {
             core::model::Vector2D worldPos = m_camera.screenToWorld(m_mousePos);
@@ -432,14 +432,14 @@ namespace rts::core::manager {
                 }
             }
             if (hoverEnemy) {
-                cursorId = 101; // Cursor_02
+                cursorKey = "attack";
             }
         }
 
         m_renderQueue.emplace(
             core::render::RenderLayer::UI,
             -98,
-            core::render::UpdateHudCursor { cursorId }
+            core::render::UpdateHudCursor { cursorKey }
         );
 
         for (auto &element: m_elements) {

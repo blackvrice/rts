@@ -21,9 +21,15 @@
 - 추가: PNG를 에셋 루트에 두고 새 키 추가(예: 새 팀/액션). 삭제: 키 제거(시드 폴백은 파일이 읽히면 무시됨).
 - 한계: 새 유닛/건물 enum 자체 추가는 여전히 코드 필요(비주얼만 데이터 주도). weaponType 등과 동일하게 enum은 코드 개념.
 
+### 추가 (같은 날): 커서·월드 타일셋도 데이터 주도화
+- `UpdateHudCursor`를 정수 id에서 의미 키(`std::string cursorKey`: default/drag/move/attack)로 변경. GameUIManager가 상태에 따라 키를 발행하고, 렌더러는 `cursor.<key>` 클립을 레지스트리에서 해석해 경로로 로드.
+- 월드 타일셋 경로를 `world.tileset` 클립에서 읽도록 변경(부재 시 기존 상수 폴백). 타일 격자 레이아웃/타일 크기는 코드 유지.
+- `data/animations.json`에 `cursor.default/attack/drag/move`(4)·`world.tileset`(1) 추가 → 총 30 클립.
+- 검증: 빌드 성공, 실행 시 `loaded ... 30 sprites`, 경고/크래시 없음. 이제 모든 렌더 텍스처(유닛·건물·자원·커서·타일셋)가 JSON 경유.
+
 ### Follow-up
-- 커서/월드 타일셋도 경로/데이터 주도로 통일(현재 커서는 id 유지).
-- 방향별(8-dir) 시트, 액션별 anchor 차이 등 확장 시 키/스키마 보강.
+- 투사체 스프라이트, 방향별(8-dir) 시트, 액션별 anchor 차이 등 확장 시 키/스키마 보강.
+- 레거시 `tinySwordsSpriteTexture` id→경로 switch는 현재 투사체/폴백 전용으로만 잔존.
 
 ## 2026-06-08 - Epic 1.2 마무리: UnitStaticData / BuildingStaticData 필드 확장 (1.2.1 / 1.2.2)
 

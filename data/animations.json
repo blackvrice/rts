@@ -36,6 +36,13 @@
     "resource.gold.4": { "texture": "Terrain/Resources/Gold/Gold Stones/Gold Stone 4_Highlight.png", "frameCount": 6, "fps": 8, "sourceW": 128, "sourceH": 128, "displayW": 64, "displayH": 64, "anchorX": 32, "anchorY": 48, "trim": false },
     "resource.gold.5": { "texture": "Terrain/Resources/Gold/Gold Stones/Gold Stone 5_Highlight.png", "frameCount": 6, "fps": 8, "sourceW": 128, "sourceH": 128, "displayW": 64, "displayH": 64, "anchorX": 32, "anchorY": 48, "trim": false },
     "resource.gold.6": { "texture": "Terrain/Resources/Gold/Gold Stones/Gold Stone 6_Highlight.png", "frameCount": 6, "fps": 8, "sourceW": 128, "sourceH": 128, "displayW": 64, "displayH": 64, "anchorX": 32, "anchorY": 48, "trim": false },
-    "resource.wood":   { "texture": "Terrain/Resources/Wood/Wood Resource/Wood Resource.png",         "frameCount": 1, "fps": 0,                                 "displayW": 64, "displayH": 64, "anchorX": 32, "anchorY": 48, "trim": false }
+    "resource.wood":   { "texture": "Terrain/Resources/Wood/Wood Resource/Wood Resource.png",         "frameCount": 1, "fps": 0,                                 "displayW": 64, "displayH": 64, "anchorX": 32, "anchorY": 48, "trim": false },
+
+    "cursor.default": { "texture": "UI Elements/UI Elements/Cursors/Cursor_01.png" },
+    "cursor.attack":  { "texture": "UI Elements/UI Elements/Cursors/Cursor_02.png" },
+    "cursor.drag":    { "texture": "UI Elements/UI Elements/Cursors/Cursor_03.png" },
+    "cursor.move":    { "texture": "UI Elements/UI Elements/Cursors/Cursor_04.png" },
+
+    "world.tileset":  { "texture": "Terrain/Tileset/Tilemap_color1.png" }
   }
 }
