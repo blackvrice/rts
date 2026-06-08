@@ -847,7 +847,7 @@ Vertical Slice 단계에서는 Wave Attack AI만 먼저 구현해도 충분합�
 
 ## Epic 1.2 데이터 주도 설계 확장
 
-현재 상태: `[1.2.3/1.2.4 완료 · 1.2.1/1.2.2 일부 필드 잔여]`
+현재 상태: `[100% 완료]`
 
 ---
 
@@ -862,14 +862,14 @@ Vertical Slice 단계에서는 Wave Attack AI만 먼저 구현해도 충분합�
 [x] moveSpeed
 [x] attackRange
 [x] attackCooldown
-[ ] sightRange
-[ ] collisionRadius
+[x] sightRange (Unit에 저장·getter, fog 연결은 후속 — revealCircle 소비처 미구현)
+[x] collisionRadius (CollisionSystem이 유닛별 반경 사용)
 [x] costGold
 [x] costWood
 [x] supplyCost
-[ ] buildTime
-[ ] weaponType
-[ ] armorType
+[x] buildTime (buildTimeSeconds — 생산 시 건물이 유닛별 값 사용)
+[x] weaponType (enum, JSON 문자열 매핑 — 데미지 테이블은 후속)
+[x] armorType (enum, JSON 문자열 매핑 — 데미지 테이블은 후속)
 ```
 
 ---
@@ -885,10 +885,10 @@ Vertical Slice 단계에서는 Wave Attack AI만 먼저 구현해도 충분합�
 [x] costGold
 [x] costWood
 [x] buildTime (buildTimeSeconds)
-[ ] produces (현재 defaultUnitFor 하드코딩, 데이터 목록 미구현)
-[ ] providesSupply
-[ ] isDropOff (Building::isDropOff가 buildingType 기반, 데이터 필드 아님)
-[ ] requirements
+[x] produces (데이터 목록, defaultUnitFor가 produces.front() 사용)
+[x] providesSupply (완성 건물 합산으로 팀 foodCapacity 산정)
+[x] isDropOff (BuildingStaticData 필드, Building::isDropOff가 데이터 참조)
+[x] requirements (건설 시 선행 건물 완성 여부 검사)
 ```
 
 ---

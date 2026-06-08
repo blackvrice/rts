@@ -1,9 +1,11 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include "core/model/Building.hpp"
 #include "core/model/PlayerResourceState.hpp"
+#include "core/model/UnitType.hpp"
 
 namespace rts::core::data {
     struct BuildingStaticData {
@@ -16,6 +18,14 @@ namespace rts::core::data {
         float buildTimeSeconds { 20.0f };
         int goldCost { 0 };
         int woodCost { 0 };
+        // Unit types this building can train; produces.front() is the default.
+        std::vector<::rts::UnitType> produces {};
+        // Population capacity contributed while completed.
+        int providesSupply { 0 };
+        // Whether workers can return gathered resources here.
+        bool isDropOff { false };
+        // Building types that must exist (completed) before this can be built.
+        std::vector<::rts::core::model::BuildingType> requirements {};
 
         ::rts::core::model::Cost cost() const {
             return { goldCost, woodCost, 0 };
@@ -31,7 +41,11 @@ namespace rts::core::data {
             .footprintHeight = 4,
             .buildTimeSeconds = 30.0f,
             .goldCost = 400,
-            .woodCost = 0
+            .woodCost = 0,
+            .produces = { ::rts::UnitType::Worker },
+            .providesSupply = 20,
+            .isDropOff = true,
+            .requirements = {}
         };
     }
 
@@ -44,7 +58,11 @@ namespace rts::core::data {
             .footprintHeight = 3,
             .buildTimeSeconds = 20.0f,
             .goldCost = 150,
-            .woodCost = 0
+            .woodCost = 0,
+            .produces = { ::rts::UnitType::Warrior, ::rts::UnitType::Archer, ::rts::UnitType::Marine },
+            .providesSupply = 0,
+            .isDropOff = false,
+            .requirements = { ::rts::core::model::BuildingType::TownHall }
         };
     }
 

@@ -34,6 +34,22 @@ namespace rts::core::data {
             return std::nullopt;
         }
 
+        WeaponType weaponTypeFromString(const std::string& s, const WeaponType fallback) {
+            if (s == "normal") return WeaponType::Normal;
+            if (s == "pierce") return WeaponType::Pierce;
+            if (s == "siege")  return WeaponType::Siege;
+            if (s == "magic")  return WeaponType::Magic;
+            return fallback;
+        }
+
+        ArmorType armorTypeFromString(const std::string& s, const ArmorType fallback) {
+            if (s == "unarmored") return ArmorType::Unarmored;
+            if (s == "light")     return ArmorType::Light;
+            if (s == "heavy")     return ArmorType::Heavy;
+            if (s == "fortified") return ArmorType::Fortified;
+            return fallback;
+        }
+
         bool readJsonFile(const std::string& path, json& out) {
             std::ifstream in(path);
             if (!in) {
@@ -127,10 +143,16 @@ namespace rts::core::data {
                 d.attackCooldown= e.value("attackCooldown", d.attackCooldown);
                 d.moveSpeed     = e.value("moveSpeed", d.moveSpeed);
                 d.armor         = e.value("armor", d.armor);
+                d.sightRange    = e.value("sightRange", d.sightRange);
+                d.collisionRadius = e.value("collisionRadius", d.collisionRadius);
+                d.buildTimeSeconds= e.value("buildTimeSeconds", d.buildTimeSeconds);
+                d.weaponType    = weaponTypeFromString(e.value("weaponType", std::string{}), d.weaponType);
+                d.armorType     = armorTypeFromString(e.value("armorType", std::string{}), d.armorType);
                 d.goldCost      = e.value("goldCost", d.goldCost);
                 d.woodCost      = e.value("woodCost", d.woodCost);
                 d.foodCost      = e.value("foodCost", d.foodCost);
                 if (!requirePositive("maxHp", id, d.maxHp)) { allOk = false; continue; }
+                if (!requirePositive("collisionRadius", id, d.collisionRadius)) { allOk = false; continue; }
                 m_units[*type] = d;
                 ++unitCount;
             }
@@ -157,6 +179,36 @@ namespace rts::core::data {
                 d.buildTimeSeconds= e.value("buildTimeSeconds", d.buildTimeSeconds);
                 d.goldCost        = e.value("goldCost", d.goldCost);
                 d.woodCost        = e.value("woodCost", d.woodCost);
+                d.providesSupply  = e.value("providesSupply", d.providesSupply);
+                d.isDropOff       = e.value("isDropOff", d.isDropOff);
+                // produces: list of unit string ids -> UnitType (unknown ids skipped).
+                if (e.contains("produces")) {
+                    d.produces.clear();
+                    for (const auto& uid : e["produces"]) {
+                        const auto ut = unitTypeFromId(uid.get<std::string>());
+                        if (ut) {
+                            d.produces.push_back(*ut);
+                        } else {
+                            std::cerr << "[DataRegistry] building '" << id << "' produces unknown unit '"
+                                      << uid << "', skipped\n";
+                            allOk = false;
+                        }
+                    }
+                }
+                // requirements: list of building string ids -> BuildingType.
+                if (e.contains("requirements")) {
+                    d.requirements.clear();
+                    for (const auto& bid : e["requirements"]) {
+                        const auto bt = buildingTypeFromId(bid.get<std::string>());
+                        if (bt) {
+                            d.requirements.push_back(*bt);
+                        } else {
+                            std::cerr << "[DataRegistry] building '" << id << "' requires unknown building '"
+                                      << bid << "', skipped\n";
+                            allOk = false;
+                        }
+                    }
+                }
                 if (!requirePositive("maxHp", id, d.maxHp)) { allOk = false; continue; }
                 if (!requirePositive("footprintWidth", id, d.footprintWidth)) { allOk = false; continue; }
                 if (!requirePositive("footprintHeight", id, d.footprintHeight)) { allOk = false; continue; }

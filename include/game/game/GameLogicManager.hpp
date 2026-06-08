@@ -27,6 +27,10 @@ namespace rts::core::world {
     class GameWorld;
 }
 
+namespace rts::core::data {
+    struct BuildingStaticData;
+}
+
 namespace rts::core::manager {
     class GameLogicManager final : public ILogicManager {
     public:
@@ -99,6 +103,12 @@ namespace rts::core::manager {
         std::shared_ptr<model::Unit> firstSelectedWorker() const;
         // Checks the whole w x h footprint (top-left origin in tiles) is walkable and free.
         bool canPlaceBuilding(int originX, int originY, int w, int h) const;
+        // True when every building type in the static data's requirements list is
+        // present and completed for the given team.
+        bool hasBuildingRequirements(int teamId, const data::BuildingStaticData& data) const;
+        // Recomputes each team's food capacity from the providesSupply of their
+        // completed buildings.
+        void recomputeSupply();
 
         // AI / victory helpers
         void updateAI(float dt);

@@ -76,6 +76,11 @@ namespace rts::core::model {
         float getAttackCooldown() const;
         float getMoveSpeed() const;
         float getArmor() const;
+        float getSightRange() const noexcept;
+        float getCollisionRadius() const noexcept;
+        float getBuildTimeSeconds() const noexcept;
+        core::data::WeaponType getWeaponType() const noexcept;
+        core::data::ArmorType getArmorType() const noexcept;
         ::rts::UnitType unitType() const noexcept;
         bool isWorker() const noexcept;
         bool hasResourceDeliveryReady() const noexcept;
@@ -203,6 +208,11 @@ namespace rts::core::model {
         float attackTimer = 0.f;
         float attackDamage = 10.f;
         float m_armor = 0.f;
+        float m_sightRange = 256.f;
+        float m_collisionRadius = 28.f;
+        float m_buildTimeSeconds = 8.f;
+        core::data::WeaponType m_weaponType = core::data::WeaponType::Normal;
+        core::data::ArmorType m_armorType = core::data::ArmorType::Light;
 
         float m_hp = 100.f;
         float m_maxHp = 100.f;

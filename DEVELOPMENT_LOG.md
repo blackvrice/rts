@@ -1,5 +1,31 @@
 # Development Log
 
+## 2026-06-08 - Epic 1.2 마무리: UnitStaticData / BuildingStaticData 필드 확장 (1.2.1 / 1.2.2)
+
+### 변경 내용
+- **UnitStaticData (1.2.1)**: `sightRange`/`collisionRadius`/`buildTimeSeconds`/`weaponType`/`armorType` 추가. `WeaponType{Normal,Pierce,Siege,Magic}`·`ArmorType{Unarmored,Light,Heavy,Fortified}` enum 정의. warrior/archer/worker/marine 프리셋과 `data/units.json`에 값 채움.
+- **Unit 소비**: `m_sightRange`/`m_collisionRadius`/`m_buildTimeSeconds`/`m_weaponType`/`m_armorType` 멤버 + getter 추가, `applyStaticData()`에서 반영.
+- **CollisionSystem**: `collisionRadiusFor()`가 유닛별 `getCollisionRadius()`를 사용(이전 타입 고정 상수). 이동 유닛 반경·폴백은 기존 상수 유지.
+- **훈련 시간 데이터화**: `Building::currentTrainTime()`가 큐 선두 유닛의 `buildTimeSeconds`를 사용하도록 변경(`tick()` 임계값·`trainProgress()` 분모). 기본값이 기존 동작(Worker 12s / 전투유닛 8s)과 일치.
+- **BuildingStaticData (1.2.2)**: `produces`(유닛 목록)·`providesSupply`·`isDropOff`·`requirements`(선행 건물 목록) 추가. TownHall(produces=[worker], supply=20, dropOff=true)·Barracks(produces=[warrior,archer,marine], requires=[town_hall]) 프리셋과 `data/buildings.json` 반영.
+- **produces 소비**: `GameLogicManager::defaultUnitFor()`가 하드코딩 switch 대신 `produces.front()` 사용.
+- **isDropOff 소비**: `Building::isDropOff()`가 `m_completed && DataRegistry::building(type).isDropOff` 참조(이전 buildingType 하드코딩).
+- **providesSupply 소비**: `GameLogicManager::recomputeSupply()`를 매 틱 호출 — 팀별 완성 건물의 providesSupply 합으로 `foodCapacity` 산정(건설/파괴 자동 반영).
+- **requirements 소비**: `handleBuildCommand()`가 `hasBuildingRequirements()`로 선행 건물(완성·동일 팀) 보유 여부를 검사해 미충족 시 건설 거부.
+- **DataRegistry 파서 확장**: 유닛 새 스칼라 필드 + weaponType/armorType 문자열 매핑, 건물 produces/requirements 배열(문자열 id→enum, 미지 id 경고 후 스킵)·providesSupply·isDropOff 파싱. collisionRadius 양수 검증 추가.
+
+### 검증
+- `cmake.exe --build cmake-build-debug --target RTS` 빌드 성공(11/11 재컴파일·링크).
+- `RTS.exe` 실행 — `[DataRegistry] loaded 4 units, 2 buildings, 2 resources` 출력, stderr 경고 없음(새 배열/enum 필드 정상 파싱). 정상 구동.
+- 한계: 자동화 환경에서 인게임 건설/생산/공급 흐름은 수동 검증 필요. 로직 경로·빌드/구동 안정성 확인.
+
+### 결과
+- Epic 1.2 데이터 주도 설계 확장 100% 완료(1.2.1~1.2.4). 유닛/건물/자원 스탯·생산·공급·선행조건이 `data/*.json` 편집만으로 변경 가능.
+
+### Follow-up
+- weaponType×armorType 데미지 배수 테이블(전투 시스템 에픽)과 sightRange 기반 FogOfWar 갱신 파이프라인 연결.
+- 이동 유닛 자신의 collisionRadius 반영(현재 `movingUnitRadius()`는 대표 상수 28 사용).
+
 ## 2026-06-08 - Epic 1.2: DataRegistry + JSON 외부 데이터 로딩 (1.2.3 / 1.2.4)
 
 ### 변경 내용

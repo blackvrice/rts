@@ -14,6 +14,7 @@
 #include <core/data/UnitStaticData.hpp>
 #include <core/data/BuildingStaticData.hpp>
 #include <core/data/ResourceStaticData.hpp>
+#include <core/data/DataRegistry.hpp>
 #include <core/world/GameWorld.hpp>
 
 namespace {
@@ -254,6 +255,7 @@ namespace rts::core::manager {
         applyReadyResourceDeliveries();
         handleGatherRedirects();
         flushPendingSpawns();
+        recomputeSupply();
         updateAI(dt);
         checkVictoryDefeat();
     }
@@ -774,11 +776,50 @@ namespace rts::core::manager {
     // Production
     // =========================================================
     ::rts::UnitType GameLogicManager::defaultUnitFor(model::BuildingType type) {
-        switch (type) {
-            case model::BuildingType::TownHall: return ::rts::UnitType::Worker;
-            case model::BuildingType::Barracks: return ::rts::UnitType::Warrior;
+        // The first entry of the building's produces list is its default unit.
+        const auto& produces = core::data::DataRegistry::global().building(type).produces;
+        return produces.empty() ? ::rts::UnitType::Warrior : produces.front();
+    }
+
+    bool GameLogicManager::hasBuildingRequirements(
+        const int teamId, const data::BuildingStaticData& data) const {
+        for (const auto required : data.requirements) {
+            bool satisfied = false;
+            for (const auto& element : m_world.getElements()) {
+                auto building = std::dynamic_pointer_cast<model::Building>(element);
+                if (building && building->getTeamId() == teamId &&
+                    building->buildingType() == required &&
+                    building->isComplete() &&
+                    building->getAction() != model::ActionType::Dead) {
+                    satisfied = true;
+                    break;
+                }
+            }
+            if (!satisfied) return false;
         }
-        return ::rts::UnitType::Warrior;
+        return true;
+    }
+
+    void GameLogicManager::recomputeSupply() {
+        // Sum providesSupply over each team's completed buildings (TeamId indexes
+        // 0=Neutral, 1=Player, 2=Enemy).
+        int capacity[3] = { 0, 0, 0 };
+        for (const auto& element : m_world.getElements()) {
+            auto building = std::dynamic_pointer_cast<model::Building>(element);
+            if (!building || !building->isComplete() ||
+                building->getAction() == model::ActionType::Dead) {
+                continue;
+            }
+            const int team = building->getTeamId();
+            if (team < 0 || team > 2) continue;
+            capacity[team] += core::data::DataRegistry::global()
+                .building(building->buildingType()).providesSupply;
+        }
+        for (const int teamId : { model::TeamId::Player, model::TeamId::Enemy }) {
+            auto resources = m_world.playerResources(teamId);
+            resources.foodCapacity = capacity[teamId];
+            m_world.setPlayerResources(teamId, resources);
+        }
     }
 
     std::shared_ptr<model::Building> GameLogicManager::firstSelectedBuilding() const {
@@ -946,6 +987,11 @@ namespace rts::core::manager {
         }
         const auto buildingType = static_cast<model::BuildingType>(cmd.buildingTypeId());
         const auto data = core::data::buildingStaticDataFor(buildingType);
+
+        // Reject the build when a prerequisite building is missing for the team.
+        if (!hasBuildingRequirements(worker->getTeamId(), data)) {
+            return;
+        }
 
         // Center the footprint on the cursor tile.
         const auto& tf = m_world.gridTransform();

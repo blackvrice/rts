@@ -8,7 +8,11 @@
       "footprintHeight": 4,
       "buildTimeSeconds": 30.0,
       "goldCost": 400,
-      "woodCost": 0
+      "woodCost": 0,
+      "produces": ["worker"],
+      "providesSupply": 20,
+      "isDropOff": true,
+      "requirements": []
     },
     {
       "id": "barracks",
@@ -18,7 +22,11 @@
       "footprintHeight": 3,
       "buildTimeSeconds": 20.0,
       "goldCost": 150,
-      "woodCost": 0
+      "woodCost": 0,
+      "produces": ["warrior", "archer", "marine"],
+      "providesSupply": 0,
+      "isDropOff": false,
+      "requirements": ["town_hall"]
     }
   ]
 }

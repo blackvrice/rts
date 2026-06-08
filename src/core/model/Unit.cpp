@@ -57,6 +57,11 @@ namespace rts::core::model {
         attackDamage = staticData.attackDamage;
         attackCooldown = staticData.attackCooldown;
         m_armor = staticData.armor;
+        m_sightRange = staticData.sightRange;
+        m_collisionRadius = staticData.collisionRadius;
+        m_buildTimeSeconds = staticData.buildTimeSeconds;
+        m_weaponType = staticData.weaponType;
+        m_armorType = staticData.armorType;
     }
 
     ActionType Unit::getAction() const {
@@ -414,6 +419,26 @@ namespace rts::core::model {
 
     float Unit::getArmor() const {
         return m_armor;
+    }
+
+    float Unit::getSightRange() const noexcept {
+        return m_sightRange;
+    }
+
+    float Unit::getCollisionRadius() const noexcept {
+        return m_collisionRadius;
+    }
+
+    float Unit::getBuildTimeSeconds() const noexcept {
+        return m_buildTimeSeconds;
+    }
+
+    core::data::WeaponType Unit::getWeaponType() const noexcept {
+        return m_weaponType;
+    }
+
+    core::data::ArmorType Unit::getArmorType() const noexcept {
+        return m_armorType;
     }
 
     ::rts::UnitType Unit::unitType() const noexcept {

@@ -6,6 +6,12 @@
 #include "core/model/UnitType.hpp"
 
 namespace rts::core::data {
+    // Damage class of a unit's attack. Pairs with ArmorType for a future
+    // type-vs-type damage table; currently stored as design data.
+    enum class WeaponType { Normal, Pierce, Siege, Magic };
+    // Defensive class of a unit. See WeaponType.
+    enum class ArmorType { Unarmored, Light, Heavy, Fortified };
+
     struct UnitStaticData {
         ::rts::UnitType unitType { ::rts::UnitType::Warrior };
         std::string displayName { "Unit" };
@@ -15,6 +21,11 @@ namespace rts::core::data {
         float attackCooldown { 0.8f };
         float moveSpeed { 120.0f };
         float armor { 0.0f };
+        float sightRange { 256.0f };
+        float collisionRadius { 28.0f };
+        float buildTimeSeconds { 8.0f };
+        WeaponType weaponType { WeaponType::Normal };
+        ArmorType armorType { ArmorType::Light };
         int goldCost { 0 };
         int woodCost { 0 };
         int foodCost { 0 };
@@ -34,6 +45,11 @@ namespace rts::core::data {
             .attackCooldown = 0.75f,
             .moveSpeed = 120.0f,
             .armor = 1.0f,
+            .sightRange = 256.0f,
+            .collisionRadius = 28.0f,
+            .buildTimeSeconds = 8.0f,
+            .weaponType = WeaponType::Normal,
+            .armorType = ArmorType::Heavy,
             .goldCost = 75,
             .woodCost = 0,
             .foodCost = 1
@@ -50,6 +66,11 @@ namespace rts::core::data {
             .attackCooldown = 0.9f,
             .moveSpeed = 115.0f,
             .armor = 0.0f,
+            .sightRange = 288.0f,
+            .collisionRadius = 26.0f,
+            .buildTimeSeconds = 9.0f,
+            .weaponType = WeaponType::Pierce,
+            .armorType = ArmorType::Light,
             .goldCost = 60,
             .woodCost = 35,
             .foodCost = 1
@@ -66,6 +87,11 @@ namespace rts::core::data {
             .attackCooldown = 1.0f,
             .moveSpeed = 110.0f,
             .armor = 0.0f,
+            .sightRange = 224.0f,
+            .collisionRadius = 26.0f,
+            .buildTimeSeconds = 12.0f,
+            .weaponType = WeaponType::Normal,
+            .armorType = ArmorType::Light,
             .goldCost = 50,
             .woodCost = 0,
             .foodCost = 1
@@ -78,6 +104,7 @@ namespace rts::core::data {
         data.displayName = "Marine";
         data.attackDamage = 8.0f;
         data.attackRange = 150.0f;
+        data.buildTimeSeconds = 8.0f;
         data.goldCost = 50;
         data.woodCost = 0;
         return data;

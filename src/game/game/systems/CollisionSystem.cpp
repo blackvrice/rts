@@ -22,8 +22,8 @@ namespace {
     constexpr float kTinyDistanceSq = 0.0001f;
 
     float collisionRadiusFor(const rts::core::model::IGameElement& element) {
-        if (dynamic_cast<const rts::core::model::Unit*>(&element)) {
-            return kUnitCollisionRadius;
+        if (const auto* unit = dynamic_cast<const rts::core::model::Unit*>(&element)) {
+            return unit->getCollisionRadius();
         }
         if (dynamic_cast<const rts::core::model::ResourceNode*>(&element)) {
             return kResourceCollisionRadius;

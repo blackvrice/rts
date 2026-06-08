@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <memory>
 #include "core/model/Building.hpp"
+#include "core/data/DataRegistry.hpp"
 
 namespace rts::core::model {
 
@@ -11,6 +12,14 @@ namespace rts::core::model {
     static float trainTimeFor(BuildingType t) {
         // TownHall trains Workers (slower), Barracks trains combat units
         return t == BuildingType::TownHall ? 12.f : 8.f;
+    }
+
+    // Training duration for the unit currently at the front of the queue, taken
+    // from its static data; falls back to the building's default when idle.
+    float Building::currentTrainTime() const {
+        if (m_trainQueue.empty()) return m_trainTime;
+        return ::rts::core::data::DataRegistry::global()
+            .unit(m_trainQueue.front()).buildTimeSeconds;
     }
 
     Building::Building(BuildingType type, Vector2D pos, int teamId)
@@ -36,7 +45,7 @@ namespace rts::core::model {
     }
 
     bool Building::isDropOff() const noexcept {
-        return m_completed && m_type == BuildingType::TownHall;
+        return m_completed && ::rts::core::data::DataRegistry::global().building(m_type).isDropOff;
     }
 
     void Building::beginConstruction(float buildTimeSeconds, float startHp) {
@@ -107,8 +116,9 @@ namespace rts::core::model {
     }
 
     float Building::trainProgress() const noexcept {
-        if (m_trainQueue.empty() || m_trainTime <= 0.f) return 0.f;
-        return m_trainTimer / m_trainTime;
+        const float trainTime = currentTrainTime();
+        if (m_trainQueue.empty() || trainTime <= 0.f) return 0.f;
+        return m_trainTimer / trainTime;
     }
 
     void Building::tick(float dt) {
@@ -117,7 +127,7 @@ namespace rts::core::model {
         if (m_hp <= 0.f || !m_completed || m_trainQueue.empty()) return;
 
         m_trainTimer += dt;
-        if (m_trainTimer >= m_trainTime) {
+        if (m_trainTimer >= currentTrainTime()) {
             m_trainTimer = 0.f;
             const UnitType spawned = m_trainQueue.front();
             m_trainQueue.pop_front();

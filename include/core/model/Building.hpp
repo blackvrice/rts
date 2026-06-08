@@ -79,6 +79,9 @@ namespace rts::core::model {
         bool hasRallyPoint() const noexcept { return m_hasRallyPoint; }
 
     private:
+        // Training time for the front-of-queue unit, from its static data.
+        float currentTrainTime() const;
+
         BuildingType m_type;
         Vector2D m_position;
         float m_maxHp;
