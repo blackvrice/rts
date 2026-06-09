@@ -44,6 +44,10 @@ namespace rts::core::command {
     class PauseGameCommand final : public LogicCommand {
     };
 
+    // Resets the match to its initial state (handled only once the game is over).
+    class RestartCommand final : public LogicCommand {
+    };
+
     class ResumeGameCommand final : public LogicCommand {
     };
 

@@ -62,6 +62,8 @@ namespace rts::core::manager {
                          const model::Vector2D& target);
         void cancelQueuedPath(model::Unit& unit);
         void cancelQueuedPaths(const SelectionSystem::SelectedList& selected);
+        // Drops all queued path state (for a match restart, when every unit is gone).
+        void reset();
 
     private:
         struct PathRequest {

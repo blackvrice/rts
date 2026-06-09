@@ -765,7 +765,7 @@ Vertical Slice 단계에서는 Wave Attack AI만 먼저 구현해도 충분합�
 
 ## Epic 0.7 승패 조건
 
-현재 상태: `[80%]`
+현재 상태: `[95% — 승/패 판정·배너·입력잠금·결과화면 재시작 완료 / "모든 건물 파괴" 대체 패배조건만 후속]`
 
 ---
 
@@ -801,7 +801,7 @@ Vertical Slice 단계에서는 Wave Attack AI만 먼저 구현해도 충분합�
 ```text
 [x] 모든 적 주요 건물 파괴 시 승리 (적 TownHall 0)
 [x] 승리 UI 표시 (VICTORY 배너)
-[ ] 결과 화면 전환 (배너만, 전용 씬 전환 미구현)
+[x] 결과 화면 + 재시작 (배너 + "Press Enter to restart" → RestartCommand로 매치 리셋. 전용 씬 전환은 선택)
 ```
 
 ### 완료 기준

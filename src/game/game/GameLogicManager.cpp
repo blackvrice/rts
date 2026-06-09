@@ -55,115 +55,23 @@ namespace rts::core::manager {
         command::LogicCommandRouter &router,
         core::world::GameWorld &world)
         : m_world(world), ILogicManager(bus, router) {
-        // Temporary debug units until spawning/production owns initial world population.
+        // Populate the initial match state. Extracted into setupInitialWorld so a
+        // restart can rebuild the same starting position.
         {
             auto lock = m_world.acquireWriteLock();
-
-            // Debug starting resources so production/construction can be exercised
-            // immediately during manual playtests.
-            core::model::PlayerResourceState playerResources {};
-            playerResources.gold = 500;
-            playerResources.wood = 300;
-            playerResources.foodUsed = 0;
-            playerResources.foodCapacity = 20;
-            playerResources.army = 0;
-            m_world.setPlayerResources(core::model::TeamId::Player, playerResources);
-
-            core::model::PlayerResourceState enemyResources {};
-            enemyResources.gold = 500;
-            enemyResources.wood = 300;
-            enemyResources.foodUsed = 0;
-            enemyResources.foodCapacity = 20;
-            enemyResources.army = 0;
-            m_world.setPlayerResources(core::model::TeamId::Enemy, enemyResources);
-
-            // Spawns one unit of every type for a team in a spaced-out row so the
-            // initial placement never overlaps the unit collision radius (28px ->
-            // 56px min distance); 110px columns keep a comfortable gap.
-            const auto spawnUnitRow = [this](int teamId, float startX, float y) {
-                const ::rts::UnitType types[] = {
-                    ::rts::UnitType::Worker,
-                    ::rts::UnitType::Warrior,
-                    ::rts::UnitType::Archer,
-                    ::rts::UnitType::Marine
-                };
-                float x = startX;
-                for (const auto type : types) {
-                    auto unit = std::make_shared<core::model::Unit>(type);
-                    unit->setPosition({ x, y });
-                    unit->setTeamId(teamId);
-                    m_world.addElement(unit);
-                    x += 110.f;
-                }
-            };
-
-            // --- Player base (top-left) ---
-            auto townHall = std::make_shared<core::model::Building>(
-                core::model::BuildingType::TownHall,
-                core::model::Vector2D{220.f, 220.f},
-                core::model::TeamId::Player
-            );
-            registerBuildingSpawn(*townHall);
-            m_world.addElement(townHall);
-
-            auto playerBarracks = std::make_shared<core::model::Building>(
-                core::model::BuildingType::Barracks,
-                core::model::Vector2D{500.f, 220.f},
-                core::model::TeamId::Player
-            );
-            registerBuildingSpawn(*playerBarracks);
-            m_world.addElement(playerBarracks);
-
-            spawnUnitRow(core::model::TeamId::Player, 240.f, 460.f);
-
-            // --- Enemy base (bottom-right) ---
-            auto enemyTownHall = std::make_shared<core::model::Building>(
-                core::model::BuildingType::TownHall,
-                core::model::Vector2D{1200.f, 760.f},
-                core::model::TeamId::Enemy
-            );
-            registerBuildingSpawn(*enemyTownHall);
-            m_world.addElement(enemyTownHall);
-
-            auto enemyBarracks = std::make_shared<core::model::Building>(
-                core::model::BuildingType::Barracks,
-                core::model::Vector2D{1480.f, 760.f},
-                core::model::TeamId::Enemy
-            );
-            registerBuildingSpawn(*enemyBarracks);
-            m_world.addElement(enemyBarracks);
-
-            spawnUnitRow(core::model::TeamId::Enemy, 1200.f, 1000.f);
-
-            // --- Resources (left edge, clear of the base footprints) ---
-            const auto goldData = core::data::resourceStaticDataFor(
-                core::model::ResourceNode::ResourceType::Gold);
-            auto goldMine = std::make_shared<core::model::ResourceNode>(
-                core::model::Vector2D{120.f, 620.f},
-                goldData.resourceType,
-                goldData.initialAmount,
-                goldData.gatherAmountPerTrip,
-                goldData.gatherDurationSeconds,
-                goldData.maxGatherers
-            );
-            m_world.addElement(goldMine);
-
-            const auto woodData = core::data::resourceStaticDataFor(
-                core::model::ResourceNode::ResourceType::Wood);
-            auto woodForest = std::make_shared<core::model::ResourceNode>(
-                core::model::Vector2D{120.f, 760.f},
-                woodData.resourceType,
-                woodData.initialAmount,
-                woodData.gatherAmountPerTrip,
-                woodData.gatherDurationSeconds,
-                woodData.maxGatherers
-            );
-            m_world.addElement(woodForest);
+            setupInitialWorld();
         }
 
         m_router.on<command::SelectCommand>([this](const command::SelectCommand &cmd) {
             auto lock = m_world.acquireWriteLock();
             m_selection.selectInArea(m_world, cmd.area());
+        });
+
+        // Restart is accepted only once the match is decided (the result screen).
+        m_router.on<command::RestartCommand>([this](const command::RestartCommand &) {
+            if (m_world.gameResult() != core::world::GameResult::InProgress) {
+                restartMatch();
+            }
         });
 
         m_router.on<command::MoveCommand>([this](const command::MoveCommand &cmd) {
@@ -1112,6 +1020,124 @@ namespace rts::core::manager {
         m_world.setPlayerResources(worker->getTeamId(), resources);
 
         worker->buildAt(site.get());
+    }
+
+    // =========================================================
+    // Match lifecycle
+    // =========================================================
+    void GameLogicManager::setupInitialWorld() {
+        // Debug starting resources so production/construction can be exercised
+        // immediately during manual playtests.
+        core::model::PlayerResourceState playerResources {};
+        playerResources.gold = 500;
+        playerResources.wood = 300;
+        playerResources.foodUsed = 0;
+        playerResources.foodCapacity = 20;
+        playerResources.army = 0;
+        m_world.setPlayerResources(core::model::TeamId::Player, playerResources);
+
+        core::model::PlayerResourceState enemyResources {};
+        enemyResources.gold = 500;
+        enemyResources.wood = 300;
+        enemyResources.foodUsed = 0;
+        enemyResources.foodCapacity = 20;
+        enemyResources.army = 0;
+        m_world.setPlayerResources(core::model::TeamId::Enemy, enemyResources);
+
+        // Spawns one unit of every type for a team in a spaced-out row so the
+        // initial placement never overlaps the unit collision radius (28px ->
+        // 56px min distance); 110px columns keep a comfortable gap.
+        const auto spawnUnitRow = [this](int teamId, float startX, float y) {
+            const ::rts::UnitType types[] = {
+                ::rts::UnitType::Worker,
+                ::rts::UnitType::Warrior,
+                ::rts::UnitType::Archer,
+                ::rts::UnitType::Marine
+            };
+            float x = startX;
+            for (const auto type : types) {
+                auto unit = std::make_shared<core::model::Unit>(type);
+                unit->setPosition({ x, y });
+                unit->setTeamId(teamId);
+                m_world.addElement(unit);
+                x += 110.f;
+            }
+        };
+
+        // --- Player base (top-left) ---
+        auto townHall = std::make_shared<core::model::Building>(
+            core::model::BuildingType::TownHall,
+            core::model::Vector2D{220.f, 220.f},
+            core::model::TeamId::Player
+        );
+        registerBuildingSpawn(*townHall);
+        m_world.addElement(townHall);
+
+        auto playerBarracks = std::make_shared<core::model::Building>(
+            core::model::BuildingType::Barracks,
+            core::model::Vector2D{500.f, 220.f},
+            core::model::TeamId::Player
+        );
+        registerBuildingSpawn(*playerBarracks);
+        m_world.addElement(playerBarracks);
+
+        spawnUnitRow(core::model::TeamId::Player, 240.f, 460.f);
+
+        // --- Enemy base (bottom-right) ---
+        auto enemyTownHall = std::make_shared<core::model::Building>(
+            core::model::BuildingType::TownHall,
+            core::model::Vector2D{1200.f, 760.f},
+            core::model::TeamId::Enemy
+        );
+        registerBuildingSpawn(*enemyTownHall);
+        m_world.addElement(enemyTownHall);
+
+        auto enemyBarracks = std::make_shared<core::model::Building>(
+            core::model::BuildingType::Barracks,
+            core::model::Vector2D{1480.f, 760.f},
+            core::model::TeamId::Enemy
+        );
+        registerBuildingSpawn(*enemyBarracks);
+        m_world.addElement(enemyBarracks);
+
+        spawnUnitRow(core::model::TeamId::Enemy, 1200.f, 1000.f);
+
+        // --- Resources (left edge, clear of the base footprints) ---
+        const auto goldData = core::data::resourceStaticDataFor(
+            core::model::ResourceNode::ResourceType::Gold);
+        auto goldMine = std::make_shared<core::model::ResourceNode>(
+            core::model::Vector2D{120.f, 620.f},
+            goldData.resourceType,
+            goldData.initialAmount,
+            goldData.gatherAmountPerTrip,
+            goldData.gatherDurationSeconds,
+            goldData.maxGatherers
+        );
+        m_world.addElement(goldMine);
+
+        const auto woodData = core::data::resourceStaticDataFor(
+            core::model::ResourceNode::ResourceType::Wood);
+        auto woodForest = std::make_shared<core::model::ResourceNode>(
+            core::model::Vector2D{120.f, 760.f},
+            woodData.resourceType,
+            woodData.initialAmount,
+            woodData.gatherAmountPerTrip,
+            woodData.gatherDurationSeconds,
+            woodData.maxGatherers
+        );
+        m_world.addElement(woodForest);
+    }
+
+    void GameLogicManager::restartMatch() {
+        auto lock = m_world.acquireWriteLock();
+        m_world.resetForNewMatch();
+        m_selection.clear();
+        m_movement.reset();
+        m_pendingSpawns.clear();
+        m_aiProduceTimer = 0.f;
+        m_aiGatherTimer = 0.f;
+        m_aiWaveTimer = 0.f;
+        setupInitialWorld();
     }
 
     // =========================================================

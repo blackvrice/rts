@@ -732,6 +732,12 @@ namespace rts::core::manager {
         }
     }
 
+    void MovementSystem::reset() {
+        m_pathRequests.clear();
+        m_latestPathRequestByUnit.clear();
+        m_nextPathRequestId = 1;
+    }
+
     std::shared_ptr<model::Unit> MovementSystem::findUnitHandle(
         world::GameWorld& world,
         model::Unit& unit) const {

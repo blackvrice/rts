@@ -54,6 +54,10 @@ namespace rts::core::world {
         [[nodiscard]] WriteLock acquireWriteLock();
 
         void addElement(const std::shared_ptr<model::IElement>& element);
+        // Clears all dynamic state (elements, entity handles, tick, result) so the
+        // caller can repopulate a fresh match. Keeps the tile map. Caller holds the
+        // write lock.
+        void resetForNewMatch();
 
         int gridWidth() const noexcept;
         int gridHeight() const noexcept;

@@ -45,6 +45,15 @@ namespace rts::core::world {
         onCollisionChanged();
     }
 
+    void GameWorld::resetForNewMatch() {
+        m_elements.clear();
+        m_entities = ecs::EntityManager{};
+        m_entityByIndex.clear();
+        m_currentTick = 0;
+        m_gameResult = GameResult::InProgress;
+        onCollisionChanged();
+    }
+
     bool GameWorld::isAlive(const ecs::EntityId id) const {
         if (!m_entities.isAlive(id)) {
             return false;

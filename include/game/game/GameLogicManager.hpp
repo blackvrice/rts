@@ -114,6 +114,10 @@ namespace rts::core::manager {
         // completed buildings.
         void recomputeSupply();
 
+        // Match lifecycle
+        void setupInitialWorld();  // spawns starting units/buildings/resources (caller holds the lock)
+        void restartMatch();       // resets the world and repopulates the starting position
+
         // AI / victory helpers
         void updateAI(float dt);
         // Enemy economy: train workers (to a cap) and warriors, paying from the

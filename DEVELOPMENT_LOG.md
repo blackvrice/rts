@@ -1,5 +1,22 @@
 # Development Log
 
+## 2026-06-09 - Epic 0.7: 결과 화면 재시작 (한 판 루프 완성)
+
+### 변경 내용
+- **RestartCommand** (`LogicCommand.hpp`): 무인자 명령. 게임 종료 상태에서만 처리.
+- **GameWorld::resetForNewMatch**: 동적 상태 초기화 — `m_elements`/`m_entityByIndex` clear, `EntityManager` 재생성, `currentTick=0`, `gameResult=InProgress`, 충돌 버전 bump. 타일맵은 유지.
+- **MovementSystem::reset**: 큐된 경로 요청/유닛별 최신 요청 맵 clear(재시작 시 모든 유닛 소멸 대비).
+- **setupInitialWorld() 추출**: 생성자의 초기 스폰(자원 풀·유닛 행·양 팀 TownHall/Barracks·자원 노드)을 메서드로 분리. 생성자와 재시작이 동일 시작 위치를 공유.
+- **restartMatch()**: write lock → `resetForNewMatch` → selection/movement/pendingSpawns/AI 타이머 리셋 → `setupInitialWorld()`. RestartCommand 핸들러가 게임 종료 시에만 호출.
+- **GameUIManager**: 게임 종료 시 KeyPressed에서 Enter → RestartCommand push(그 외 입력 무시). VICTORY/DEFEAT 배너 아래 "Press Enter to restart" 힌트 추가.
+
+### 검증
+- 빌드 성공(19/19). 실행 6초 — 크래시/경고 없음, `loaded ... 30 sprites`.
+- 한계: 인게임에서 실제 승패 발생 후 Enter 재시작 흐름은 자동화 환경상 수동 검증 필요. 리셋/재스폰 로직 경로·구동 안정성은 확인.
+
+### 결과
+- Epic 0.7 95%. "시작 → 플레이 → 승/패 → Enter 재시작" 한 판 루프가 코드 레벨에서 닫힘. "모든 건물 파괴" 대체 패배조건만 후속.
+
 ## 2026-06-09 - Epic 0.5: Build Preview + 건설 진행도 UI
 
 ### 변경 내용

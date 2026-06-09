@@ -179,6 +179,14 @@ namespace rts::core::manager {
                 if (isControlKey(key) || static_cast<bool>(modifier & KM::Ctrl)) m_ctrl = true;
                 if (isShiftKey(key) || static_cast<bool>(modifier & KM::Shift)) m_shift = true;
 
+                // Result screen: Enter restarts the match; all other input is inert.
+                if (m_world.gameResult() != core::world::GameResult::InProgress) {
+                    if (key == core::model::Key::Enter) {
+                        m_logicBus.push(std::make_unique<command::RestartCommand>());
+                    }
+                    return;
+                }
+
                 command::GameplayInputAction hotkeyAction {};
                 // StarCraft-style command hotkeys mirror the HUD command buttons
                 // so both input paths stay aligned with the same LogicCommand bridge.
@@ -533,6 +541,17 @@ namespace rts::core::manager {
                     .fontId = 1u,
                     .size = 48,
                     .text = won ? "VICTORY" : "DEFEAT"
+                }
+            );
+            m_renderQueue.emplace(
+                core::render::RenderLayer::UI,
+                -50,
+                core::render::DrawText {
+                    .pos = { vp.x * 0.5f - 120.0f, vp.y * 0.5f + 36.0f },
+                    .color = 0xFFFFFFFFu,
+                    .fontId = 1u,
+                    .size = 20,
+                    .text = "Press Enter to restart"
                 }
             );
         }
