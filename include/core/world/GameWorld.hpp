@@ -13,6 +13,7 @@
 
 #include "core/ecs/EntityManager.hpp"
 #include "core/model/PlayerResourceState.hpp"
+#include "core/sim/SimClock.hpp"
 #include "core/world/GridTransform.hpp"
 
 namespace rts::core::map {
@@ -83,6 +84,10 @@ namespace rts::core::world {
         GameResult gameResult() const noexcept { return m_gameResult; }
         void setGameResult(GameResult result) noexcept { m_gameResult = result; }
 
+        // Monotonic logic-tick index; advanced once per fixed simulation tick.
+        sim::TickCount currentTick() const noexcept { return m_currentTick; }
+        void advanceTick() noexcept { ++m_currentTick; }
+
         manager::PathManager& path();
         const manager::PathManager& path() const;
 
@@ -99,6 +104,7 @@ namespace rts::core::world {
         std::unique_ptr<manager::PathManager> m_pathManager;
         GridTransform m_gridTransform;
         uint64_t m_collisionVersion { 0 };
+        sim::TickCount m_currentTick { 0 };
         GameResult m_gameResult { GameResult::InProgress };
         mutable std::shared_mutex m_mutex;
     };

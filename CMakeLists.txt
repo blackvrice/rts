@@ -92,6 +92,9 @@ add_executable(RTS
         include/core/ecs/Registry.hpp
         include/core/ecs/EntityId.hpp
         include/core/ecs/EntityManager.hpp
+        include/core/sim/SimClock.hpp
+        include/core/sim/Fixed.hpp
+        src/core/sim/Fixed.cpp
         include/core/ui/IUIElement.hpp
         include/core/manager/ILogicManager.hpp
         include/platform/IWindow.hpp

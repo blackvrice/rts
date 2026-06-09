@@ -995,7 +995,7 @@ struct EntityId
 
 ## Epic 1.4 고정 틱 / 결정론
 
-현재 상태: `[50%]`
+현재 상태: `[~80% — 1.4.1/1.4.2 완료, 1.4.3 Fixed 토대 완료 / 이동·사거리·투사체 Fixed 마이그레이션 후속]`
 
 ---
 
@@ -1004,10 +1004,10 @@ struct EntityId
 #### Task
 
 ```text
-[ ] Logic Tick Rate 상수화
-[ ] Render Delta와 Logic Delta 분리
-[ ] Tick 번호 currentTick 관리
-[ ] 모든 Simulation Update가 Tick 기반으로 동작하는지 점검
+[x] Logic Tick Rate 상수화 (core/sim/SimClock.hpp: kLogicTickHz/kFixedDeltaSeconds/kLogicTickInterval)
+[x] Render Delta와 Logic Delta 분리 (Logic=고정 dt via SimClock, Render=GameApp 루프 별도)
+[x] Tick 번호 currentTick 관리 (GameWorld::currentTick()/advanceTick(), 매 tick 증가)
+[x] 모든 Simulation Update가 Tick 기반으로 동작하는지 점검 (감사: sim 경로에 wall-clock/RNG 없음, 전부 고정 dt)
 ```
 
 ---
@@ -1017,9 +1017,9 @@ struct EntityId
 #### Task
 
 ```text
-[ ] Simulation에서 float 사용 위치 조사
-[ ] Rendering 전용 float와 Simulation float 구분
-[ ] 위치/속도/거리 계산 타입 통일
+[x] Simulation에서 float 사용 위치 조사 (Vector2D 위치/속도, moveSpeed, attackRange, 쿨다운/빌드/훈련 타이머, std::sqrt)
+[x] Rendering 전용 float와 Simulation float 구분 (Render: animationSeconds·카메라 / Sim: 위 항목)
+[x] 위치/속도/거리 계산 타입 통일 (현재 전부 float Vector2D로 통일 / Fixed 전환은 1.4.3)
 ```
 
 ---
@@ -1031,18 +1031,18 @@ struct EntityId
 #### Task
 
 ```text
-[ ] Fixed 타입 추가
-[ ] FixedVec2 추가
-[ ] Grid 좌표와 World 좌표 변환 함수 추가
-[ ] 이동 계산부터 Fixed 적용
-[ ] 공격 사거리 계산에 Fixed 적용
-[ ] 투사체 계산에 Fixed 적용
+[x] Fixed 타입 추가 (core/sim/Fixed.hpp — 16.16 고정소수, 컴파일타임 static_assert 검증)
+[x] FixedVec2 추가
+[x] Grid 좌표와 World 좌표 변환 함수 추가 (worldToGrid/gridToWorldCenter)
+[ ] 이동 계산부터 Fixed 적용 (후속 — Vector2D/MovementSystem 점진 전환)
+[ ] 공격 사거리 계산에 Fixed 적용 (후속)
+[ ] 투사체 계산에 Fixed 적용 (후속)
 ```
 
 #### 완료 기준
 
 ```text
-- 같은 입력을 두 번 실행했을 때 결과가 동일하다.
+- 같은 입력을 두 번 실행했을 때 결과가 동일하다. (미충족 — float 수학 잔존. 틱/입력 경로는 결정적이며, Fixed 마이그레이션 완료 시 달성)
 ```
 
 ---

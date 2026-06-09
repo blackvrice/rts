@@ -1,5 +1,21 @@
 # Development Log
 
+## 2026-06-09 - Epic 1.4: 고정 틱 정리 + Float 감사 + Fixed 토대
+
+### 변경 내용
+- **SimClock** (`include/core/sim/SimClock.hpp`, 1.4.1): 시뮬레이션 고정 틱의 단일 출처. `kLogicTickHz=30`, `kFixedDeltaSeconds=1/30`, `kLogicTickInterval=33ms`, `TickCount` 타입. `LogicThread::run()`이 로컬 상수(33ms·1/30) 대신 이 상수를 사용(동작 동일).
+- **currentTick** (1.4.1): `GameWorld`에 `currentTick()`/`advanceTick()` + `m_currentTick`. `GameLogicManager::tick()`가 매 틱 시작에 `advanceTick()` 호출 → 결정적 스케줄링/리플레이·이벤트 틱 스탬프용 단조 증가 인덱스.
+- **Render/Logic Delta 분리 명시** (1.4.1): Logic은 SimClock 고정 dt, Render는 GameApp 루프(가변)로 이미 분리되어 있음을 문서화.
+- **Float 사용 감사** (1.4.2): 시뮬레이션 경로에 wall-clock/RNG **없음** 확인(LogicThread의 steady_clock은 페이서, SfmlRenderManager/GameApp의 시간·animationSeconds는 렌더 전용). Sim float = Vector2D 위치/속도·moveSpeed·attackRange·쿨다운/빌드/훈련 타이머·std::sqrt. 결정론의 남은 격차는 float 수학뿐.
+- **Fixed 토대** (`include/core/sim/Fixed.hpp`, 1.4.3 준비): 16.16 고정소수 `Fixed`(+,-,*,/,<=>; int64 중간연산), `FixedVec2`(+,-,scale,dot,lengthSq), `worldToGrid`/`gridToWorldCenter` 좌표 변환. 헤더 온리이며 `src/core/sim/Fixed.cpp`가 컴파일타임 `static_assert`(곱/나눗셈/그리드 변환 정확성)를 평가. **아직 시뮬레이션에 미연결** — 이동/사거리/투사체는 계획대로 단계적 후속 전환.
+
+### 검증
+- 빌드 성공(13/13, Fixed.cpp의 static_assert 전부 통과). 실행 6초 — 크래시/경고 없음, `loaded ... 30 sprites`.
+- 한계: 결정론 완료 기준(같은 입력 2회 동일 결과)은 float 잔존으로 미충족. 틱/입력/시뮬레이션 구동 경로는 결정적임을 확인.
+
+### Follow-up (Epic 1.4 잔여 = 1.4.3 마이그레이션)
+- MovementSystem/Unit 이동 계산을 FixedVec2로 점진 전환 → 그 다음 사거리, 투사체. 각 단계 후 동일 입력 재현 테스트로 결정론 검증.
+
 ## 2026-06-08 - Epic 1.3 마무리: gather/build/dropOff·명령 대상 EntityId화 (100%)
 
 ### 변경 내용

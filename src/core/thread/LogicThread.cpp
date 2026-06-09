@@ -13,6 +13,7 @@
 #include <SFML/System/Time.hpp>
 
 #include "core/manager/ILogicManager.hpp"
+#include "core/sim/SimClock.hpp"
 
 namespace rts::core::thread {
     LogicThread::LogicThread(command::LogicCommandBus& bus, command::LogicCommandRouter& router)
@@ -28,10 +29,11 @@ namespace rts::core::thread {
     void LogicThread::run()
     {
         using clock = std::chrono::steady_clock;
-        using namespace std::chrono;
 
-        constexpr auto TICK = 33ms;          // ⭐ RTS: 30Hz
-        float dt = 1.0f / 30.0f;
+        // Fixed 30Hz simulation step (see core/sim/SimClock.hpp). dt is constant
+        // by design so the simulation is reproducible from the same tick sequence.
+        constexpr auto TICK = sim::kLogicTickInterval;
+        constexpr float dt = sim::kFixedDeltaSeconds;
         auto nextTick = clock::now();
 
         while (isRunning()) {

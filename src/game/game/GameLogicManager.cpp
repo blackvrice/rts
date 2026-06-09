@@ -246,6 +246,7 @@ namespace rts::core::manager {
 
     void GameLogicManager::tick(float dt) {
         auto lock = m_world.acquireWriteLock();
+        m_world.advanceTick();
         m_movement.update(m_world, dt, m_collision);
         handleAttackRetargets();
         handleAttackMoveOrders();
