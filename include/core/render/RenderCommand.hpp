@@ -63,6 +63,16 @@ namespace rts::core::render {
         model::PlayerResourceState resources;
     };
 
+    // Kind of the primary selected element, so the HUD can show context-relevant
+    // command buttons (a barracks gets Train, a worker gets Build/Gather, etc.).
+    enum class HudSelectionKind : uint8_t {
+        None,
+        Worker,
+        CombatUnit,
+        Building,
+        Resource
+    };
+
     struct UpdateHudSelection {
         int selectedCount {};
         bool hasPrimaryUnit {};
@@ -75,6 +85,8 @@ namespace rts::core::render {
         float armor {};
         float attackRange {};
         model::Vector2D position {};
+        HudSelectionKind kind { HudSelectionKind::None };
+        bool canProduce { false };  // building whose produces list is non-empty
     };
 
     struct UpdateHudCursor {

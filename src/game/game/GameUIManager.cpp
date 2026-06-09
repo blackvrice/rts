@@ -425,12 +425,19 @@ namespace rts::core::manager {
                     selection.attackDamage = unit->getAttackDamage();
                     selection.armor = unit->getArmor();
                     selection.attackRange = unit->getAttackRange();
+                    selection.kind = unit->isWorker()
+                        ? core::render::HudSelectionKind::Worker
+                        : core::render::HudSelectionKind::CombatUnit;
                 } else if (auto building = std::dynamic_pointer_cast<core::model::Building>(element)) {
                     selection.hp = building->getHp();
                     selection.maxHp = building->getMaxHp();
+                    selection.kind = core::render::HudSelectionKind::Building;
+                    selection.canProduce = building->isComplete() &&
+                        !core::data::buildingStaticDataFor(building->buildingType()).produces.empty();
                 } else if (auto resource = std::dynamic_pointer_cast<core::model::ResourceNode>(element)) {
                     selection.hp = resource->remaining();
                     selection.maxHp = resource->totalAmount();
+                    selection.kind = core::render::HudSelectionKind::Resource;
                 }
 
                 selection.position = gameElement->getPosition();

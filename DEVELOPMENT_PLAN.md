@@ -371,7 +371,7 @@ MoveToResource
 ### 남은 항목
 
 ```text
-- HUD 명령 카드에 생산 가능 유닛 버튼 노출 (현재 핫키 + 기본 유닛만)
+- (완료) HUD 명령 카드에 생산 버튼 노출 (건물 선택 시 Train, Epic 6.4)
 - 생산/취소 사운드 및 자원 부족 피드백
 - RallyPoint UI 표시
 - 런타임 건설 건물에 spawn 콜백 자동 연결
@@ -1618,24 +1618,24 @@ struct Cost
 
 ## Epic 6.4 Command Card
 
-현재 상태: `[0%]`
+현재 상태: `[80% — 선택 종류별 명령 버튼 동적 구성. 비활성 버튼 잠금 표시만 후속]`
 
 ### Task
 
 ```text
-[ ] 선택 대상 기준 사용 가능한 명령 목록 생성
-[ ] 3x3 버튼 UI 생성
-[ ] Move/Attack/Stop/Hold/Patrol 버튼 연결
-[ ] Worker 선택 시 Build 버튼 표시
-[ ] 생산 건물 선택 시 생산 버튼 표시
-[ ] 버튼 Hotkey 연결
-[ ] 비활성 버튼 잠금 표시
+[x] 선택 대상 기준 사용 가능한 명령 목록 생성 (UpdateHudSelection.kind/canProduce → SfmlHudOverlay)
+[x] 3x3 버튼 UI 생성 (기존 그리드 재사용, 동적 개수)
+[x] Move/Attack/Stop/Hold/Patrol 버튼 연결 (전투/워커 종류별)
+[x] Worker 선택 시 Build 버튼 표시
+[x] 생산 건물 선택 시 생산 버튼 표시 (Train → TrainUnit, canProduce일 때)
+[x] 버튼 Hotkey 연결 (HUD 버튼·핫키 모두 GameplayInputCommand 경유로 동일 경로)
+[ ] 비활성 버튼 잠금 표시 (자원 부족/조건 미충족 회색 처리 — 후속)
 ```
 
 ### 완료 기준
 
 ```text
-- 선택한 대상에 따라 하단 명령 버튼이 바뀐다.
+- 선택한 대상에 따라 하단 명령 버튼이 바뀐다. ✅
 ```
 
 ---

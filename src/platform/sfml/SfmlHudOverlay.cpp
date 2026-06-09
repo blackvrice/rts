@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
@@ -638,18 +639,41 @@ namespace rts::platform::sfml {
         drawList.AddText({infoMin.x, infoMin.y + 148.0f}, kTextMain, position.c_str());
         drawList.AddText({infoMin.x, infoMin.y + 180.0f}, kWarning, command.c_str());
 
+        // Command buttons depend on what is selected, so a barracks offers Train
+        // while a worker offers Build/Gather and combat units offer Attack/Patrol.
         using core::command::GameplayInputAction;
-        const std::array<HudCommandButton, 9> commands{{
-            {"Move", GameplayInputAction::Move},
-            {"Stop", GameplayInputAction::Stop},
-            {"Hold", GameplayInputAction::HoldPosition},
-            {"Attack", GameplayInputAction::Attack},
-            {"Patrol", GameplayInputAction::Patrol},
-            {"Gather", GameplayInputAction::Gather},
-            {"Build", GameplayInputAction::Build},
-            {"Repair", GameplayInputAction::Repair},
-            {"Cancel", GameplayInputAction::CancelProduction}
-        }};
+        using core::render::HudSelectionKind;
+        std::vector<HudCommandButton> commands;
+        switch (selection.kind) {
+            case HudSelectionKind::Building:
+                if (selection.canProduce) {
+                    commands.push_back({"Train", GameplayInputAction::TrainUnit});
+                }
+                commands.push_back({"Cancel", GameplayInputAction::CancelProduction});
+                break;
+            case HudSelectionKind::Worker:
+                commands = {
+                    {"Move", GameplayInputAction::Move},
+                    {"Stop", GameplayInputAction::Stop},
+                    {"Hold", GameplayInputAction::HoldPosition},
+                    {"Gather", GameplayInputAction::Gather},
+                    {"Build", GameplayInputAction::Build},
+                    {"Attack", GameplayInputAction::Attack}
+                };
+                break;
+            case HudSelectionKind::CombatUnit:
+                commands = {
+                    {"Move", GameplayInputAction::Move},
+                    {"Stop", GameplayInputAction::Stop},
+                    {"Hold", GameplayInputAction::HoldPosition},
+                    {"Attack", GameplayInputAction::Attack},
+                    {"Patrol", GameplayInputAction::Patrol}
+                };
+                break;
+            case HudSelectionKind::Resource:
+            case HudSelectionKind::None:
+                break;  // nothing actionable selected
+        }
 
         const float gridTop = commandMin.y + 44.0f;
         const float cellGap = 8.0f;

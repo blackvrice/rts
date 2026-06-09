@@ -1,5 +1,27 @@
 # Development Log
 
+## 2026-06-09 - 문맥 의존 HUD 명령 카드 (Epic 6.4) — 생산/건설 버튼 노출
+
+### 문제
+- HUD 하단 명령 카드가 선택과 무관하게 고정 9버튼(Move/Stop/Hold/Attack/Patrol/Gather/Build/Repair/Cancel)이라, **Train(생산) 버튼이 아예 없어** 건물 선택 시 HUD로 생산 불가. 선택 종류에 따라 바뀌지도 않음.
+
+### 변경 내용
+- **UpdateHudSelection 확장**: `HudSelectionKind`(None/Worker/CombatUnit/Building/Resource) + `canProduce`(produces 비어있지 않은 완성 건물) 추가.
+- **GameUIManager::render**: 주 선택 요소를 판별해 kind/canProduce 설정(Unit→isWorker로 Worker/CombatUnit, Building→canProduce 계산, ResourceNode→Resource).
+- **SfmlHudOverlay::drawHud**: 고정 배열 대신 kind별 버튼 목록 동적 구성 —
+  - Building(canProduce): **Train** + Cancel
+  - Worker: Move/Stop/Hold/Gather/Build/Attack
+  - CombatUnit: Move/Stop/Hold/Attack/Patrol
+  - Resource/None: 없음
+  - 버튼 클릭은 기존대로 `GameplayInputCommand`로 발행(핫키와 동일 경로) → Train은 TrainUnit, Build는 build 모드 무장(프리뷰).
+
+### 검증
+- 빌드 성공(15/15). 실행 6초 — 크래시/경고 없음.
+- 한계: 실제 HUD 버튼 표시/클릭은 자동화 환경상 수동 검증 필요. 선택 판별·버튼 구성·명령 발행 경로는 확인.
+
+### 결과
+- 건물 선택 → Train으로 생산, 워커 선택 → Build로 건설이 HUD에서 가능. Epic 6.4 0% → 80%(비활성 잠금 표시만 후속). 0.4 "HUD 생산 버튼" 후속 해소.
+
 ## 2026-06-09 - 자원 노드 footprint 데이터화 (길찾기 우회)
 
 ### 변경 내용
