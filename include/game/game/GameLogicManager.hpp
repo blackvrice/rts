@@ -20,6 +20,7 @@ namespace rts::core::model {
     class Building;
     class IGameElement;
     class Unit;
+    struct UnitOrder;
     enum class BuildingType;
 }
 
@@ -89,6 +90,9 @@ namespace rts::core::manager {
         void handlePatrolOrders();
         void clearSelectedUnitOrderQueues();
         void queueMoveOrderForSelected(const model::Vector2D& target);
+        // Appends one order to every selected unit's queue (workersOnly skips
+        // non-workers, e.g. for Gather), starting it immediately if the unit is idle.
+        void enqueueOrderForSelected(const model::UnitOrder& order, bool workersOnly);
         void issueNextQueuedOrder(model::Unit& unit);
         void handleQueuedOrders();
 

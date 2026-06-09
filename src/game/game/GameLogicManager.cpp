@@ -526,6 +526,13 @@ namespace rts::core::manager {
                 continue;
             }
 
+            // A queued command takes precedence over auto-retargeting: once the
+            // direct attack target dies, fall through to the next queued order.
+            if (unit->hasQueuedOrders()) {
+                unit->clearAttackRetarget();
+                continue;
+            }
+
             if (auto target = findClosestAttackMoveTarget(*unit)) {
                 unit->attack(target.get());
             } else {
@@ -659,14 +666,58 @@ namespace rts::core::manager {
         }
     }
 
+    void GameLogicManager::enqueueOrderForSelected(const model::UnitOrder& order, const bool workersOnly) {
+        for (const auto& weak : m_selection.selected()) {
+            auto unit = std::dynamic_pointer_cast<model::Unit>(weak.lock());
+            if (!unit || unit->getAction() == model::ActionType::Dead) {
+                continue;
+            }
+            if (workersOnly && !unit->isWorker()) {
+                continue;
+            }
+            unit->enqueueOrder(order);
+            // Kick off the first queued step right away when the unit is idle.
+            if (unit->getAction() == model::ActionType::Idle) {
+                issueNextQueuedOrder(*unit);
+            }
+        }
+    }
+
     void GameLogicManager::issueNextQueuedOrder(model::Unit& unit) {
+        // Pop orders until one can be started; dead/invalid targets are skipped so
+        // the queue advances instead of stalling.
         while (auto order = unit.popNextOrder()) {
             switch (order->type) {
                 case model::OrderType::Move:
                     m_movement.issueMove(m_world, unit, order->targetPosition, false);
                     return;
+                case model::OrderType::AttackMove:
+                    m_movement.issueAttackMove(m_world, unit, order->targetPosition);
+                    return;
+                case model::OrderType::Patrol:
+                    m_movement.issuePatrol(m_world, unit, order->targetPosition);
+                    return;
+                case model::OrderType::Attack: {
+                    auto target = m_world.resolve(order->targetEntityId);
+                    if (target && target.get() != &unit &&
+                        target->getAction() != model::ActionType::Dead) {
+                        unit.attack(target.get());
+                        return;
+                    }
+                    break;  // target gone: fall through to the next queued order
+                }
+                case model::OrderType::Gather: {
+                    auto resource = std::dynamic_pointer_cast<model::ResourceNode>(
+                        m_world.resolve(order->targetEntityId));
+                    if (unit.isWorker() && resource && !resource->isDepleted()) {
+                        if (auto dropOff = findClosestDropOffFor(unit)) {
+                            unit.gather(resource.get(), dropOff.get());
+                            return;
+                        }
+                    }
+                    break;
+                }
                 default:
-                    // Other order payload fields are reserved for later command-queue slices.
                     break;
             }
         }
@@ -728,8 +779,21 @@ namespace rts::core::manager {
             return;
         }
 
+        // Shift-append: queue the smart action behind any existing orders so the
+        // player can chain move/attack/gather steps (the order resolves its target
+        // by EntityId when it runs).
         if (cmd.append()) {
-            if (!isOpposingTeam(attackerTeam, target->getTeamId())) {
+            if (std::dynamic_pointer_cast<model::ResourceNode>(target)) {
+                enqueueOrderForSelected(
+                    model::UnitOrder { .type = model::OrderType::Gather,
+                                       .targetEntityId = target->entityId() },
+                    /*workersOnly=*/true);
+            } else if (isOpposingTeam(attackerTeam, target->getTeamId())) {
+                enqueueOrderForSelected(
+                    model::UnitOrder { .type = model::OrderType::Attack,
+                                       .targetEntityId = target->entityId() },
+                    /*workersOnly=*/false);
+            } else {
                 queueMoveOrderForSelected(target->getPosition());
             }
             return;

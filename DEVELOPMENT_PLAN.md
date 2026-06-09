@@ -1115,7 +1115,7 @@ struct EntityId
 
 ## Epic 2.4 Command Queue
 
-현재 상태: `[45%]` (Move 예약 큐 기준)
+현재 상태: `[100% 완료]` (Move/Attack/Gather 혼합 체인)
 
 ---
 
@@ -1126,7 +1126,7 @@ struct EntityId
 ```text
 [x] UnitOrder 타입 정의
 [x] OrderType 정의
-[x] TargetEntityId 추가
+[x] TargetEntityId 추가 (ecs::EntityId — Attack/Gather 큐 대상이 generation 핸들로 해석)
 [x] TargetPosition 추가
 [x] AbilityId 추가
 [x] BuildingTypeId 추가
@@ -1140,16 +1140,19 @@ struct EntityId
 
 ```text
 [x] 일반 명령 시 기존 Queue Clear (Move/Attack/Gather/Build/AttackMove/Patrol)
-[x] Shift 명령 시 Queue 뒤에 추가 (Move waypoint)
-[x] 현재 명령 완료 시 다음 명령 Pop (Move waypoint)
+[x] Shift 명령 시 Queue 뒤에 추가 (Move waypoint + 우클릭 스마트 Attack/Gather)
+[x] 현재 명령 완료 시 다음 명령 Pop (issueNextQueuedOrder가 Move/AttackMove/Patrol/Attack/Gather 디스패치)
 [x] Stop 시 Queue Clear
 [x] Hold 시 Queue Clear 후 Hold 상태
+[x] 큐가 있으면 자동 retarget보다 큐 우선 (대상 사망 시 다음 명령으로 진행)
 ```
 
 #### 완료 기준
 
 ```text
-- Shift 우클릭으로 여러 이동 지점을 예약할 수 있다.
+- Shift 우클릭으로 여러 이동 지점을 예약할 수 있다. ✅
+- 이동/공격/채집을 섞어 체인 예약할 수 있다(우클릭 스마트 명령). ✅
+  Attack/Gather 큐 대상은 EntityId로 해석되어, 죽거나 재사용된 대상은 건너뛰고 큐가 진행된다.
 ```
 
 ---

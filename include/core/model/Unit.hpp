@@ -34,7 +34,7 @@ namespace rts::core::model {
 
     struct UnitOrder {
         OrderType type { OrderType::Move };
-        int targetEntityId { -1 };
+        ecs::EntityId targetEntityId { ecs::InvalidEntityId };
         Vector2D targetPosition {};
         int abilityId { -1 };
         int buildingTypeId { -1 };

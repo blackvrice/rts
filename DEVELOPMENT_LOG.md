@@ -1,5 +1,24 @@
 # Development Log
 
+## 2026-06-09 - Epic 2.4: Command Queue 완성 (Move/Attack/Gather 혼합 체인)
+
+### 변경 내용
+- **UnitOrder.targetEntityId**: `int` → `ecs::EntityId`. 큐에 든 Attack/Gather 대상을 generation 핸들로 보관(Epic 1.3 연계) → 실행 시점에 `GameWorld::resolve`로 해석, 죽거나 재사용된 대상은 자동 무효.
+- **issueNextQueuedOrder 전 타입 디스패치**: 기존 Move만 처리하던 것을 Move/AttackMove/Patrol/Attack/Gather로 확장. Attack은 `resolve(targetEntityId)`→`unit.attack()`, Gather는 자원 해석 + `findClosestDropOffFor`→`unit.gather()`. 대상이 사라졌으면 그 명령을 건너뛰고 다음 명령을 pop(큐 정지 방지).
+- **우클릭 스마트 명령 큐잉**: `handleAttackCommand`의 shift(append) 분기를 대상 종류별로 분기 — 자원→Gather 주문(워커만), 적대→Attack 주문, 아군/빈 땅→Move 주문. 비-shift는 기존처럼 즉시 실행(큐 클리어).
+- **enqueueOrderForSelected 헬퍼**: 선택 유닛 각각에 주문 1개 append, idle이면 즉시 첫 주문 시작. workersOnly로 Gather는 워커에만.
+- **큐 우선순위**: `handleAttackRetargets`가 큐가 있는 유닛은 자동 retarget 대신 retarget 요청을 해제하고 다음 큐 명령으로 진행하도록 함(직접 공격 대상 사망 시 체인 계속).
+
+### 검증
+- 빌드 성공(8/8 재컴파일·링크). 실행 6초 — 크래시/경고 없음, `loaded ... 30 sprites`.
+- 한계: 인게임에서 shift-체인(이동→공격→채집) 실제 동작은 자동화 환경상 수동 검증 필요. 디스패치/큐 진행/우선순위 로직 경로·빌드·구동은 확인. 동시 tick 순서(retarget→queue) 검토 완료.
+
+### 결과
+- Epic 2.4 Command Queue 100%. Shift 우클릭으로 이동 지점뿐 아니라 공격/채집을 섞어 순차 예약 가능. Attack/Gather 대상은 EntityId 핸들로 해석.
+
+### Follow-up
+- 명시 모드(AttackMove/Patrol/Gather 핫키) 명령에 append 인자 추가 시 해당 주문도 큐잉 가능(현재 디스패치는 이미 지원, 명령 wire만 미지원). Build는 큐 비대상.
+
 ## 2026-06-09 - Epic 1.4: 고정 틱 정리 + Float 감사 + Fixed 토대
 
 ### 변경 내용
