@@ -513,7 +513,7 @@ struct ProductionQueue
 
 ## Epic 0.5 건설 루프
 
-현재 상태: `[75%]`
+현재 상태: `[90% — Build Preview·건설 진행도 UI 완료 / footprint walkability(5.3)·건물 타입 선택 UI는 후속]`
 
 ### 현재 구현된 항목
 
@@ -531,8 +531,8 @@ struct ProductionQueue
 ### 남은 항목
 
 ```text
-- 건물 배치 프리뷰 (초록/빨강 렌더링)
-- 건설 중 진행도 UI
+- (완료) 건물 배치 프리뷰 (초록/빨강 footprint 고스트 — 0.5.2)
+- (완료) 건설 중 진행도 UI (BuildingViewModel 청록 진행도 바)
 - footprint를 그리드 walkability에 반영 (Epic 5.3, 현재 단일 점유 셀 기준)
 - 건물 타입 선택 UI (현재 B = Barracks 고정)
 ```
@@ -564,17 +564,17 @@ struct ProductionQueue
 #### Task
 
 ```text
-[ ] 건설 버튼 클릭 시 프리뷰 모드 진입
-[ ] 마우스 위치를 Grid 좌표로 변환
-[ ] 배치 가능하면 초록색 표시
-[ ] 배치 불가능하면 빨간색 표시
-[ ] ESC 또는 우클릭으로 취소
+[x] 건설 버튼 클릭 시 프리뷰 모드 진입 (B → Build 모드, render()가 프리뷰 emit)
+[x] 마우스 위치를 Grid 좌표로 변환 (worldToGrid + footprint origin)
+[x] 배치 가능하면 초록색 표시 (canPlaceBuilding 미러)
+[x] 배치 불가능하면 빨간색 표시
+[x] ESC로 취소 (우클릭은 배치 — 기존 인터랙션 유지)
 ```
 
 #### 완료 기준
 
 ```text
-- 건설 전 배치 위치를 시각적으로 확인할 수 있다.
+- 건설 전 배치 위치를 시각적으로 확인할 수 있다. ✅
 ```
 
 ---
@@ -608,7 +608,7 @@ struct ProductionQueue
 ```text
 [x] 건설 명령 승인 시 자원 차감 (pay)
 [x] ConstructionSite 엔티티 생성 (beginConstruction한 Building)
-[ ] 임시 건물 렌더링 (건설 중 전용 시각화 미구현)
+[x] 임시 건물 렌더링 (건설 중 청록 진행도 바 + HP 램프 시각화)
 [x] HP를 낮은 상태로 시작 (startHp = maxHp * 0.1)
 [x] 진행도 progressTick 관리 (m_buildProgress)
 ```

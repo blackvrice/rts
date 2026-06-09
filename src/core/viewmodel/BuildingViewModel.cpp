@@ -94,6 +94,32 @@ namespace rts::core::viewmodel {
                 });
         }
 
+        // Construction progress bar (shown while the building is being built).
+        if (!m_building->isComplete()) {
+            const float progY = barY + barH + 2.f;
+            out.emplace(render::RenderLayer::World, 10,
+                render::DrawRect{
+                    .rect = model::Rect{
+                        model::Vector2D{barX, progY},
+                        model::Vector2D{barX + barW, progY + 4.f}
+                    },
+                    .border_color = 0xFF000000u,
+                    .color        = 0xFF1A1A1Au
+                });
+            const float buildW = barW * m_building->buildProgress01();
+            if (buildW > 0.f) {
+                out.emplace(render::RenderLayer::World, 11,
+                    render::DrawRect{
+                        .rect = model::Rect{
+                            model::Vector2D{barX, progY},
+                            model::Vector2D{barX + buildW, progY + 4.f}
+                        },
+                        .border_color = 0x00000000u,
+                        .color        = 0xFF33CCFFu  // cyan = construction
+                    });
+            }
+        }
+
         // Train progress bar (shown when queue is non-empty)
         if (m_building->trainQueueSize() > 0) {
             const float progW = barW * m_building->trainProgress();

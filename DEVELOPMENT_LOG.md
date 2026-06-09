@@ -1,5 +1,22 @@
 # Development Log
 
+## 2026-06-09 - Epic 0.5: Build Preview + 건설 진행도 UI
+
+### 변경 내용
+- **Build Preview** (`GameUIManager::render`, Feature 0.5.2): Build 모드(B 핫키로 무장)에서 매 프레임 커서 그리드 셀에 건물 footprint 고스트를 emit. 배치 가능(초록 0xFF44EE44/투명채움)·불가(빨강 0xFFEE2222) 색으로 표시. 가능 여부는 `GameLogicManager::canPlaceBuilding`을 미러(footprint 타일별 `isTileBlocked`/`isCellOccupied`)해 로직 판정과 색이 일치. World 레이어 zOrder 50으로 스프라이트 위에 렌더.
+- **ESC 취소**: KeyPressed 핸들러에 `Key::Escape` 케이스 추가 → Build 모드 해제(기본 모드로). 우클릭은 기존대로 배치.
+- **건설 진행도 UI** (`BuildingViewModel`, Feature 0.5.4): 미완성 건물(`!isComplete()`)에 HP 바 아래 청록(0xFF33CCFF) 진행도 바(`buildProgress01()`)를 렌더. 완성 건물의 train 진행도 바와 위치 공유(상호 배타).
+
+### 검증
+- 빌드 성공(3/3 재컴파일·링크). 실행 6초 — 크래시/경고 없음, `loaded ... 30 sprites`.
+- 한계: 프리뷰 고스트/진행도 바의 실제 시각 표시는 자동화 환경상 수동 확인 필요. 배치 판정 로직(canPlaceBuilding 미러)·렌더 커맨드 경로·구동 안정성은 확인.
+
+### 결과
+- Epic 0.5 90%. 건설 전 배치 위치를 초록/빨강으로 미리 확인하고 ESC로 취소 가능, 건설 중 진행도가 바로 표시됨. footprint walkability(Epic 5.3)와 건물 타입 선택 UI만 후속.
+
+### Follow-up
+- 건물 타입 선택 UI(현재 B=Barracks 고정), footprint를 그리드 walkability에 반영(Epic 5.3).
+
 ## 2026-06-09 - Epic 0.6: 적 AI 경제 루프 (유료 생산·채집·병력 기반 웨이브)
 
 ### 변경 내용

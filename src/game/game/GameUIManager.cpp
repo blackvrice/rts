@@ -17,6 +17,7 @@
 #include "core/model/Unit.hpp"
 #include "core/model/Building.hpp"
 #include "core/model/ResourceNode.hpp"
+#include "core/data/BuildingStaticData.hpp"
 #include "core/render/RenderCommand.hpp"
 #include "core/render/RenderQueue.hpp"
 #include "core/ui/IUIElement.hpp"
@@ -188,6 +189,10 @@ namespace rts::core::manager {
                 }
 
                 switch (key) {
+                    case core::model::Key::Escape:
+                        // Cancel an armed build placement back to the default mode.
+                        m_worldOrderMode = WorldOrderMode::Attack;
+                        break;
                     case core::model::Key::Left:
                         m_camera.moveBy({-kCameraStep, 0.0f});
                         break;
@@ -429,6 +434,50 @@ namespace rts::core::manager {
             -99,
             std::move(selection)
         );
+
+        // Build placement preview: a green (placeable) / red (blocked) footprint
+        // ghost tracks the cursor while build mode is armed (Epic 0.5.2).
+        if (m_worldOrderMode == WorldOrderMode::Build && m_hasMousePos) {
+            const auto data = core::data::buildingStaticDataFor(core::model::BuildingType::Barracks);
+            const auto& tf = m_world.gridTransform();
+            const core::model::Vector2D worldPos = m_camera.screenToWorld(m_mousePos);
+            const auto centerCell = tf.worldToGrid(worldPos);
+            const int originX = centerCell.x - data.footprintWidth / 2;
+            const int originY = centerCell.y - data.footprintHeight / 2;
+
+            // Mirror GameLogicManager::canPlaceBuilding so the color matches the
+            // logic layer's accept/reject decision.
+            bool placeable = true;
+            for (int dy = 0; dy < data.footprintHeight && placeable; ++dy) {
+                for (int dx = 0; dx < data.footprintWidth; ++dx) {
+                    if (m_world.isTileBlocked(originX + dx, originY + dy) ||
+                        m_world.isCellOccupied(originX + dx, originY + dy)) {
+                        placeable = false;
+                        break;
+                    }
+                }
+            }
+
+            const core::model::Vector2D originCenter =
+                tf.gridToWorldCenter(core::path::GridPos{ originX, originY });
+            const core::model::Vector2D topLeft {
+                originCenter.x - tf.tileSize * 0.5f,
+                originCenter.y - tf.tileSize * 0.5f
+            };
+            const core::model::Vector2D bottomRight {
+                topLeft.x + static_cast<float>(data.footprintWidth) * tf.tileSize,
+                topLeft.y + static_cast<float>(data.footprintHeight) * tf.tileSize
+            };
+
+            m_renderQueue.emplace(
+                core::render::RenderLayer::World,
+                50,  // above world sprites so the ghost reads clearly
+                core::render::DrawRect {
+                    .rect = core::model::Rect{ topLeft, bottomRight },
+                    .border_color = placeable ? 0xFF44EE44u : 0xFFEE2222u,
+                    .color        = placeable ? 0x4044EE44u : 0x40EE2222u
+                });
+        }
 
         std::string cursorKey = "default";
 
