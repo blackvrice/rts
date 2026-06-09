@@ -114,7 +114,7 @@ namespace rts::core::manager {
                 case Key::T:
                     action = GameplayInputAction::TrainUnit;
                     return true;
-                case Key::Escape:
+                case Key::C:
                     action = GameplayInputAction::CancelProduction;
                     return true;
                 default:

@@ -1,5 +1,19 @@
 # Development Log
 
+## 2026-06-09 - 유닛/건물 명령 단축키 정리 + HUD 단축키 표시
+
+### 변경 내용
+- **Escape 충돌 해결**: `starCraftHotkeyAction`이 Escape를 CancelProduction으로 먼저 소비해, Epic 0.5에서 넣은 "Escape로 빌드 모드 취소"가 죽어 있었음. CancelProduction을 **C**로 옮기고 Escape를 핫키 맵에서 제거 → KeyPressed `switch`의 `case Escape`가 살아나 무장된 명령 모드를 기본으로 되돌림(빌드/이동/채집 모드 취소).
+- **전체 핫키 세트**: M=Move, A=Attack, S=Stop, H=Hold, P=Patrol, G=Gather, B=Build, T=Train, C=Cancel, R=Repair(로직 미구현), Escape=모드 취소. HUD 명령 카드의 모든 버튼이 대응 핫키를 가짐.
+- **HUD 단축키 표시**: `HudCommandButton`에 `hotkey` 추가, 버튼 좌상단에 키 글자(노란색)를 표기해 발견성 확보. HUD 버튼과 핫키 모두 `GameplayInputCommand` 동일 경로.
+
+### 검증
+- 빌드 성공(3/3). 실행 6초 — 크래시/경고 없음.
+- 한계: 실제 키 입력/버튼 표시는 자동화 환경상 수동 검증 필요. 매핑·디스패치 경로는 확인.
+
+### 참고
+- Repair(R)·ReturnResource·UseAbility는 로직이 아직 no-op이라 동작 명령에만 핫키를 부여(ReturnResource/UseAbility는 키 미할당). Epic 6.4 "버튼 Hotkey 연결" 완료.
+
 ## 2026-06-09 - 문맥 의존 HUD 명령 카드 (Epic 6.4) — 생산/건설 버튼 노출
 
 ### 문제

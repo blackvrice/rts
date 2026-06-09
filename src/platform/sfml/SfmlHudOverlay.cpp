@@ -61,6 +61,7 @@ namespace {
     struct HudCommandButton {
         const char* label;
         rts::core::command::GameplayInputAction action;
+        const char* hotkey;  // shown in the button corner; matches starCraftHotkeyAction
     };
 
     struct TrimCacheKey {
@@ -647,27 +648,27 @@ namespace rts::platform::sfml {
         switch (selection.kind) {
             case HudSelectionKind::Building:
                 if (selection.canProduce) {
-                    commands.push_back({"Train", GameplayInputAction::TrainUnit});
+                    commands.push_back({"Train", GameplayInputAction::TrainUnit, "T"});
                 }
-                commands.push_back({"Cancel", GameplayInputAction::CancelProduction});
+                commands.push_back({"Cancel", GameplayInputAction::CancelProduction, "C"});
                 break;
             case HudSelectionKind::Worker:
                 commands = {
-                    {"Move", GameplayInputAction::Move},
-                    {"Stop", GameplayInputAction::Stop},
-                    {"Hold", GameplayInputAction::HoldPosition},
-                    {"Gather", GameplayInputAction::Gather},
-                    {"Build", GameplayInputAction::Build},
-                    {"Attack", GameplayInputAction::Attack}
+                    {"Move", GameplayInputAction::Move, "M"},
+                    {"Stop", GameplayInputAction::Stop, "S"},
+                    {"Hold", GameplayInputAction::HoldPosition, "H"},
+                    {"Gather", GameplayInputAction::Gather, "G"},
+                    {"Build", GameplayInputAction::Build, "B"},
+                    {"Attack", GameplayInputAction::Attack, "A"}
                 };
                 break;
             case HudSelectionKind::CombatUnit:
                 commands = {
-                    {"Move", GameplayInputAction::Move},
-                    {"Stop", GameplayInputAction::Stop},
-                    {"Hold", GameplayInputAction::HoldPosition},
-                    {"Attack", GameplayInputAction::Attack},
-                    {"Patrol", GameplayInputAction::Patrol}
+                    {"Move", GameplayInputAction::Move, "M"},
+                    {"Stop", GameplayInputAction::Stop, "S"},
+                    {"Hold", GameplayInputAction::HoldPosition, "H"},
+                    {"Attack", GameplayInputAction::Attack, "A"},
+                    {"Patrol", GameplayInputAction::Patrol, "P"}
                 };
                 break;
             case HudSelectionKind::Resource:
@@ -703,6 +704,8 @@ namespace rts::platform::sfml {
 
             const ImVec2 textSize = ImGui::CalcTextSize(command.label);
             drawList.AddText({pos.x + (cellW - textSize.x) * 0.5f, pos.y + cellH - textSize.y - 10.0f}, kTextMain, command.label);
+            // Hotkey hint in the top-left corner so the shortcut is discoverable.
+            drawList.AddText({pos.x + 6.0f, pos.y + 4.0f}, kWarning, command.hotkey);
 
             if (clicked) {
                 m_lastCommand = command.label;
