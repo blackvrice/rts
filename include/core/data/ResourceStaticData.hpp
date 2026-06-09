@@ -16,6 +16,10 @@ namespace rts::core::data {
         int gatherAmountPerTrip { 10 };
         float gatherDurationSeconds { 1.5f };
         int maxGatherers { 3 };
+        // Footprint in grid tiles; pathfinding blocks this whole region so units
+        // route around the node instead of through it.
+        int footprintWidth { 1 };
+        int footprintHeight { 1 };
     };
 
     inline ResourceStaticData goldResourceStaticData() {
@@ -25,7 +29,9 @@ namespace rts::core::data {
             .initialAmount = 5000,
             .gatherAmountPerTrip = 10,
             .gatherDurationSeconds = 1.5f,
-            .maxGatherers = 3
+            .maxGatherers = 3,
+            .footprintWidth = 2,
+            .footprintHeight = 2
         };
     }
 
@@ -36,7 +42,9 @@ namespace rts::core::data {
             .initialAmount = 2000,
             .gatherAmountPerTrip = 10,
             .gatherDurationSeconds = 1.5f,
-            .maxGatherers = 3
+            .maxGatherers = 3,
+            .footprintWidth = 2,
+            .footprintHeight = 2
         };
     }
 

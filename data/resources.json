@@ -6,7 +6,9 @@
       "initialAmount": 5000,
       "gatherAmountPerTrip": 10,
       "gatherDurationSeconds": 1.5,
-      "maxGatherers": 3
+      "maxGatherers": 3,
+      "footprintWidth": 2,
+      "footprintHeight": 2
     },
     {
       "id": "wood",
@@ -14,7 +16,9 @@
       "initialAmount": 2000,
       "gatherAmountPerTrip": 10,
       "gatherDurationSeconds": 1.5,
-      "maxGatherers": 3
+      "maxGatherers": 3,
+      "footprintWidth": 2,
+      "footprintHeight": 2
     }
   ]
 }

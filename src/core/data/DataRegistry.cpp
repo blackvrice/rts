@@ -301,7 +301,11 @@ namespace rts::core::data {
                 d.gatherAmountPerTrip  = e.value("gatherAmountPerTrip", d.gatherAmountPerTrip);
                 d.gatherDurationSeconds= e.value("gatherDurationSeconds", d.gatherDurationSeconds);
                 d.maxGatherers         = e.value("maxGatherers", d.maxGatherers);
+                d.footprintWidth       = e.value("footprintWidth", d.footprintWidth);
+                d.footprintHeight      = e.value("footprintHeight", d.footprintHeight);
                 if (!requirePositive("initialAmount", id, d.initialAmount)) { allOk = false; continue; }
+                if (!requirePositive("footprintWidth", id, d.footprintWidth)) { allOk = false; continue; }
+                if (!requirePositive("footprintHeight", id, d.footprintHeight)) { allOk = false; continue; }
                 m_resources[*type] = d;
                 ++resourceCount;
             }

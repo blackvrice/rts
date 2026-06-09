@@ -1,5 +1,16 @@
 # Development Log
 
+## 2026-06-09 - 자원 노드 footprint 데이터화 (길찾기 우회)
+
+### 변경 내용
+- **ResourceStaticData**에 `footprintWidth`/`footprintHeight` 추가(기본 1, Gold/Wood 프리셋·`data/resources.json`은 2×2). DataRegistry가 파싱(양수 검증 포함).
+- **isCellOccupied 통합**: 건물·자원을 동일한 footprint 경로로 처리(요소별 `footprintWidth/Height` 조회 → 중심에서 origin 계산 → 영역 점유). 유닛은 1×1. 자원도 이제 footprint 전체가 pathfinding에서 막혀 유닛이 우회.
+- 자원 충돌 반경(44px≈지름 88px)이 1타일보다 커서 2×2가 시각적 솔리드감과 맞음. `data/resources.json`에서 자유 조정 가능.
+
+### 검증
+- 빌드 성공(10/10). 실행 6초 — `loaded ... 2 resources`, 경고 없음, 크래시 없음.
+- 한계: 실제 우회는 자동화 환경상 수동 확인 필요. 점유/파싱 로직 경로는 검토 완료.
+
 ## 2026-06-09 - 버그 수정: 유닛이 건물 footprint를 통과하던 길찾기 (Epic 5.3 진전)
 
 ### 문제

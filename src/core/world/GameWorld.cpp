@@ -5,6 +5,7 @@
 #include "core/model/IElement.hpp"
 #include "core/model/IGameElement.hpp"
 #include "core/model/Building.hpp"
+#include "core/model/ResourceNode.hpp"
 #include "core/data/DataRegistry.hpp"
 #include "core/world/GameWorldGridQuery.hpp"
 
@@ -128,18 +129,25 @@ namespace rts::core::world {
 
             const auto cell = m_gridTransform.worldToGrid(gameElement->getPosition());
 
-            // Buildings occupy their whole footprint, not just the center cell, so
-            // pathfinding routes around the full structure instead of cutting
-            // through it. Other elements occupy a single cell.
+            // Static structures (buildings, resource nodes) occupy their whole
+            // footprint so pathfinding routes around them instead of cutting
+            // through; units occupy a single cell.
+            int footprintWidth = 1;
+            int footprintHeight = 1;
             if (const auto building = std::dynamic_pointer_cast<model::Building>(element)) {
                 const auto& data = data::DataRegistry::global().building(building->buildingType());
-                const int originX = cell.x - data.footprintWidth / 2;
-                const int originY = cell.y - data.footprintHeight / 2;
-                if (x >= originX && x < originX + data.footprintWidth &&
-                    y >= originY && y < originY + data.footprintHeight) {
-                    return true;
-                }
-            } else if (cell.x == x && cell.y == y) {
+                footprintWidth = data.footprintWidth;
+                footprintHeight = data.footprintHeight;
+            } else if (const auto resource = std::dynamic_pointer_cast<model::ResourceNode>(element)) {
+                const auto& data = data::DataRegistry::global().resource(resource->type());
+                footprintWidth = data.footprintWidth;
+                footprintHeight = data.footprintHeight;
+            }
+
+            const int originX = cell.x - footprintWidth / 2;
+            const int originY = cell.y - footprintHeight / 2;
+            if (x >= originX && x < originX + footprintWidth &&
+                y >= originY && y < originY + footprintHeight) {
                 return true;
             }
         }
