@@ -1,5 +1,25 @@
 # Development Log
 
+## 2026-06-09 - Epic 0.6: 적 AI 경제 루프 (유료 생산·채집·병력 기반 웨이브)
+
+### 변경 내용
+- **updateAI 분리**: `updateAiProduction`/`updateAiWorkers`/`updateAiWaves` 헬퍼로 분리.
+- **유료 생산** (`updateAiProduction`, 5s 주기): enemy 자원 풀에서 비용을 차감하며 생산 — 더 이상 무료 아님. TownHall은 워커를 cap(6)까지, Barracks는 `defaultUnitFor`(Warrior)를 큐가 비었을 때 train. `canAfford` 통과 시에만 `trainUnit`+`pay`. 식량 용량(providesSupply 기반)에도 묶임.
+- **AI 채집** (`updateAiWorkers`, 3s 주기): 유휴 enemy 워커를 `findClosestAvailableResource`(Gold→Wood) + `findClosestDropOffFor`로 gather 배정 → 적 경제가 자생. 채집 중 워커는 idle이 아니라 재배정 안 됨.
+- **병력 기반 웨이브** (`updateAiWaves`): 유휴 enemy 병사 수가 `kAiWaveArmySize(6)` 이상이면 즉시, 아니면 `kAiWaveInterval(45s)` 타임아웃 시 발진. 플레이어 TownHall로 AttackMove. 시간-only였던 기존 방식을 "모이면 공격 + 타임아웃 안전망"으로 개선.
+- 헤더: AI 헬퍼 3종 선언 + `m_aiGatherTimer` 추가.
+
+### 검증
+- 빌드 성공. (참고: GameApp.cpp에서 GCC 14.2.0이 system header `version.h`의 `202002L`를 "invalid digit"로 읽는 비결정적 글리치 1회 → 재빌드로 통과. 소스 무관, 프로젝트 기존 기록과 동일.)
+- 실행 8초 — 생산/채집 틱 다회 구동, 크래시/경고 없음.
+- 한계: 인게임에서 적 경제 성장·웨이브 실제 동작은 자동화 환경상 수동 검증 필요. 로직 경로·자원 차감·구동 안정성은 확인.
+
+### 결과
+- Epic 0.6 90%. 적 AI가 자원을 채집·소비하며 워커/병사를 생산하고, 병력이 모이면 플레이어 기지로 공격. 신규 병영 건설(워커 배치)만 후속.
+
+### Follow-up
+- AI 병영 건설(배치 검증 + 워커 buildAt) — 경제가 커지면 2번째 병영. Epic 5.3 footprint와 연계.
+
 ## 2026-06-09 - Epic 1.4.3 시작: 이동 계산 Fixed 전환 (무버 커널)
 
 ### 변경 내용

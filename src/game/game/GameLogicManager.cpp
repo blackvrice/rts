@@ -1118,8 +1118,11 @@ namespace rts::core::manager {
     // Enemy AI & Victory / Defeat
     // =========================================================
     namespace {
-        constexpr float kAiProduceInterval = 10.0f;  // refill barracks queue cadence
-        constexpr float kAiWaveInterval = 35.0f;      // send a combined attack wave
+        constexpr float kAiProduceInterval = 5.0f;   // train workers/warriors cadence
+        constexpr float kAiGatherInterval = 3.0f;     // assign idle workers cadence
+        constexpr float kAiWaveInterval = 45.0f;       // send a wave even if undersized
+        constexpr int   kAiMaxWorkers = 6;             // economy worker cap
+        constexpr int   kAiWaveArmySize = 6;           // launch once this many idle soldiers mass
     }
 
     std::shared_ptr<model::Building> GameLogicManager::findTownHall(int teamId) const {
@@ -1154,39 +1157,128 @@ namespace rts::core::manager {
             return;
         }
 
-        // Keep enemy barracks producing so waves have units to throw.
+        updateAiProduction(dt);
+        updateAiWorkers(dt);
+        updateAiWaves(dt);
+    }
+
+    void GameLogicManager::updateAiProduction(const float dt) {
         m_aiProduceTimer += dt;
-        if (m_aiProduceTimer >= kAiProduceInterval) {
-            m_aiProduceTimer = 0.f;
-            for (const auto& element : m_world.getElements()) {
-                auto building = std::dynamic_pointer_cast<model::Building>(element);
-                if (building &&
-                    building->getTeamId() == model::TeamId::Enemy &&
-                    building->buildingType() == model::BuildingType::Barracks &&
-                    building->isComplete() &&
-                    building->getAction() != model::ActionType::Dead &&
-                    building->trainQueueSize() == 0) {
-                    // AI trains for free (no cost check) to keep the slice self-driving.
-                    building->trainUnit(::rts::UnitType::Warrior);
+        if (m_aiProduceTimer < kAiProduceInterval) {
+            return;
+        }
+        m_aiProduceTimer = 0.f;
+
+        auto resources = m_world.playerResources(model::TeamId::Enemy);
+
+        int workerCount = 0;
+        for (const auto& element : m_world.getElements()) {
+            auto unit = std::dynamic_pointer_cast<model::Unit>(element);
+            if (unit && unit->getTeamId() == model::TeamId::Enemy &&
+                unit->isWorker() && unit->getAction() != model::ActionType::Dead) {
+                ++workerCount;
+            }
+        }
+
+        // Train from idle production buildings, paying from the enemy pool. Workers
+        // grow the economy up to a cap; barracks keep warriors coming for waves.
+        for (const auto& element : m_world.getElements()) {
+            auto building = std::dynamic_pointer_cast<model::Building>(element);
+            if (!building ||
+                building->getTeamId() != model::TeamId::Enemy ||
+                !building->isComplete() ||
+                building->getAction() == model::ActionType::Dead ||
+                building->trainQueueSize() > 0) {
+                continue;
+            }
+
+            ::rts::UnitType unitType;
+            if (building->buildingType() == model::BuildingType::TownHall) {
+                if (workerCount >= kAiMaxWorkers) continue;
+                unitType = ::rts::UnitType::Worker;
+            } else {
+                unitType = defaultUnitFor(building->buildingType());
+            }
+
+            const auto cost = core::data::unitStaticDataFor(unitType).cost();
+            if (resources.canAfford(cost) && building->trainUnit(unitType)) {
+                resources.pay(cost);
+                if (unitType == ::rts::UnitType::Worker) {
+                    ++workerCount;
                 }
             }
         }
 
-        // Periodically launch every idle enemy combat unit at the player's town hall.
+        m_world.setPlayerResources(model::TeamId::Enemy, resources);
+    }
+
+    void GameLogicManager::updateAiWorkers(const float dt) {
+        m_aiGatherTimer += dt;
+        if (m_aiGatherTimer < kAiGatherInterval) {
+            return;
+        }
+        m_aiGatherTimer = 0.f;
+
+        for (const auto& element : m_world.getElements()) {
+            auto worker = std::dynamic_pointer_cast<model::Unit>(element);
+            if (!worker ||
+                worker->getTeamId() != model::TeamId::Enemy ||
+                !worker->isWorker() ||
+                worker->getAction() != model::ActionType::Idle) {
+                continue;
+            }
+
+            auto resource = findClosestAvailableResource(
+                model::ResourceNode::ResourceType::Gold, *worker);
+            if (!resource) {
+                resource = findClosestAvailableResource(
+                    model::ResourceNode::ResourceType::Wood, *worker);
+            }
+            if (!resource) {
+                continue;
+            }
+
+            auto dropOff = findClosestDropOffFor(*worker);
+            if (dropOff) {
+                worker->gather(resource.get(), dropOff.get());
+            }
+        }
+    }
+
+    void GameLogicManager::updateAiWaves(const float dt) {
         m_aiWaveTimer += dt;
-        if (m_aiWaveTimer >= kAiWaveInterval) {
-            m_aiWaveTimer = 0.f;
-            auto target = findTownHall(model::TeamId::Player);
-            if (target) {
-                for (const auto& element : m_world.getElements()) {
-                    auto unit = std::dynamic_pointer_cast<model::Unit>(element);
-                    if (unit &&
-                        unit->getTeamId() == model::TeamId::Enemy &&
-                        !unit->isWorker() &&
-                        unit->getAction() == model::ActionType::Idle) {
-                        m_movement.issueAttackMove(m_world, *unit, target->getPosition());
-                    }
-                }
+
+        int idleSoldiers = 0;
+        for (const auto& element : m_world.getElements()) {
+            auto unit = std::dynamic_pointer_cast<model::Unit>(element);
+            if (unit &&
+                unit->getTeamId() == model::TeamId::Enemy &&
+                !unit->isWorker() &&
+                unit->getAction() == model::ActionType::Idle) {
+                ++idleSoldiers;
+            }
+        }
+
+        // Attack once a real force has massed, or after the timeout so a stalled
+        // economy still eventually pressures the player.
+        const bool massReady = idleSoldiers >= kAiWaveArmySize;
+        const bool timedOut = m_aiWaveTimer >= kAiWaveInterval;
+        if ((!massReady && !timedOut) || idleSoldiers == 0) {
+            return;
+        }
+        m_aiWaveTimer = 0.f;
+
+        auto target = findTownHall(model::TeamId::Player);
+        if (!target) {
+            return;
+        }
+        for (const auto& element : m_world.getElements()) {
+            auto unit = std::dynamic_pointer_cast<model::Unit>(element);
+            if (unit &&
+                unit->getTeamId() == model::TeamId::Enemy &&
+                !unit->isWorker() &&
+                unit->getAction() == model::ActionType::Idle) {
+                m_movement.issueAttackMove(m_world, *unit, target->getPosition());
             }
         }
     }

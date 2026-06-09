@@ -689,7 +689,7 @@ Idle
 
 ## Epic 0.6 단순 적 AI
 
-현재 상태: `[60%]`
+현재 상태: `[90% — 0.6.1/0.6.2 완료, 0.6.3 경제 루프 구현(일꾼 생산·채집·유료 생산·병력 기반 웨이브) / 신규 병영 건설만 후속]`
 
 ### 목표
 
@@ -752,11 +752,11 @@ AI 병사 5기 생성
 #### Task
 
 ```text
-[ ] AI 일꾼 생산
-[ ] AI 자원 채집
-[ ] AI 병영 건설
-[x] AI 병사 생산 (Barracks Warrior 주기적 train)
-[ ] 일정 수 이상 모이면 공격 (현재 시간 기반 웨이브)
+[x] AI 일꾼 생산 (enemy TownHall이 워커를 cap(6)까지 유료 train)
+[x] AI 자원 채집 (유휴 enemy 워커를 최근접 가용 자원으로 gather 배정)
+[ ] AI 병영 건설 (신규 병영 건설은 후속 — 현재 적은 시작 병영 보유)
+[x] AI 병사 생산 (Barracks Warrior 주기적 유료 train — 비용 차감, 더 이상 무료 아님)
+[x] 일정 수 이상 모이면 공격 (유휴 병사 ≥ kAiWaveArmySize 또는 타임아웃 시 웨이브)
 ```
 
 Vertical Slice 단계에서는 Wave Attack AI만 먼저 구현해도 충분합니다.

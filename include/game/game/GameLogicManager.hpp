@@ -116,6 +116,14 @@ namespace rts::core::manager {
 
         // AI / victory helpers
         void updateAI(float dt);
+        // Enemy economy: train workers (to a cap) and warriors, paying from the
+        // enemy resource pool (no free units).
+        void updateAiProduction(float dt);
+        // Sends idle enemy workers to gather the nearest available resource.
+        void updateAiWorkers(float dt);
+        // Launches an attack wave once enough idle soldiers have massed, or after a
+        // timeout, whichever comes first.
+        void updateAiWaves(float dt);
         void checkVictoryDefeat();
         std::shared_ptr<model::Building> findTownHall(int teamId) const;
         int countTownHalls(int teamId) const;
@@ -128,9 +136,10 @@ namespace rts::core::manager {
         MovementSystem m_movement;
         std::vector<PendingSpawn> m_pendingSpawns;
 
-        // Simple enemy AI: periodically refills barracks production and sends idle
-        // combat units at the player's town hall.
+        // Simple enemy AI: trains/gathers on cadences and sends idle combat units
+        // at the player's town hall once they mass up.
         float m_aiProduceTimer { 0.f };
+        float m_aiGatherTimer { 0.f };
         float m_aiWaveTimer { 0.f };
     };
 } // namespace rts::manager
