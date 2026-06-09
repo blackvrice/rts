@@ -995,7 +995,7 @@ struct EntityId
 
 ## Epic 1.4 고정 틱 / 결정론
 
-현재 상태: `[~80% — 1.4.1/1.4.2 완료, 1.4.3 Fixed 토대 완료 / 이동·사거리·투사체 Fixed 마이그레이션 후속]`
+현재 상태: `[~82% — 1.4.1/1.4.2 완료, Fixed 토대+이동 무버 커널 전환 시작 / position 저장·충돌·사거리·투사체 Fixed 마이그레이션 후속]`
 
 ---
 
@@ -1034,7 +1034,7 @@ struct EntityId
 [x] Fixed 타입 추가 (core/sim/Fixed.hpp — 16.16 고정소수, 컴파일타임 static_assert 검증)
 [x] FixedVec2 추가
 [x] Grid 좌표와 World 좌표 변환 함수 추가 (worldToGrid/gridToWorldCenter)
-[ ] 이동 계산부터 Fixed 적용 (후속 — Vector2D/MovementSystem 점진 전환)
+[~] 이동 계산부터 Fixed 적용 (라이브 경로추종 updateMove를 Fixed stepToward 커널로 전환 / position 저장·충돌 push·attack chase·moveToward는 후속 증분)
 [ ] 공격 사거리 계산에 Fixed 적용 (후속)
 [ ] 투사체 계산에 Fixed 적용 (후속)
 ```

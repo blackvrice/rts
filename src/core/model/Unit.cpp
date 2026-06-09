@@ -6,6 +6,7 @@
 
 #include <core/model/Building.hpp>
 #include <core/model/Unit.hpp>
+#include <core/sim/Fixed.hpp>
 #include <core/viewmodel/UnitViewModel.hpp>
 #include <core/world/GridTransform.hpp>
 
@@ -299,11 +300,17 @@ namespace rts::core::model {
             target = m_finalTargetWorld;
         }
 
-        Vector2D delta{ target.x - m_position.x, target.y - m_position.y };
-        float distSq = delta.x*delta.x + delta.y*delta.y;
+        // Movement integration runs in fixed-point (Epic 1.4.3) so the step is
+        // platform-independent. Position is still stored as float and bridged here;
+        // migrating the stored position, collision push, and ranges to Fixed are
+        // the follow-up increments toward full determinism.
+        const sim::FixedVec2 from {
+            sim::Fixed::fromFloat(m_position.x), sim::Fixed::fromFloat(m_position.y) };
+        const sim::FixedVec2 dest {
+            sim::Fixed::fromFloat(target.x), sim::Fixed::fromFloat(target.y) };
 
         constexpr float ARRIVE_EPS = 1.0f; // 타일 중심으로 붙는 오차
-        if (distSq <= ARRIVE_EPS*ARRIVE_EPS) {
+        if ((dest - from).length() <= sim::Fixed::fromFloat(ARRIVE_EPS)) {
             if (!m_gridPath.empty()) {
                 m_gridPath.pop_front();
                 return; // 다음 노드로 계속
@@ -321,16 +328,9 @@ namespace rts::core::model {
             return;
         }
 
-        float dist = std::sqrt(distSq);
-        Vector2D dir{ delta.x / dist, delta.y / dist };
-
-        float step = moveSpeed * dt;
-        if (step >= dist) {
-            m_position = target;
-        } else {
-            m_position.x += dir.x * step;
-            m_position.y += dir.y * step;
-        }
+        const sim::Fixed step = sim::Fixed::fromFloat(moveSpeed * dt);
+        const sim::FixedVec2 next = sim::stepToward(from, dest, step);
+        m_position = { next.x.toFloat(), next.y.toFloat() };
     }
 
 

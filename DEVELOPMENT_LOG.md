@@ -1,5 +1,21 @@
 # Development Log
 
+## 2026-06-09 - Epic 1.4.3 시작: 이동 계산 Fixed 전환 (무버 커널)
+
+### 변경 내용
+- **Fixed 커널 확장** (`include/core/sim/Fixed.hpp`): `Fixed::abs()`, 결정론적 64비트 정수 `isqrt64()`, `FixedVec2::length()`(거리² 오버플로 회피 위해 raw를 int64로 제곱 후 isqrt), 그리고 단일 이동 적분기 `stepToward(from, to, maxStep)`(도달 시 to로 스냅, 아니면 비례 전진). 오버플로 위험한 `lengthSq()`/`dot()`는 제거. `static_assert`로 length(3,4)=5·stepToward 부분전진/스냅/대각·isqrt 검증.
+- **라이브 무버 전환**: `Unit::updateMove(dt, GridTransform)`(경로추종 — Move/Patrol의 실제 무버)의 도달 판정·전진을 Fixed `stepToward`로 수행. position은 아직 float 저장이라 진입 시 `fromFloat`, 종료 시 `toFloat`로 브리지.
+- 죽은 코드였던 평면 `updateMove(dt)`는 손대지 않음(MovementSystem은 경로추종 변종만 호출).
+
+### 설계 메모 / 결정론 현황
+- 핵심 발견: 이 월드의 거리²(최대 ~4e6)는 16.16 Fixed 범위(±32768)를 초과 → 길이는 반드시 int64 중간연산으로. `stepToward`/`length`가 이를 처리.
+- 현재는 **이동 적분 계산이 Fixed 경유**하지만 position 저장이 float이고 충돌 push가 float이므로 **완전 비트-결정론은 아직 미달**. 단계적 계획(plan 1.4.3 지침)대로 다음 증분: ① Unit position을 FixedVec2 권위 저장(getPosition/setPosition은 float 투영), ② 충돌 push Fixed화, ③ attack chase·moveToward 전환, ④ 사거리, ⑤ 투사체. 각 단계 후 동일 입력 재현 테스트.
+- 참고: 동일 빌드·동일 실행 2회의 결정론은 float로도 성립(연산/순서 동일). Fixed의 목표는 크로스 플랫폼/락스텝 결정론.
+
+### 검증
+- 빌드 성공(Fixed.cpp static_assert 전부 통과 — 커널 수학 검증). 실행 6초 — 크래시/경고 없음, `loaded ... 30 sprites`.
+- 한계: 인게임 이동의 시각적 동작은 자동화 환경상 수동 확인 필요. 커널은 컴파일타임 검증됨, 무버 전환은 동일 계산의 드롭인이라 동작 보존(서브픽셀 일치).
+
 ## 2026-06-09 - Epic 2.4: Command Queue 완성 (Move/Attack/Gather 혼합 체인)
 
 ### 변경 내용
