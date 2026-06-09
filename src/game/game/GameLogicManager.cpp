@@ -835,14 +835,19 @@ namespace rts::core::manager {
             });
     }
 
-    model::Vector2D GameLogicManager::findFreeSpawnPosition(const model::Vector2D& anchor) const {
+    std::optional<model::Vector2D> GameLogicManager::findFreeSpawnPosition(
+        const model::Vector2D& anchor,
+        const std::optional<model::Vector2D>& prefer) const {
         const auto& tf = m_world.gridTransform();
         const auto origin = tf.worldToGrid(anchor);
 
-        // Expand outward ring by ring around the anchor cell until a walkable,
-        // unoccupied tile is found; fall back to the anchor when none is free.
+        // Expand ring by ring around the anchor. Within a ring, pick the free tile
+        // nearest the preferred point (rally) so units fan out toward their rally;
+        // without a preference, the first free tile wins. nullopt = fully boxed in.
         constexpr int kMaxRadius = 6;
         for (int radius = 0; radius <= kMaxRadius; ++radius) {
+            std::optional<model::Vector2D> best;
+            float bestDistSq = std::numeric_limits<float>::max();
             for (int dy = -radius; dy <= radius; ++dy) {
                 for (int dx = -radius; dx <= radius; ++dx) {
                     // Only inspect the perimeter of the current ring.
@@ -854,11 +859,37 @@ namespace rts::core::manager {
                     if (m_world.isTileBlocked(gx, gy) || m_world.isCellOccupied(gx, gy)) {
                         continue;
                     }
-                    return tf.gridToWorldCenter(path::GridPos{ gx, gy });
+                    const auto world = tf.gridToWorldCenter(path::GridPos{ gx, gy });
+                    if (!prefer) {
+                        return world;  // no preference: first free tile is fine
+                    }
+                    const float dSq = distanceSq(world, *prefer);
+                    if (dSq < bestDistSq) {
+                        bestDistSq = dSq;
+                        best = world;
+                    }
                 }
             }
+            if (best) {
+                return best;  // closest-to-rally free tile in the nearest occupied ring
+            }
         }
-        return anchor;
+        return std::nullopt;
+    }
+
+    bool GameLogicManager::isEnemyNear(const model::Vector2D& point, const int team) const {
+        for (const auto& element : m_world.getElements()) {
+            auto candidate = std::dynamic_pointer_cast<model::IGameElement>(element);
+            if (!candidate ||
+                candidate->getAction() == model::ActionType::Dead ||
+                !isOpposingTeam(team, candidate->getTeamId())) {
+                continue;
+            }
+            if (distanceSq(candidate->getPosition(), point) <= kAttackTargetPickRadiusSq) {
+                return true;
+            }
+        }
+        return false;
     }
 
     void GameLogicManager::flushPendingSpawns() {
@@ -871,13 +902,28 @@ namespace rts::core::manager {
         spawns.swap(m_pendingSpawns);
 
         for (const auto& spawn : spawns) {
+            const std::optional<model::Vector2D> prefer =
+                spawn.hasRally ? std::optional{ spawn.rally } : std::nullopt;
+            const auto position = findFreeSpawnPosition(spawn.anchor, prefer);
+            if (!position) {
+                // No room around the building yet — hold the unit and retry next tick.
+                m_pendingSpawns.push_back(spawn);
+                continue;
+            }
+
             auto unit = std::make_shared<model::Unit>(spawn.type);
-            unit->setPosition(findFreeSpawnPosition(spawn.anchor));
+            unit->setPosition(*position);
             unit->setTeamId(spawn.team);
             m_world.addElement(unit);
 
             if (spawn.hasRally) {
-                unit->moveTo(spawn.rally);
+                // A rally point on/near an enemy means attack-move there instead of
+                // a passive move, so rallied units engage on arrival.
+                if (isEnemyNear(spawn.rally, spawn.team)) {
+                    m_movement.issueAttackMove(m_world, *unit, spawn.rally);
+                } else {
+                    unit->moveTo(spawn.rally);
+                }
             }
         }
     }

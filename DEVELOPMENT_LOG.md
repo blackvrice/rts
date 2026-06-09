@@ -1,5 +1,22 @@
 # Development Log
 
+## 2026-06-09 - Epic 0.3/0.4 엣지케이스: 채집 안정화 확인 + 생산 스폰/RallyPoint 로직
+
+### 변경 내용 (0.4 생산 스폰/RallyPoint)
+- **RallyPoint 방향 우선 배치**: `findFreeSpawnPosition`이 `std::optional<Vector2D>` 반환 + 선호 지점(rally) 인자. 각 링에서 rally에 최근접한 빈 타일을 선택해 유닛이 rally 방향으로 퍼지도록 함.
+- **스폰 공간 없으면 대기**: 반경 내 모든 타일이 막히면 `nullopt` 반환 → `flushPendingSpawns`가 해당 spawn을 `m_pendingSpawns`에 재큐(다음 틱 재시도). 이전엔 앵커로 폴백해 겹쳤음.
+- **RallyPoint가 적이면 AttackMove**: `isEnemyNear(point, team)`(pick 반경 내 적대 생존 요소 검사) → rally가 적 근처면 `issueAttackMove`, 아니면 `moveTo`. 집결지에 적이 있으면 도착 시 교전.
+
+### 0.3 채집 엣지케이스 (검증 — 기구현 확인)
+- MaxGatherers 초과/예약 실패 → `handleGatherRedirects`의 NeedNewResource 분기가 동일 타입 다른 자원 재탐색(없으면 stop). Drop-off 파괴 → NeedNewDropOff → `findClosestDropOffFor` 재탐색. gather 대상은 EntityId 핸들(Epic 1.3). 모두 이미 동작 → 코드 변경 없이 상태/문서만 갱신.
+
+### 검증
+- 빌드 성공(4/4 재컴파일·링크). 실행 8초 — AI 생산으로 스폰 경로 구동, 크래시/경고 없음.
+- 한계: rally 방향 배치/대기/적-rally AttackMove의 실제 인게임 동작은 수동 검증 필요. 스폰 경로·로직은 확인.
+
+### 결과
+- Epic 0.3 95%(전용 디버그 로그만 후속), 0.4 95%(HUD 명령카드·사운드·RallyPoint UI만 후속). Vertical Slice 핵심 루프의 로직 엣지케이스 정리 완료.
+
 ## 2026-06-09 - Epic 0.7: 결과 화면 재시작 (한 판 루프 완성)
 
 ### 변경 내용

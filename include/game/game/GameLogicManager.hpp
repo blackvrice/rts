@@ -5,6 +5,7 @@
 #pragma once
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "core/manager/ILogicManager.hpp"
@@ -99,7 +100,14 @@ namespace rts::core::manager {
         // Production helpers
         void registerBuildingSpawn(model::Building& building);
         std::shared_ptr<model::Building> firstSelectedBuilding() const;
-        model::Vector2D findFreeSpawnPosition(const model::Vector2D& anchor) const;
+        // Nearest free tile around the anchor; when a preferred world point is given
+        // (the rally point), the closest free tile in that direction wins. Returns
+        // nullopt when every tile in range is blocked so the caller can wait.
+        std::optional<model::Vector2D> findFreeSpawnPosition(
+            const model::Vector2D& anchor,
+            const std::optional<model::Vector2D>& prefer = std::nullopt) const;
+        // True when a live opposing-team element sits near the point (rally on foe).
+        bool isEnemyNear(const model::Vector2D& point, int team) const;
         void flushPendingSpawns();
         static ::rts::UnitType defaultUnitFor(model::BuildingType type);
 

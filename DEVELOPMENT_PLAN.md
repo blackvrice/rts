@@ -139,7 +139,7 @@
 
 ## Epic 0.3 자원 채집 루프
 
-현재 상태: `[80%]`
+현재 상태: `[95% — 엣지케이스(EntityId 핸들·MaxGatherers 재탐색·drop-off 재탐색) 완료 / 전용 디버그 로그만 후속]`
 
 ### 현재 구현된 항목
 
@@ -157,10 +157,10 @@
 ### 남은 안정화 항목
 
 ```text
-- EntityId 기반 ResourceNodeComponent 전환
-- MaxGatherers 초과 시 다른 자원 자동 탐색 또는 대기
-- Drop-off 건물 파괴 시 재탐색
-- 채집 루프 전용 테스트/디버그 로그
+- (완료) EntityId 핸들 기반 gather 대상 참조 (targetResourceId/targetDropOffId, Epic 1.3)
+- (완료) MaxGatherers 초과/예약 실패 시 다른 자원 재탐색 (handleGatherRedirects: NeedNewResource)
+- (완료) Drop-off 건물 파괴 시 재탐색 (NeedNewDropOff → findClosestDropOffFor)
+- 채집 루프 전용 테스트/디버그 로그 (후속)
 ```
 
 ---
@@ -352,7 +352,7 @@ MoveToResource
 
 ## Epic 0.4 유닛 생산 루프
 
-현재 상태: `[85%]`
+현재 상태: `[95% — 생산/비용/스폰/RallyPoint 로직 완료(방향 우선·공간없으면 대기·적 rally면 AttackMove) / HUD 명령카드·사운드·RallyPoint UI만 후속]`
 
 ### 현재 구현된 항목
 
@@ -384,10 +384,10 @@ MoveToResource
 #### Task
 
 ```text
-[ ] BuildingStaticData에 생산 가능 유닛 목록 추가
-[ ] ProductionQueueSize 추가
-[ ] RallyPoint 기본값 추가
-[ ] 생산 시간 데이터 연결
+[x] BuildingStaticData에 생산 가능 유닛 목록 추가 (produces, Epic 1.2)
+[x] ProductionQueueSize 추가 (Building::kMaxTrainQueue = 5)
+[~] RallyPoint 기본값 추가 (런타임 설정 지원 / 정적 기본값은 미사용)
+[x] 생산 시간 데이터 연결 (UnitStaticData.buildTimeSeconds → Building::currentTrainTime)
 ```
 
 #### 예시 구조
@@ -478,8 +478,8 @@ struct ProductionQueue
 ```text
 [x] 건물 footprint 주변 타일 검색 (findFreeSpawnPosition 링 탐색)
 [x] 이동 가능한 타일 필터링 (isTileBlocked/isCellOccupied)
-[ ] RallyPoint 방향 우선 배치
-[ ] 스폰 위치가 없으면 생산 완료 대기 (현재는 앵커로 폴백)
+[x] RallyPoint 방향 우선 배치 (링 내 rally 최근접 빈 타일 선택)
+[x] 스폰 위치가 없으면 생산 완료 대기 (findFreeSpawnPosition nullopt → m_pendingSpawns 재큐)
 [x] 스폰 후 충돌 등록 (addElement → onCollisionChanged)
 ```
 
@@ -500,7 +500,7 @@ struct ProductionQueue
 [x] 건물 선택 후 우클릭으로 RallyPoint 설정
 [ ] RallyPoint UI 표시
 [x] 생산 완료 유닛에게 MoveCommand 자동 발행 (flushPendingSpawns에서 moveTo)
-[ ] RallyPoint가 적이면 AttackMove 또는 AttackTarget 처리 여부 결정
+[x] RallyPoint가 적이면 AttackMove 처리 (isEnemyNear → issueAttackMove)
 ```
 
 #### 완료 기준
