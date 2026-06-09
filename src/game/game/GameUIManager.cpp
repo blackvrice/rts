@@ -91,7 +91,9 @@ namespace rts::core::manager {
                     action = GameplayInputAction::Move;
                     return true;
                 case Key::A:
-                    action = GameplayInputAction::Attack;
+                    // A is attack-move (move to a point, engaging foes en route).
+                    // Attacking a specific target is the default right-click.
+                    action = GameplayInputAction::AttackMove;
                     return true;
                 case Key::S:
                     action = GameplayInputAction::Stop;

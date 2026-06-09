@@ -1,5 +1,10 @@
 # Development Log
 
+## 2026-06-09 - A 키를 명시적 Attack-Move로
+
+- A 핫키와 HUD 버튼을 `GameplayInputAction::Attack` → `AttackMove`로 변경하고 버튼 라벨을 "A-Move"로. (기존에도 handleGameplayInput이 Attack/AttackMove를 모두 AttackMove 모드로 보내 동작은 같았으나, 라벨·시맨틱이 모호했음.) 특정 타겟 공격은 기본 우클릭 스마트 명령이 담당.
+- 빌드 성공(3/3), 실행 정상.
+
 ## 2026-06-09 - 유닛/건물 명령 단축키 정리 + HUD 단축키 표시
 
 ### 변경 내용

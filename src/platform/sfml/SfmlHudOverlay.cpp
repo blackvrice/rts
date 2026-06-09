@@ -659,7 +659,7 @@ namespace rts::platform::sfml {
                     {"Hold", GameplayInputAction::HoldPosition, "H"},
                     {"Gather", GameplayInputAction::Gather, "G"},
                     {"Build", GameplayInputAction::Build, "B"},
-                    {"Attack", GameplayInputAction::Attack, "A"}
+                    {"A-Move", GameplayInputAction::AttackMove, "A"}
                 };
                 break;
             case HudSelectionKind::CombatUnit:
@@ -667,7 +667,7 @@ namespace rts::platform::sfml {
                     {"Move", GameplayInputAction::Move, "M"},
                     {"Stop", GameplayInputAction::Stop, "S"},
                     {"Hold", GameplayInputAction::HoldPosition, "H"},
-                    {"Attack", GameplayInputAction::Attack, "A"},
+                    {"A-Move", GameplayInputAction::AttackMove, "A"},
                     {"Patrol", GameplayInputAction::Patrol, "P"}
                 };
                 break;
