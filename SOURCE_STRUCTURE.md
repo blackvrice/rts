@@ -21,7 +21,7 @@ cmake --build build
 - `src/` contains application, core, game, and platform implementations.
 - `external/tmxlite/` is the tmxlite dependency used for map loading. Treat it as third-party code unless the task explicitly targets it.
 - `external/json/` vendors the nlohmann/json single header (`nlohmann/json.hpp`) used by the DataRegistry. Third-party code.
-- `data/` holds runtime JSON design data (`units.json`, `buildings.json`, `resources.json`, `animations.json`) loaded by `DataRegistry`; edit these to retune stats or change sprites/animations without recompiling.
+- `data/` holds runtime JSON design data (`units.json`, `buildings.json`, `resources.json`, `animations.json`) loaded by `DataRegistry`, plus `data/maps/*.json` scenario maps loaded by `core/map/MapLoader`; edit these to retune stats, change sprites/animations, or lay out the starting map without recompiling.
 - `Tiny Swords (Free Pack)/` contains art assets used by the game.
 - `cmake-build-debug/` is a local build output folder and should not be treated as source.
 
@@ -32,6 +32,7 @@ cmake --build build
 - `include/core/thread` and `src/core/thread` contain logic-thread support.
 - `include/core/manager` and `src/core/manager` contain cross-scene managers such as scene, camera, and path management.
 - `include/core/scene` defines scene interfaces.
+- `include/core/map` + `src/core/map`: terrain (`TileMapSoA`), fog of war, and `MapData`/`MapLoader` — a JSON scenario (`data/maps/*.json`) defining grid size, starting resources, and building/unit/resource placement. `GameLogicManager::setupInitialWorld` loads it (falling back to a built-in default) instead of hard-coding the starting layout; type ids resolve through `DataRegistry`.
 - `include/core/sim` holds the simulation timing/determinism foundation: `SimClock.hpp` (fixed logic tick rate constants + `TickCount`) and `Fixed.hpp` (16.16 fixed-point `Fixed`/`FixedVec2`, int64-safe `length()`, the `stepToward` movement integrator, and grid/world conversions, compile-time tested via `src/core/sim/Fixed.cpp`). The logic thread steps at `SimClock`'s fixed delta; `GameWorld::currentTick()` is the monotonic tick index. The live path-following mover (`Unit::updateMove(dt, GridTransform)`) integrates via `stepToward`; full bit-determinism is pending the position-storage, collision, range, and projectile migrations (Epic 1.4.3).
 - `include/core/ecs` contains entity primitives: the legacy `Registry`/`Entity` (uint32 component registry) and the `EntityId` (index+generation handle) + `EntityManager` (slot allocator with generation-based recycling). `GameWorld` owns an `EntityManager`, assigns an `EntityId` to each game element in `addElement`, and exposes `isAlive`/`resolve`/`pruneDeadEntities`. Units reference their targets (attack, gather resource, drop-off, build site) by `EntityId` resolved through an injected resolver, so a dead/recycled target stops resolving instead of dangling. `AttackCommand` also carries the clicked target's `EntityId`, which the logic prefers (when live/valid/near the click) over positional resolution.
 - `include/core/entity`, `include/core/model`, and `include/core/data` define gameplay data, entities, and model types.

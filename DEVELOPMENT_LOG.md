@@ -1,5 +1,20 @@
 # Development Log
 
+## 2026-06-09 - JSON 맵 로딩 (시작 레이아웃 데이터화)
+
+### 변경 내용
+- **MapData/MapLoader** (`include/core/map/MapData.hpp`, `src/core/map/MapLoader.cpp`): 맵 시나리오 구조체 + JSON 로더. `width/height/tileSize`, 팀별 시작 자원, 건물/유닛/자원 배치, `blockedTiles`(비통행 타일)를 정의. 타입 문자열(`town_hall`/`worker`/`gold`…)은 DataRegistry의 `buildingById/unitById/resourceById`로 enum 해석. 파일 누락/파싱 오류 시 `defaultMapData()`(기존 하드코딩 레이아웃) 폴백.
+- **data/maps/skirmish.json**: 기본 시나리오(32x32, 양 팀 TownHall+Barracks, 유닛 행, Gold/Wood). 편집만으로 레이아웃 변경(재컴파일 불필요).
+- **GameWorld**: `initTileMap(w,h,tileSize)`(타일맵 재초기화 + gridTransform tileSize 설정), `setTileBlocked(x,y)`(moveCost 0) 추가.
+- **GameLogicManager::setupInitialWorld**: 하드코딩 스폰 제거 → `loadMap(DataRoot + "/maps/skirmish.json")` 결과로 타일맵 초기화·블록타일·시작자원·건물·유닛·자원 스폰. 재시작(restartMatch)도 동일 경로라 맵 재적용.
+
+### 검증
+- 빌드 성공(11/11). 실행 — `[MapLoader] loaded map ... (32x32, 4 buildings, 8 units, 2 resources)` 출력, 경고 없음, 크래시 없음.
+- 한계: 인게임 배치 확인은 수동 검증 필요. 로드·스폰 로직 경로는 확인.
+
+### 비고
+- 프로젝트 JSON 데이터 주도 패턴(nlohmann/DataPaths)과 일관. Tiled `.tmx`(XML) 임포트(Epic 7.1)는 별개 경로로 남김 — 본 작업은 JSON 맵.
+
 ## 2026-06-09 - A 키를 명시적 Attack-Move로
 
 - A 핫키와 HUD 버튼을 `GameplayInputAction::Attack` → `AttackMove`로 변경하고 버튼 라벨을 "A-Move"로. (기존에도 handleGameplayInput이 Attack/AttackMove를 모두 AttackMove 모드로 보내 동작은 같았으나, 라벨·시맨틱이 모호했음.) 특정 타겟 공격은 기본 우클릭 스마트 명령이 담당.

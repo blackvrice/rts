@@ -15,6 +15,8 @@
 #include <core/data/BuildingStaticData.hpp>
 #include <core/data/ResourceStaticData.hpp>
 #include <core/data/DataRegistry.hpp>
+#include <core/data/DataPaths.hpp>
+#include <core/map/MapData.hpp>
 #include <core/world/GameWorld.hpp>
 
 namespace {
@@ -1072,106 +1074,50 @@ namespace rts::core::manager {
     // Match lifecycle
     // =========================================================
     void GameLogicManager::setupInitialWorld() {
-        // Debug starting resources so production/construction can be exercised
-        // immediately during manual playtests.
-        core::model::PlayerResourceState playerResources {};
-        playerResources.gold = 500;
-        playerResources.wood = 300;
-        playerResources.foodUsed = 0;
-        playerResources.foodCapacity = 20;
-        playerResources.army = 0;
-        m_world.setPlayerResources(core::model::TeamId::Player, playerResources);
+        // Scenario comes from data/maps/skirmish.json (falls back to a built-in
+        // default), so the starting layout is editable without recompiling.
+        const auto map = core::map::loadMap(
+            std::string(core::data::DataRoot) + "/maps/skirmish.json");
 
-        core::model::PlayerResourceState enemyResources {};
-        enemyResources.gold = 500;
-        enemyResources.wood = 300;
-        enemyResources.foodUsed = 0;
-        enemyResources.foodCapacity = 20;
-        enemyResources.army = 0;
-        m_world.setPlayerResources(core::model::TeamId::Enemy, enemyResources);
+        m_world.initTileMap(map.width, map.height, map.tileSize);
+        for (const auto& tile : map.blockedTiles) {
+            m_world.setTileBlocked(tile.x, tile.y, true);
+        }
 
-        // Spawns one unit of every type for a team in a spaced-out row so the
-        // initial placement never overlaps the unit collision radius (28px ->
-        // 56px min distance); 110px columns keep a comfortable gap.
-        const auto spawnUnitRow = [this](int teamId, float startX, float y) {
-            const ::rts::UnitType types[] = {
-                ::rts::UnitType::Worker,
-                ::rts::UnitType::Warrior,
-                ::rts::UnitType::Archer,
-                ::rts::UnitType::Marine
-            };
-            float x = startX;
-            for (const auto type : types) {
-                auto unit = std::make_shared<core::model::Unit>(type);
-                unit->setPosition({ x, y });
-                unit->setTeamId(teamId);
-                m_world.addElement(unit);
-                x += 110.f;
-            }
+        const auto makeResources = [](int gold, int wood) {
+            core::model::PlayerResourceState r {};
+            r.gold = gold;
+            r.wood = wood;
+            r.foodUsed = 0;
+            r.foodCapacity = 20;
+            r.army = 0;
+            return r;
         };
+        m_world.setPlayerResources(core::model::TeamId::Player,
+            makeResources(map.playerGold, map.playerWood));
+        m_world.setPlayerResources(core::model::TeamId::Enemy,
+            makeResources(map.enemyGold, map.enemyWood));
 
-        // --- Player base (top-left) ---
-        auto townHall = std::make_shared<core::model::Building>(
-            core::model::BuildingType::TownHall,
-            core::model::Vector2D{220.f, 220.f},
-            core::model::TeamId::Player
-        );
-        registerBuildingSpawn(*townHall);
-        m_world.addElement(townHall);
+        for (const auto& b : map.buildings) {
+            auto building = std::make_shared<core::model::Building>(b.type, b.position, b.teamId);
+            registerBuildingSpawn(*building);
+            m_world.addElement(building);
+        }
 
-        auto playerBarracks = std::make_shared<core::model::Building>(
-            core::model::BuildingType::Barracks,
-            core::model::Vector2D{500.f, 220.f},
-            core::model::TeamId::Player
-        );
-        registerBuildingSpawn(*playerBarracks);
-        m_world.addElement(playerBarracks);
+        for (const auto& u : map.units) {
+            auto unit = std::make_shared<core::model::Unit>(u.type);
+            unit->setPosition(u.position);
+            unit->setTeamId(u.teamId);
+            m_world.addElement(unit);
+        }
 
-        spawnUnitRow(core::model::TeamId::Player, 240.f, 460.f);
-
-        // --- Enemy base (bottom-right) ---
-        auto enemyTownHall = std::make_shared<core::model::Building>(
-            core::model::BuildingType::TownHall,
-            core::model::Vector2D{1200.f, 760.f},
-            core::model::TeamId::Enemy
-        );
-        registerBuildingSpawn(*enemyTownHall);
-        m_world.addElement(enemyTownHall);
-
-        auto enemyBarracks = std::make_shared<core::model::Building>(
-            core::model::BuildingType::Barracks,
-            core::model::Vector2D{1480.f, 760.f},
-            core::model::TeamId::Enemy
-        );
-        registerBuildingSpawn(*enemyBarracks);
-        m_world.addElement(enemyBarracks);
-
-        spawnUnitRow(core::model::TeamId::Enemy, 1200.f, 1000.f);
-
-        // --- Resources (left edge, clear of the base footprints) ---
-        const auto goldData = core::data::resourceStaticDataFor(
-            core::model::ResourceNode::ResourceType::Gold);
-        auto goldMine = std::make_shared<core::model::ResourceNode>(
-            core::model::Vector2D{120.f, 620.f},
-            goldData.resourceType,
-            goldData.initialAmount,
-            goldData.gatherAmountPerTrip,
-            goldData.gatherDurationSeconds,
-            goldData.maxGatherers
-        );
-        m_world.addElement(goldMine);
-
-        const auto woodData = core::data::resourceStaticDataFor(
-            core::model::ResourceNode::ResourceType::Wood);
-        auto woodForest = std::make_shared<core::model::ResourceNode>(
-            core::model::Vector2D{120.f, 760.f},
-            woodData.resourceType,
-            woodData.initialAmount,
-            woodData.gatherAmountPerTrip,
-            woodData.gatherDurationSeconds,
-            woodData.maxGatherers
-        );
-        m_world.addElement(woodForest);
+        for (const auto& r : map.resources) {
+            const auto data = core::data::resourceStaticDataFor(r.type);
+            auto node = std::make_shared<core::model::ResourceNode>(
+                r.position, data.resourceType, data.initialAmount,
+                data.gatherAmountPerTrip, data.gatherDurationSeconds, data.maxGatherers);
+            m_world.addElement(node);
+        }
     }
 
     void GameLogicManager::restartMatch() {

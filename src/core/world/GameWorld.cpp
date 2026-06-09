@@ -57,6 +57,20 @@ namespace rts::core::world {
         onCollisionChanged();
     }
 
+    void GameWorld::initTileMap(const int width, const int height, const float tileSize) {
+        m_tileMap->init(width, height);
+        m_gridTransform.tileSize = tileSize;
+        onCollisionChanged();
+    }
+
+    void GameWorld::setTileBlocked(const int x, const int y, const bool blocked) {
+        if (x < 0 || y < 0 || x >= gridWidth() || y >= gridHeight()) {
+            return;
+        }
+        m_tileMap->setMoveCost(x, y, blocked ? 0 : 1);
+        onCollisionChanged();
+    }
+
     bool GameWorld::isAlive(const ecs::EntityId id) const {
         if (!m_entities.isAlive(id)) {
             return false;

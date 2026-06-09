@@ -59,6 +59,12 @@ namespace rts::core::world {
         // write lock.
         void resetForNewMatch();
 
+        // (Re)sizes the terrain grid and sets the world tile size, e.g. when a map
+        // is loaded. Resets all tiles to walkable. Caller holds the write lock.
+        void initTileMap(int width, int height, float tileSize);
+        // Forces a tile walkable/blocked (blocked tiles have move cost 0).
+        void setTileBlocked(int x, int y, bool blocked = true);
+
         int gridWidth() const noexcept;
         int gridHeight() const noexcept;
 

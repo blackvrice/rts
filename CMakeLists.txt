@@ -211,6 +211,8 @@ add_executable(RTS
         src/core/viewmodel/ProjectileViewModel.cpp
         src/core/viewmodel/ResourceNodeViewModel.cpp
         include/core/map/FogOfWar.hpp
+        include/core/map/MapData.hpp
+        src/core/map/MapLoader.cpp
         include/core/model/Building.hpp
         include/core/model/Projectile.hpp
         include/core/model/ResourceNode.hpp

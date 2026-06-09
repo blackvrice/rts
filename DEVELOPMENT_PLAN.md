@@ -1652,7 +1652,7 @@ struct Cost
 
 ## Epic 7.1 Tiled 맵 로딩
 
-현재 상태: `[50%]`
+현재 상태: `[50% — JSON 맵 로딩 경로 구현(data/maps/*.json, core/map/MapLoader). Tiled .tmx(XML) 임포트는 별개 후속]`
 
 ### Task
 
