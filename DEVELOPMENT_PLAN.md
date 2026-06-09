@@ -1492,16 +1492,16 @@ struct Cost
 
 ## Epic 5.3 건물 Footprint
 
-현재 상태: `[20%]`
+현재 상태: `[85% — footprint 전체가 pathfinding 점유에 반영, 유닛이 건물 우회. 멀티타일 walkability 정밀화만 후속]`
 
 ### Task
 
 ```text
 [x] BuildingStaticData에 footprint 크기 추가
-[ ] 건물 생성 시 Grid 점유 처리 (현재 isCellOccupied 단일 셀만)
-[ ] 건물 파괴 시 Grid 점유 해제
-[ ] Pathfinding walkability 갱신
-[ ] 건설 중인 건물도 막힘 처리할지 정책 결정
+[x] 건물 생성 시 Grid 점유 처리 (isCellOccupied가 footprint 전체 셀 반영)
+[x] 건물 파괴 시 Grid 점유 해제 (Dead 건물은 점유에서 제외 — 자동)
+[x] Pathfinding walkability 갱신 (isBlockedDynamic→A*, addElement의 collisionVersion bump로 캐시 무효화)
+[x] 건설 중인 건물도 막힘 처리 (완성 전에도 점유 — 통과 불가로 정책 결정)
 ```
 
 ### 완료 기준

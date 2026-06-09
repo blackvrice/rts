@@ -1,5 +1,25 @@
 # Development Log
 
+## 2026-06-09 - 버그 수정: 유닛이 건물 footprint를 통과하던 길찾기 (Epic 5.3 진전)
+
+### 문제
+- 유닛 이동이 건물/자원 같은 고정 장애물을 우회하지 않고 통과. 특히 4×4 TownHall을 그냥 지나감.
+
+### 원인
+- `GameWorld::isCellOccupied`가 각 요소의 **중심 셀 1칸**만 점유로 표시 → A*(`isBlockedDynamic` 경유)는 건물의 footprint 중 중심 1칸만 막힌 것으로 보고 나머지 타일을 통과.
+
+### 수정
+- `isCellOccupied`가 **Building이면 footprint 전체 타일**(`buildingStaticDataFor(type).footprintWidth/Height`, 중심에서 origin 계산)을 점유로 반환하도록 변경. 그 외 요소(유닛/자원)는 기존대로 단일 셀.
+- 효과: A*가 건물 전체를 우회. 목표가 건물 위면 기존 `findApproachPath` 폴백이 근처 빈 셀로 접근(회귀 없음). Dead 건물은 점유에서 제외되어 파괴 시 자동 통행 가능. 건설 중 건물도 점유(통과 불가).
+- `DataRegistry::global().building()` const& 접근자로 footprint 조회(벡터 복사 없이 noexcept 유지).
+
+### 검증
+- 빌드 성공(2/2). 실행 8초 — 크래시/경고 없음.
+- 한계: 실제 인게임 우회 경로는 자동화 환경상 수동 확인 필요. 점유/길찾기 로직 경로는 검토 완료.
+
+### 관련 Epic
+- Epic 5.3 건물 Footprint: 20% → 85%(footprint pathfinding 반영). 멀티타일 walkability 정밀화만 후속.
+
 ## 2026-06-09 - Epic 0.3/0.4 엣지케이스: 채집 안정화 확인 + 생산 스폰/RallyPoint 로직
 
 ### 변경 내용 (0.4 생산 스폰/RallyPoint)
