@@ -11,6 +11,7 @@
 #include "core/world/GameWorldGridQuery.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 namespace rts::core::world {
     GameWorld::GameWorld()
@@ -48,10 +49,20 @@ namespace rts::core::world {
                 });
             gameElement->setProjectileSpawner(
                 [this](const model::Vector2D& origin, model::IGameElement* target,
-                       float damage, data::WeaponType weapon, int team) {
+                       float damage, data::WeaponType weapon, int team,
+                       data::SplashRadii splash) {
                     constexpr float kProjectileSpeed = 520.0f;
+                    model::Projectile::SplashApplier applySplash;
+                    if (splash.any()) {
+                        applySplash = [this](const model::Vector2D& center, float dmg,
+                                             data::WeaponType wt, int ownerTeam,
+                                             data::SplashRadii radii) {
+                            applySplashDamage(center, dmg, wt, ownerTeam, radii);
+                        };
+                    }
                     spawnProjectile(std::make_shared<model::Projectile>(
-                        origin, target, damage, team, kProjectileSpeed, weapon));
+                        origin, target, damage, team, kProjectileSpeed, weapon,
+                        splash, std::move(applySplash)));
                 });
         }
 
@@ -83,6 +94,33 @@ namespace rts::core::world {
             projectile->tick(dt);
         }
         std::erase_if(m_projectiles, [](const auto& p) { return p->expired(); });
+    }
+
+    void GameWorld::applySplashDamage(const model::Vector2D& center, const float damage,
+                                      const data::WeaponType weapon, const int ownerTeam,
+                                      const data::SplashRadii& splash) {
+        for (const auto& element : m_elements) {
+            auto victim = std::dynamic_pointer_cast<model::IGameElement>(element);
+            if (!victim || victim->getAction() == model::ActionType::Dead) {
+                continue;
+            }
+            // No friendly fire and no collateral on neutral objects (resources).
+            const int team = victim->getTeamId();
+            if (team == ownerTeam || team == model::TeamId::Neutral) {
+                continue;
+            }
+            const model::Vector2D pos = victim->getPosition();
+            const float dx = pos.x - center.x;
+            const float dy = pos.y - center.y;
+            const float dist = std::sqrt(dx * dx + dy * dy);
+            const float falloff = data::splashFalloff(dist, splash);
+            if (falloff <= 0.0f) {
+                continue;
+            }
+            victim->takeDamage(
+                damage * falloff * data::damageMultiplier(weapon, victim->armorType()),
+                nullptr);
+        }
     }
 
     void GameWorld::initTileMap(const int width, const int height, const float tileSize) {

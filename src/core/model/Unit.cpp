@@ -69,6 +69,7 @@ namespace rts::core::model {
         m_buildTimeSeconds = staticData.buildTimeSeconds;
         m_weaponType = staticData.weaponType;
         m_armorType = staticData.armorType;
+        m_splash = staticData.splash;
     }
 
     ActionType Unit::getAction() const {
@@ -413,7 +414,7 @@ namespace rts::core::model {
                     // FirePoint: ranged units launch a projectile (damage applied on
                     // arrival); melee units land the hit immediately.
                     if (isRanged() && m_fireProjectile) {
-                        m_fireProjectile(m_position, target, attackDamage, m_weaponType, m_teamId);
+                        m_fireProjectile(m_position, target, attackDamage, m_weaponType, m_teamId, m_splash);
                     } else {
                         target->takeDamage(
                             attackDamage * core::data::damageMultiplier(m_weaponType, target->armorType()),

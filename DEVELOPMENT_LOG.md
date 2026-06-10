@@ -1,5 +1,19 @@
 # Development Log
 
+## 2026-06-10 - Epic 4.5 AoE / Splash (범위 피해)
+
+### 변경 내용
+- **CombatTypes.hpp**: `SplashRadii { inner, mid, outer }` 구조체 + `splashFalloff(distance, radii)`(inner 이내 100%, mid 이내 50%, outer 이내 25%, 그 밖 0%). `any()`는 outer>0일 때 splash 활성으로 판정.
+- **UnitStaticData**: `SplashRadii splash` 필드 추가(기본 0=단일타격). marine에 `{24, 40, 56}` 기본값 부여(팩토리 기본값이라 units.json 미지정 시에도 유지). Unit이 applyStaticData에서 `m_splash` 저장.
+- **발사 경로**: `ProjectileSpawner` 시그니처에 `SplashRadii` 추가(IGameElement alias 한 곳 수정으로 Unit 오버라이드 자동 반영). FirePoint에서 `m_splash` 전달.
+- **Projectile**: `m_splash` + `SplashApplier`(범위 피해 콜백) 보유. 명중 시 splash가 활성이면 단일 타격 대신 `m_applySplash(착탄지점, ...)` 호출, 아니면 기존 단일 타격.
+- **GameWorld**: `applySplashDamage(center, damage, weapon, ownerTeam, radii)` 추가 — m_elements를 순회하며 **적 팀만**(아군·중립 자원 제외) 착탄 반경 내 대상에 `damage * splashFalloff(dist) * damageMultiplier(weapon, armor)` 적용. addElement의 spawner 람다가 splash 활성 시 이 콜백을 Projectile에 주입.
+
+### 검증
+- 빌드 성공(21/21). 실행 정상, 크래시/경고 없음. (IDE clang 진단의 include 경로 오류는 거짓 양성 — g++ 빌드로 검증.)
+- 완료 기준 충족: splash 설정 원거리 공격 명중 시 착탄 주변 적이 거리별 피해, 아군·중립 자원 무피해.
+- 한계: 인게임 splash 범위/낙폭 체감은 수동 확인 필요. 적용 경로·정책은 검토 완료.
+
 ## 2026-06-09 - Epic 4.4 Projectile Manager (원거리 투사체)
 
 ### 변경 내용

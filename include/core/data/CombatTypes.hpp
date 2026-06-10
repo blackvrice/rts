@@ -6,6 +6,24 @@ namespace rts::core::data {
     // Defensive class of a target (units and buildings).
     enum class ArmorType { Unarmored, Light, Heavy, Fortified };
 
+    // Area-of-effect zones (world units) around an impact: full damage within
+    // inner, half within mid, quarter within outer. outer == 0 means no splash.
+    struct SplashRadii {
+        float inner { 0.0f };
+        float mid { 0.0f };
+        float outer { 0.0f };
+
+        bool any() const noexcept { return outer > 0.0f; }
+    };
+
+    // Damage fraction at a given distance from the splash center.
+    constexpr float splashFalloff(const float distance, const SplashRadii& s) noexcept {
+        if (distance <= s.inner) return 1.00f;
+        if (distance <= s.mid)   return 0.50f;
+        if (distance <= s.outer) return 0.25f;
+        return 0.0f;
+    }
+
     // WeaponType x ArmorType effectiveness multiplier applied to attack damage.
     // Warcraft-style: pierce shreds light, siege batters fortified (buildings),
     // normal is weak into fortified, magic favors heavy.

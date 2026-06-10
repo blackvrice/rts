@@ -1419,14 +1419,23 @@ RVO보다 먼저:
 
 ## Epic 4.5 AoE / Splash
 
+현재 상태: `[100%]`
+
 ### Task
 
 ```text
-[ ] SplashData 추가
-[ ] 중심/중간/외곽 반경 추가
-[ ] Spatial Query로 범위 내 대상 검색
-[ ] 거리별 데미지 배율 적용
-[ ] 아군 피해 여부 정책 추가
+[x] SplashData 추가 (CombatTypes.hpp SplashRadii; UnitStaticData.splash, marine 기본값)
+[x] 중심/중간/외곽 반경 추가 (inner/mid/outer = 100%/50%/25%, outer==0이면 단일타격)
+[x] Spatial Query로 범위 내 대상 검색 (GameWorld::applySplashDamage가 m_elements 순회)
+[x] 거리별 데미지 배율 적용 (splashFalloff × damageMultiplier 적용 takeDamage)
+[x] 아군 피해 여부 정책 추가 (적 팀만 피격; 아군·중립 자원 제외)
+```
+
+### 완료 기준
+
+```text
+- splash가 설정된 원거리 공격이 명중하면 착탄 지점 주변의 적들이 거리별로 피해를 입는다.
+- 아군과 중립 자원은 splash 피해를 받지 않는다.
 ```
 
 ---

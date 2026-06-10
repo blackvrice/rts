@@ -234,6 +234,7 @@ namespace rts::core::model {
         float m_buildTimeSeconds = 8.f;
         core::data::WeaponType m_weaponType = core::data::WeaponType::Normal;
         core::data::ArmorType m_armorType = core::data::ArmorType::Light;
+        core::data::SplashRadii m_splash {};  // ranged splash; outer==0 means single-target
 
         float m_hp = 100.f;
         float m_maxHp = 100.f;

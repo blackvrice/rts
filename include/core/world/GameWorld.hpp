@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "core/data/CombatTypes.hpp"
 #include "core/ecs/EntityManager.hpp"
 #include "core/model/PlayerResourceState.hpp"
 #include "core/sim/SimClock.hpp"
@@ -111,6 +112,12 @@ namespace rts::core::world {
         void onCollisionChanged();
 
     private:
+        // Area-of-effect damage around a splash impact; opposing team only, with
+        // distance falloff and weapon/armor scaling. Used by splashing projectiles.
+        void applySplashDamage(const model::Vector2D& center, float damage,
+                               data::WeaponType weapon, int ownerTeam,
+                               const data::SplashRadii& splash);
+
         std::unique_ptr<map::TileMapSoA> m_tileMap;
         std::vector<std::shared_ptr<model::IElement>> m_elements;
         std::vector<std::shared_ptr<model::Projectile>> m_projectiles;

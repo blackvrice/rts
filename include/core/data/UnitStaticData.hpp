@@ -21,6 +21,7 @@ namespace rts::core::data {
         float buildTimeSeconds { 8.0f };
         WeaponType weaponType { WeaponType::Normal };
         ArmorType armorType { ArmorType::Light };
+        SplashRadii splash {};  // ranged attacks splash when outer > 0
         int goldCost { 0 };
         int woodCost { 0 };
         int foodCost { 0 };
@@ -102,6 +103,7 @@ namespace rts::core::data {
         data.buildTimeSeconds = 8.0f;
         data.goldCost = 50;
         data.woodCost = 0;
+        data.splash = { 24.0f, 40.0f, 56.0f };  // marine shots splash on impact
         return data;
     }
 
