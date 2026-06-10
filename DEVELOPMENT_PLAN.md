@@ -1344,17 +1344,17 @@ RVO보다 먼저:
 
 ## Epic 4.2 무기/장갑 상성
 
-현재 상태: `[0%]`
+현재 상태: `[100% 완료]`
 
 ### Task
 
 ```text
-[ ] WeaponType enum 추가
-[ ] ArmorType enum 추가
-[ ] 상성 테이블 추가
-[ ] UnitStaticData에 armorType 연결
-[ ] WeaponData에 weaponType 연결
-[ ] 데미지 공식에 배율 적용
+[x] WeaponType enum 추가 (core/data/CombatTypes.hpp)
+[x] ArmorType enum 추가
+[x] 상성 테이블 추가 (damageMultiplier(WeaponType, ArmorType))
+[x] UnitStaticData에 armorType 연결 (Unit::armorType() override)
+[x] WeaponData에 weaponType 연결 (Unit m_weaponType, 건물은 BuildingStaticData.armorType=Fortified)
+[x] 데미지 공식에 배율 적용 (Unit 공격 시 attackDamage * damageMultiplier(weapon, target->armorType()))
 ```
 
 ### 완료 기준

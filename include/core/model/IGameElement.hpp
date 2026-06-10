@@ -9,6 +9,7 @@
 #include "IElement.hpp"
 #include "State.hpp"
 #include "Vector2D.hpp"
+#include "core/data/CombatTypes.hpp"
 #include "core/ecs/EntityId.hpp"
 
 namespace rts::core::model {
@@ -77,6 +78,9 @@ namespace rts::core::model {
         // 팀
         virtual int getTeamId() const { return TeamId::Neutral; }
         virtual void setTeamId(int) {}
+
+        // 전투 상성: 받는 쪽의 장갑 타입 (기본 Unarmored, Unit/Building이 오버라이드)
+        virtual data::ArmorType armorType() const { return data::ArmorType::Unarmored; }
 
         // 엔티티 핸들 (GameWorld가 addElement 시 부여)
         ecs::EntityId entityId() const noexcept { return m_entityId; }

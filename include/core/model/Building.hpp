@@ -52,6 +52,7 @@ namespace rts::core::model {
         // ===== Custom members =====
         BuildingType buildingType() const { return m_type; }
         bool isDropOff() const noexcept;
+        core::data::ArmorType armorType() const override;
         std::string displayName() const override;
         float getHp() const { return m_hp; }
         float getMaxHp() const { return m_maxHp; }

@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 
+#include "core/data/CombatTypes.hpp"
 #include "core/model/Building.hpp"
 #include "core/model/PlayerResourceState.hpp"
 #include "core/model/UnitType.hpp"
@@ -26,6 +27,8 @@ namespace rts::core::data {
         bool isDropOff { false };
         // Building types that must exist (completed) before this can be built.
         std::vector<::rts::core::model::BuildingType> requirements {};
+        // Defensive class for weapon/armor effectiveness (buildings are fortified).
+        ArmorType armorType { ArmorType::Fortified };
 
         ::rts::core::model::Cost cost() const {
             return { goldCost, woodCost, 0 };

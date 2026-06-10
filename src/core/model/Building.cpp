@@ -48,6 +48,10 @@ namespace rts::core::model {
         return m_completed && ::rts::core::data::DataRegistry::global().building(m_type).isDropOff;
     }
 
+    core::data::ArmorType Building::armorType() const {
+        return ::rts::core::data::DataRegistry::global().building(m_type).armorType;
+    }
+
     void Building::beginConstruction(float buildTimeSeconds, float startHp) {
         m_completed = false;
         m_buildTime = buildTimeSeconds > 0.f ? buildTimeSeconds : 1.f;

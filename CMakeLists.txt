@@ -106,6 +106,7 @@ add_executable(RTS
         include/core/factory/UnitFactory.hpp
         include/core/prototype/UnitPrototypeLoader.hpp
         include/core/entity/UnitEntity.hpp
+        include/core/data/CombatTypes.hpp
         include/core/data/UnitStaticData.hpp
         include/core/data/BuildingStaticData.hpp
         include/core/data/ResourceStaticData.hpp

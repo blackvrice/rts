@@ -2,16 +2,11 @@
 
 #include <string>
 
+#include "core/data/CombatTypes.hpp"
 #include "core/model/PlayerResourceState.hpp"
 #include "core/model/UnitType.hpp"
 
 namespace rts::core::data {
-    // Damage class of a unit's attack. Pairs with ArmorType for a future
-    // type-vs-type damage table; currently stored as design data.
-    enum class WeaponType { Normal, Pierce, Siege, Magic };
-    // Defensive class of a unit. See WeaponType.
-    enum class ArmorType { Unarmored, Light, Heavy, Fortified };
-
     struct UnitStaticData {
         ::rts::UnitType unitType { ::rts::UnitType::Warrior };
         std::string displayName { "Unit" };

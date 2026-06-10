@@ -1,5 +1,18 @@
 # Development Log
 
+## 2026-06-09 - Epic 4.2 무기/장갑 상성 (데미지 배율)
+
+### 변경 내용
+- **CombatTypes.hpp**: WeaponType/ArmorType enum을 UnitStaticData.hpp에서 이리로 이동(순환 의존 회피) + `damageMultiplier(WeaponType, ArmorType)` 상성 테이블. Pierce>Light(1.5), Siege>Fortified(1.5, 건물), Magic>Heavy(1.5), Normal<Fortified(0.7) 등.
+- **BuildingStaticData**: `armorType` 추가(기본 Fortified) → 건물은 공성에 약점.
+- **IGameElement**: `virtual armorType()`(기본 Unarmored). Unit override→m_armorType, Building override→정적 데이터 armorType.
+- **데미지 적용**: Unit 공격(updateAttack/updateHold)에서 `attackDamage * damageMultiplier(m_weaponType, target->armorType())`로 배율 적용. 기존 flat armor 경감과 함께 작동.
+
+### 검증
+- 빌드 성공(18/18). 실행 정상, 크래시/경고 없음.
+- 완료 기준 충족: Pierce(archer/marine) → Light 1.5배, Siege → 건물(Fortified) 1.5배.
+- 한계: 인게임 데미지 수치는 수동 확인 필요. 테이블·적용 경로는 검토 완료.
+
 ## 2026-06-09 - Epic 2.1 추가 Task: 선택 우선순위/Shift/Ctrl/더블클릭/최대치
 
 ### 변경 내용

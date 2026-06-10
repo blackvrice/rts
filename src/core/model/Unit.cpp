@@ -250,7 +250,9 @@ namespace rts::core::model {
         attackTimer -= dt;
         if (attackTimer <= 0.f) {
             attackTimer = attackCooldown;
-            target->takeDamage(attackDamage, this);
+            target->takeDamage(
+                attackDamage * core::data::damageMultiplier(m_weaponType, target->armorType()),
+                this);
         }
     }
 
@@ -383,7 +385,9 @@ namespace rts::core::model {
         attackTimer -= dt;
         if (attackTimer <= 0.f) {
             attackTimer = attackCooldown;
-            target->takeDamage(attackDamage, this);
+            target->takeDamage(
+                attackDamage * core::data::damageMultiplier(m_weaponType, target->armorType()),
+                this);
         }
     }
 

@@ -81,6 +81,7 @@ namespace rts::core::model {
         float getBuildTimeSeconds() const noexcept;
         core::data::WeaponType getWeaponType() const noexcept;
         core::data::ArmorType getArmorType() const noexcept;
+        core::data::ArmorType armorType() const override { return m_armorType; }
         ::rts::UnitType unitType() const noexcept;
         bool isWorker() const noexcept;
         bool hasResourceDeliveryReady() const noexcept;
