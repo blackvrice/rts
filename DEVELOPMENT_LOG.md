@@ -1,5 +1,19 @@
 # Development Log
 
+## 2026-06-09 - Epic 4.3 공격 FSM 분리 (선딜/발사/후딜)
+
+### 변경 내용
+- **Unit::AttackPhase** enum(Ready/PreCast/Cooldown) + `m_attackPhase`. updateAttack의 단순 쿨다운을 위상 FSM으로 교체:
+  - Ready → 사거리 내 진입 시 PreCast(선딜, attackCooldown*0.35) 시작.
+  - PreCast 종료 = **FirePoint**: 데미지 확정 적용 → Cooldown(후딜, attackCooldown*0.65).
+  - Cooldown 종료 → Ready. 선딜+후딜 = attackCooldown이라 공격 속도(DPS) 불변.
+- **취소/커밋**: PreCast 중 Move/Stop으로 m_action이 바뀌면 updateAttack 미실행 → 스윙 취소(데미지 없음). 사거리 이탈(추격) 시에도 Ready로 리셋. FirePoint 이후엔 데미지가 이미 적용돼 보장됨. → 무빙샷 구현 기반.
+- beginAttack이 새 타겟마다 phase=Ready로 초기화.
+
+### 검증
+- 빌드 성공(8/8). 실행 정상, 크래시/경고 없음.
+- 한계: 인게임 선딜/후딜 체감은 수동 확인 필요. 위상 전환·취소 경로는 검토 완료.
+
 ## 2026-06-09 - Epic 4.2 무기/장갑 상성 (데미지 배율)
 
 ### 변경 내용

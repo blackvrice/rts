@@ -1368,19 +1368,19 @@ RVO보다 먼저:
 
 ## Epic 4.3 공격 FSM 분리
 
-현재 상태: `[0%]`
+현재 상태: `[100% 완료]`
 
 ### Task
 
 ```text
-[ ] AttackState enum 추가
-[ ] Ready 상태
-[ ] PreCast 상태
-[ ] FirePoint 상태
-[ ] Cooldown 상태
-[ ] 공격 중 Move/Stop 입력 처리
-[ ] FirePoint 이전 취소 가능
-[ ] FirePoint 이후 공격 발생 보장
+[x] AttackState enum 추가 (Unit::AttackPhase)
+[x] Ready 상태
+[x] PreCast 상태 (선딜 = attackCooldown * 0.35)
+[x] FirePoint 상태 (PreCast 종료 시 데미지 적용 — 순간 전환)
+[x] Cooldown 상태 (후딜 = attackCooldown * 0.65)
+[x] 공격 중 Move/Stop 입력 처리 (action 전환 시 updateAttack 미실행 → 스윙 취소)
+[x] FirePoint 이전 취소 가능 (PreCast 중 이동/사거리 이탈 시 Ready로 리셋, 데미지 없음)
+[x] FirePoint 이후 공격 발생 보장 (데미지가 FirePoint에서 즉시 확정 후 Cooldown)
 ```
 
 ### 완료 기준

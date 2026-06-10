@@ -14,6 +14,8 @@ namespace {
     constexpr float kGatherInteractRange = 72.0f;
     constexpr float kDropOffInteractRange = 82.0f;
     constexpr float kBuildInteractRange = 88.0f;
+    // Fraction of the attack cooldown spent winding up before the hit lands.
+    constexpr float kAttackWindupFraction = 0.35f;
 
     float distanceSq(
         const rts::core::model::Vector2D& a,
@@ -130,6 +132,8 @@ namespace rts::core::model {
         }
         m_action = ActionType::Attack;
         m_attackTargetId = target->entityId();
+        m_attackPhase = AttackPhase::Ready;  // fresh swing for the new target
+        attackTimer = 0.f;
         m_moveTarget = target->getPosition();
         m_finalTargetWorld = m_moveTarget;
         // The order is attack, but the sprite should run until the weapon is in range.
@@ -361,6 +365,8 @@ namespace rts::core::model {
 
         if (distSq > rangeSq) {
             m_animationAction = ActionType::Move;
+            // Chasing cancels any wind-up; the swing re-arms once back in range.
+            m_attackPhase = AttackPhase::Ready;
             const float dist = std::sqrt(distSq);
             if (dist <= 0.0f) {
                 return;
@@ -382,12 +388,30 @@ namespace rts::core::model {
         }
 
         m_animationAction = ActionType::Attack;
-        attackTimer -= dt;
-        if (attackTimer <= 0.f) {
-            attackTimer = attackCooldown;
-            target->takeDamage(
-                attackDamage * core::data::damageMultiplier(m_weaponType, target->armorType()),
-                this);
+        // Wind-up + recovery sum to attackCooldown, so the attack rate (DPS) is
+        // unchanged; the damage lands at the fire point between the two phases.
+        switch (m_attackPhase) {
+            case AttackPhase::Ready:
+                m_attackPhase = AttackPhase::PreCast;
+                attackTimer = attackCooldown * kAttackWindupFraction;
+                break;
+            case AttackPhase::PreCast:
+                attackTimer -= dt;
+                if (attackTimer <= 0.f) {
+                    // FirePoint: damage is now committed.
+                    target->takeDamage(
+                        attackDamage * core::data::damageMultiplier(m_weaponType, target->armorType()),
+                        this);
+                    m_attackPhase = AttackPhase::Cooldown;
+                    attackTimer = attackCooldown * (1.0f - kAttackWindupFraction);
+                }
+                break;
+            case AttackPhase::Cooldown:
+                attackTimer -= dt;
+                if (attackTimer <= 0.f) {
+                    m_attackPhase = AttackPhase::Ready;
+                }
+                break;
         }
     }
 

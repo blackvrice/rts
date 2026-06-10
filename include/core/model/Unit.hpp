@@ -214,9 +214,15 @@ namespace rts::core::model {
         std::string m_displayName { "Unit" };
         float moveSpeed = 120.f;
 
+        // Attack swing phases (Epic 4.3): Ready -> PreCast (wind-up) -> [FirePoint:
+        // damage lands] -> Cooldown (recovery) -> Ready. A move/stop during PreCast
+        // cancels the swing; after the fire point the hit is already committed.
+        enum class AttackPhase { Ready, PreCast, Cooldown };
+
         float attackRange = 64.f;
         float attackCooldown = 0.8f;
-        float attackTimer = 0.f;
+        float attackTimer = 0.f;        // counts down the current attack phase
+        AttackPhase m_attackPhase = AttackPhase::Ready;
         float attackDamage = 10.f;
         float m_armor = 0.f;
         float m_sightRange = 256.f;
