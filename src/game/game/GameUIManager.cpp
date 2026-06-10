@@ -28,6 +28,8 @@
 #include "core/viewmodel/UnitViewModel.hpp"
 #include "core/viewmodel/BuildingViewModel.hpp"
 #include "core/viewmodel/ResourceNodeViewModel.hpp"
+#include "core/viewmodel/ProjectileViewModel.hpp"
+#include "core/model/Projectile.hpp"
 #include "core/world/GameWorld.hpp"
 #include "game/game/GameLogicManager.hpp"
 
@@ -599,6 +601,17 @@ namespace rts::core::manager {
                         std::make_shared<core::viewmodel::ResourceNodeViewModel>(resource)
                     );
                 }
+            }
+        }
+
+        // Projectiles live outside m_elements; give each a view model too.
+        for (const auto& projectile : m_world.projectiles()) {
+            const void* target = projectile.get();
+            const bool exists = std::any_of(m_viewModels.begin(), m_viewModels.end(),
+                [target](const auto& vm) { return vm->modelPtr() == target; });
+            if (!exists) {
+                m_viewModels.push_back(
+                    std::make_shared<core::viewmodel::ProjectileViewModel>(projectile));
             }
         }
     }

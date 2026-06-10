@@ -6,8 +6,11 @@
 #include "core/model/IGameElement.hpp"
 #include "core/model/Building.hpp"
 #include "core/model/ResourceNode.hpp"
+#include "core/model/Projectile.hpp"
 #include "core/data/DataRegistry.hpp"
 #include "core/world/GameWorldGridQuery.hpp"
+
+#include <algorithm>
 
 namespace rts::core::world {
     GameWorld::GameWorld()
@@ -43,6 +46,13 @@ namespace rts::core::world {
                 [this](const ecs::EntityId target) -> model::IGameElement* {
                     return resolve(target).get();
                 });
+            gameElement->setProjectileSpawner(
+                [this](const model::Vector2D& origin, model::IGameElement* target,
+                       float damage, data::WeaponType weapon, int team) {
+                    constexpr float kProjectileSpeed = 520.0f;
+                    spawnProjectile(std::make_shared<model::Projectile>(
+                        origin, target, damage, team, kProjectileSpeed, weapon));
+                });
         }
 
         onCollisionChanged();
@@ -50,11 +60,29 @@ namespace rts::core::world {
 
     void GameWorld::resetForNewMatch() {
         m_elements.clear();
+        m_projectiles.clear();
         m_entities = ecs::EntityManager{};
         m_entityByIndex.clear();
         m_currentTick = 0;
         m_gameResult = GameResult::InProgress;
         onCollisionChanged();
+    }
+
+    void GameWorld::spawnProjectile(const std::shared_ptr<model::Projectile>& projectile) {
+        if (projectile) {
+            m_projectiles.push_back(projectile);
+        }
+    }
+
+    const std::vector<std::shared_ptr<model::Projectile>>& GameWorld::projectiles() const {
+        return m_projectiles;
+    }
+
+    void GameWorld::updateProjectiles(const float dt) {
+        for (const auto& projectile : m_projectiles) {
+            projectile->tick(dt);
+        }
+        std::erase_if(m_projectiles, [](const auto& p) { return p->expired(); });
     }
 
     void GameWorld::initTileMap(const int width, const int height, const float tileSize) {

@@ -167,6 +167,7 @@ namespace rts::core::manager {
         auto lock = m_world.acquireWriteLock();
         m_world.advanceTick();
         m_movement.update(m_world, dt, m_collision);
+        m_world.updateProjectiles(dt);
         handleAttackRetargets();
         handleAttackMoveOrders();
         handlePatrolOrders();

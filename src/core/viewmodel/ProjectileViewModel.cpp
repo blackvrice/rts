@@ -18,25 +18,17 @@ namespace rts::core::viewmodel {
     void ProjectileViewModel::buildRenderCommands(render::RenderQueue& out) const {
         if (!m_proj || m_proj->expired()) return;
 
+        // Drawn as a small bolt; no projectile sprite asset is required.
         const auto pos = m_proj->position();
         out.emplace(
             core::render::RenderLayer::World,
             11,
-            core::render::DrawSprite{
-                .x               = pos.x - 16.f,
-                .y               = pos.y - 16.f,
-                .w               = 32.f,
-                .h               = 32.f,
-                .texturePath     = m_proj->texturePath(),
-                .sourceX         = 0,
-                .sourceY         = 0,
-                .sourceW         = 0,
-                .sourceH         = 0,
-                .frameCount      = 1,
-                .framesPerSecond = 0.f,
-                .trimTransparent = false,
-                .showInHud       = false,
-                .rotation        = m_proj->angleDeg()
+            core::render::DrawCircle{
+                .cx = pos.x,
+                .cy = pos.y,
+                .radius = 5.0f,
+                .border_color = 0xFF1A1A1Au,
+                .color = 0xFFFFE066u  // warm bolt
             });
     }
 }

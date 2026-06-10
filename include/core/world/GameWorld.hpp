@@ -27,6 +27,7 @@ namespace rts::core::manager {
 namespace rts::core::model {
     class IElement;
     class IGameElement;
+    class Projectile;
 }
 
 namespace rts::core::path {
@@ -64,6 +65,12 @@ namespace rts::core::world {
         void initTileMap(int width, int height, float tileSize);
         // Forces a tile walkable/blocked (blocked tiles have move cost 0).
         void setTileBlocked(int x, int y, bool blocked = true);
+
+        // Ranged attacks spawn projectiles here; the logic tick advances them and
+        // drops the ones that hit/expire. Caller holds the write lock.
+        void spawnProjectile(const std::shared_ptr<model::Projectile>& projectile);
+        const std::vector<std::shared_ptr<model::Projectile>>& projectiles() const;
+        void updateProjectiles(float dt);
 
         int gridWidth() const noexcept;
         int gridHeight() const noexcept;
@@ -106,6 +113,7 @@ namespace rts::core::world {
     private:
         std::unique_ptr<map::TileMapSoA> m_tileMap;
         std::vector<std::shared_ptr<model::IElement>> m_elements;
+        std::vector<std::shared_ptr<model::Projectile>> m_projectiles;
         ecs::EntityManager m_entities;
         std::unordered_map<std::uint32_t, std::weak_ptr<model::IGameElement>> m_entityByIndex;
         std::unordered_map<int, model::PlayerResourceState> m_playerResources;

@@ -126,6 +126,7 @@ namespace rts::core::model {
         int getTeamId() const override;
         void setTeamId(int teamId) override;
         void setEntityResolver(std::function<IGameElement*(ecs::EntityId)> resolver) override;
+        void setProjectileSpawner(ProjectileSpawner spawner) override;
 
         void setPath(path::Path p);
         void setMoveTargetWithPath(const std::vector<path::GridPos>& gridPath,
@@ -182,6 +183,8 @@ namespace rts::core::model {
         ResourceNode* resolveResource(ecs::EntityId id) const;
         Building* resolveBuilding(ecs::EntityId id) const;
         IGameElement* attackTarget() const;
+        // Ranged attackers fire a projectile at the fire point; melee hit instantly.
+        bool isRanged() const noexcept;
 
         std::deque<path::GridPos> m_gridPath; // 다음 노드부터 pop_front
         std::deque<UnitOrder> m_orderQueue;
@@ -203,6 +206,7 @@ namespace rts::core::model {
         // a dead/recycled target stops resolving instead of dangling.
         ecs::EntityId m_attackTargetId { ecs::InvalidEntityId };
         std::function<IGameElement*(ecs::EntityId)> m_resolveEntity;
+        ProjectileSpawner m_fireProjectile;  // set for ranged attacks by GameWorld
         bool m_attackMoveActive { false };
         bool m_patrolActive { false };
         bool m_patrolHeadingToEnd { true };

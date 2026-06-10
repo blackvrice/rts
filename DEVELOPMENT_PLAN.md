@@ -1394,19 +1394,19 @@ RVO보다 먼저:
 
 ## Epic 4.4 Projectile Manager
 
-현재 상태: `[0%]`
+현재 상태: `[90% — homing 투사체 완비 / directional·전용 ProjectileData는 후속]`
 
 ### Task
 
 ```text
-[ ] Projectile Entity 타입 추가
-[ ] ProjectileData 추가
-[ ] Instant/Homing/Directional 타입 구분
-[ ] 발사 위치 계산
-[ ] 목표 위치/목표 Entity 저장
-[ ] 매 Tick 위치 갱신
-[ ] 충돌 또는 도착 시 데미지 적용
-[ ] 투사체 제거
+[x] Projectile Entity 타입 추가 (GameWorld가 m_projectiles로 보관·업데이트)
+[~] ProjectileData 추가 (전용 struct 대신 발사 시 damage/weaponType/speed 전달)
+[~] Instant/Homing/Directional 타입 구분 (Homing 구현; Instant=근접 즉시타; Directional 후속)
+[x] 발사 위치 계산 (origin = 유닛 위치)
+[x] 목표 위치/목표 Entity 저장 (m_target + lastKnownTargetPos, 타겟 사망 시 마지막 위치로)
+[x] 매 Tick 위치 갱신 (GameWorld::updateProjectiles → Projectile::tick)
+[x] 충돌 또는 도착 시 데미지 적용 (hit radius 도달 시 damageMultiplier 적용 takeDamage)
+[x] 투사체 제거 (expired 제거)
 ```
 
 ### 완료 기준

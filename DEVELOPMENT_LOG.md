@@ -1,5 +1,20 @@
 # Development Log
 
+## 2026-06-09 - Epic 4.4 Projectile Manager (원거리 투사체)
+
+### 변경 내용
+- **Projectile**: texturePath 제거, `weaponType` 보유. 명중 시 `damage * damageMultiplier(weaponType, target->armorType())`로 데미지 적용(4.2 연계). homing(타겟 추적, 사망 시 마지막 위치로 비행 후 소멸).
+- **GameWorld**: `m_projectiles` 보관 + `spawnProjectile`/`projectiles()`/`updateProjectiles(dt)`(매 틱 tick + expired 제거). resetForNewMatch에서 정리.
+- **발사 주입**: IGameElement에 `setProjectileSpawner` 가상(no-op) 추가, GameWorld::addElement가 게임 요소에 주입(EntityId resolver와 동일 패턴). 콜백이 Projectile 생성 후 spawnProjectile.
+- **Unit 원거리 발사**: `isRanged()`(attackRange ≥ 120) + FirePoint 분기 — 원거리면 투사체 발사(데미지는 도착 시), 근접이면 즉시 타격. archer(180)/marine(150) → 투사체, warrior(80)/worker(48) → 근접.
+- **GameLogicManager::tick**: `m_world.updateProjectiles(dt)` 호출(movement 직후).
+- **렌더**: ProjectileViewModel을 DrawCircle(작은 노란 볼트)로 변경(투사체 스프라이트 에셋 불필요) + IViewModel 누락 오버라이드(update/visible/setVisible/name) 보강. syncWithWorld가 world.projectiles()도 뷰모델화.
+
+### 검증
+- 빌드 성공(11/11). 실행 정상, 크래시/경고 없음. (디버깅: ProjectileViewModel이 인스턴스화되며 추상클래스 오류 → IViewModel 순수가상 4개 구현 추가로 해결.)
+- 완료 기준 충족: 원거리 공격 시 투사체 생성·이동·도착 시 데미지.
+- 한계: 인게임 투사체 비행/명중은 수동 확인 필요.
+
 ## 2026-06-09 - Epic 4.3 공격 FSM 분리 (선딜/발사/후딜)
 
 ### 변경 내용

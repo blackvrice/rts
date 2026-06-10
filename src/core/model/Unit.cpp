@@ -16,6 +16,10 @@ namespace {
     constexpr float kBuildInteractRange = 88.0f;
     // Fraction of the attack cooldown spent winding up before the hit lands.
     constexpr float kAttackWindupFraction = 0.35f;
+    // Attack range at/above which a unit fires a projectile instead of hitting now.
+    constexpr float kRangedAttackThreshold = 120.0f;
+    // World units per second for fired projectiles.
+    constexpr float kProjectileSpeed = 520.0f;
 
     float distanceSq(
         const rts::core::model::Vector2D& a,
@@ -114,6 +118,14 @@ namespace rts::core::model {
 
     IGameElement* Unit::attackTarget() const {
         return resolveEntity(m_attackTargetId);
+    }
+
+    void Unit::setProjectileSpawner(ProjectileSpawner spawner) {
+        m_fireProjectile = std::move(spawner);
+    }
+
+    bool Unit::isRanged() const noexcept {
+        return attackRange >= kRangedAttackThreshold;
     }
 
     void Unit::beginAttack(IGameElement* target, bool preserveAttackMove, bool preservePatrol) {
@@ -398,10 +410,15 @@ namespace rts::core::model {
             case AttackPhase::PreCast:
                 attackTimer -= dt;
                 if (attackTimer <= 0.f) {
-                    // FirePoint: damage is now committed.
-                    target->takeDamage(
-                        attackDamage * core::data::damageMultiplier(m_weaponType, target->armorType()),
-                        this);
+                    // FirePoint: ranged units launch a projectile (damage applied on
+                    // arrival); melee units land the hit immediately.
+                    if (isRanged() && m_fireProjectile) {
+                        m_fireProjectile(m_position, target, attackDamage, m_weaponType, m_teamId);
+                    } else {
+                        target->takeDamage(
+                            attackDamage * core::data::damageMultiplier(m_weaponType, target->armorType()),
+                            this);
+                    }
                     m_attackPhase = AttackPhase::Cooldown;
                     attackTimer = attackCooldown * (1.0f - kAttackWindupFraction);
                 }
