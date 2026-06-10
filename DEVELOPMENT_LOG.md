@@ -1,5 +1,23 @@
 # Development Log
 
+## 2026-06-09 - Epic 2.1 추가 Task: 선택 우선순위/Shift/Ctrl/더블클릭/최대치
+
+### 변경 내용
+- **SelectCommand**: `additive`(shift), `sameType`(ctrl/더블클릭) 플래그 추가.
+- **SelectBox**: UI 매니저의 modifier 플래그(`const bool&` additive/sameType)를 받아 릴리스 시 SelectCommand에 실어 보냄.
+- **GameUIManager**: MouseLeftPressed에서 더블클릭 감지(steady_clock 350ms + 16px) → `m_selectSameType = m_ctrl || 더블클릭`. SelectBox에 m_shift·m_selectSameType 전달.
+- **SelectionSystem 재작업**:
+  - `selectInArea(area, additive)`: 영역이 작으면(클릭) **픽박스(30px)** 로 커서 아래 최근접 요소 선택, 아니면 드래그 박스. **유닛 우선**(플레이어 유닛 > 임의 유닛 > 건물/자원), **최대 24개** cap.
+  - additive: 드래그=추가(중복 스킵), 클릭=토글(이미 선택 시 해제).
+  - `selectSameType(point, additive)`: 커서 아래 유닛의 타입+팀과 같은 모든 생존 유닛 선택(없으면 클릭 폴백).
+- **GameLogicManager**: SelectCommand 핸들러가 sameType이면 selectSameType, 아니면 selectInArea(additive)로 분기.
+- **보너스 수정**: 클릭(start==end)이 degenerate Rect라 `contains`가 거의 매칭 안 되던 문제 → 픽박스 확장으로 단일 클릭 선택이 안정적으로 동작.
+
+### 검증
+- 빌드 성공(16/16). 실행 — DataRegistry/MapLoader 로드 정상, 크래시/경고 없음.
+- 한계: 실제 마우스 선택(드래그/Shift/Ctrl/더블클릭) 동작은 자동화 환경상 수동 검증 필요. 로직 경로·우선순위·cap·토글은 검토 완료.
+- 참고: IDE(clang) 분석기가 include 경로 미설정으로 다수 오탐을 냈으나 g++ 빌드는 클린.
+
 ## 2026-06-09 - JSON 맵 로딩 (시작 레이아웃 데이터화)
 
 ### 변경 내용

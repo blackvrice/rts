@@ -4,6 +4,7 @@
 
 #include "game/game/GameUIManager.hpp"
 
+#include <chrono>
 #include <utility>
 
 #include "core/command/CommandRouterBase.hpp"
@@ -136,6 +137,16 @@ namespace rts::core::manager {
             [this](const command::MouseLeftPressedCommand &cmd) {
                 m_isDragging = true;
                 const core::model::Vector2D &pos = cmd.position();
+
+                // Ctrl-click or a quick double-click on the same spot arms
+                // "select all of this type" for the release that follows.
+                const auto now = std::chrono::steady_clock::now();
+                const bool quick = (now - m_lastClickTime) < std::chrono::milliseconds(350);
+                const bool nearLast = pos.distanceTo(m_lastClickPos) < 16.0f;
+                m_selectSameType = m_ctrl || (quick && nearLast);
+                m_lastClickTime = now;
+                m_lastClickPos = pos;
+
                 for (const auto &element: m_elements) {
                     element->MouseDown(pos);
                 }
@@ -260,7 +271,8 @@ namespace rts::core::manager {
                 m_shift = false;
             }
         });
-        m_elements.push_back(std::make_unique<core::ui::SelectBox>(logicBus, m_camera));
+        m_elements.push_back(std::make_unique<core::ui::SelectBox>(
+            logicBus, m_camera, m_shift, m_selectSameType));
     }
 
     void GameUIManager::issueWorldOrder(const core::model::Vector2D& screenPosition) {

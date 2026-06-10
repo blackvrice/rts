@@ -1,9 +1,9 @@
 {
   "_comment": "Starting scenario. Edit positions/entities here (no recompile). Building/unit/resource 'type' ids match data/buildings.json, units.json, resources.json. team is player or enemy. blockedTiles are [x,y] grid cells forced non-walkable.",
 
-  "width": 32,
-  "height": 32,
-  "tileSize": 64,
+  "width": 64,
+  "height": 64,
+  "tileSize": 32,
 
   "startResources": {
     "player": { "gold": 500, "wood": 300 },
@@ -11,7 +11,7 @@
   },
 
   "buildings": [
-    { "type": "town_hall", "team": "player", "x": 220,  "y": 220 },
+    { "type": "town_hall", "team": "player", "x": 320,  "y": 440 },
     { "type": "barracks",  "team": "player", "x": 500,  "y": 220 },
     { "type": "town_hall", "team": "enemy",  "x": 1200, "y": 760 },
     { "type": "barracks",  "team": "enemy",  "x": 1480, "y": 760 }
@@ -19,18 +19,22 @@
 
   "units": [
     { "type": "worker",  "team": "player", "x": 240, "y": 460 },
-    { "type": "warrior", "team": "player", "x": 350, "y": 460 },
-    { "type": "archer",  "team": "player", "x": 460, "y": 460 },
-    { "type": "marine",  "team": "player", "x": 570, "y": 460 },
-    { "type": "worker",  "team": "enemy",  "x": 1200, "y": 1000 },
-    { "type": "warrior", "team": "enemy",  "x": 1310, "y": 1000 },
-    { "type": "archer",  "team": "enemy",  "x": 1420, "y": 1000 },
-    { "type": "marine",  "team": "enemy",  "x": 1530, "y": 1000 }
+    { "type": "worker",  "team": "enemy",  "x": 1200, "y": 1000 }
   ],
 
   "resources": [
-    { "type": "gold", "x": 120, "y": 620 },
-    { "type": "wood", "x": 120, "y": 760 }
+    { "type": "gold", "x": 120, "y": 120 },
+    { "type": "gold", "x": 120, "y": 220 },
+    { "type": "gold", "x": 120, "y": 320 },
+    { "type": "gold", "x": 120, "y": 420 },
+    { "type": "gold", "x": 120, "y": 520 },
+    { "type": "wood", "x": 160, "y": 760 },
+    { "type": "gold", "x": 1020, "y": 120 },
+    { "type": "gold", "x": 1020, "y": 220 },
+    { "type": "gold", "x": 1020, "y": 320 },
+    { "type": "gold", "x": 1020, "y": 420 },
+    { "type": "gold", "x": 1020, "y": 520 },
+    { "type": "wood", "x": 1060, "y": 760 }
   ],
 
   "blockedTiles": []

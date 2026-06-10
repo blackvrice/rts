@@ -59,14 +59,21 @@ namespace rts::core::command {
     // =========================================================
     class SelectCommand final : public LogicCommand {
     public:
-        SelectCommand(const core::model::Vector2D &first, const core::model::Vector2D &second) : m_area(first, second) {
+        // additive = shift held (add/toggle into the current selection).
+        // sameType = ctrl-click or double-click (select all units of that type).
+        SelectCommand(const core::model::Vector2D &first, const core::model::Vector2D &second,
+                      bool additive = false, bool sameType = false)
+            : m_area(first, second), m_additive(additive), m_sameType(sameType) {
         }
 
-
         core::model::Rect area() const noexcept { return m_area; }
+        bool additive() const noexcept { return m_additive; }
+        bool sameType() const noexcept { return m_sameType; }
 
     private:
         core::model::Rect m_area;
+        bool m_additive { false };
+        bool m_sameType { false };
     };
 
     class SelectUnitCommand final : public LogicCommand {

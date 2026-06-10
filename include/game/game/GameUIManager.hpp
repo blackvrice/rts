@@ -7,6 +7,7 @@
 #include <core/Manager/IUIManager.hpp>
 #include "core/model/Vector2D.hpp"
 
+#include <chrono>
 #include <memory>
 #include <vector>
 
@@ -68,6 +69,10 @@ namespace rts::core::manager {
         WorldOrderMode m_worldOrderMode { WorldOrderMode::Attack };
         bool m_shift { false };
         bool m_ctrl { false };
+        // Select-all-of-type request for the next release (ctrl held or double-click).
+        bool m_selectSameType { false };
+        std::chrono::steady_clock::time_point m_lastClickTime {};
+        core::model::Vector2D m_lastClickPos {};
         core::model::Vector2D m_mousePos {};
         bool m_hasMousePos { false };
         bool m_isDragging { false };

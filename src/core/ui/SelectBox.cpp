@@ -7,7 +7,9 @@
 #include "core/manager/CameraManager.hpp"
 
 namespace rts::core::ui {
-    SelectBox::SelectBox(command::LogicCommandBus &bus, manager::CameraManager& camera) {
+    SelectBox::SelectBox(command::LogicCommandBus &bus, manager::CameraManager& camera,
+                         const bool& additive, const bool& sameType)
+        : m_additive(additive), m_sameType(sameType) {
         // 1️⃣ 드래그 시작
         MouseDown += [this](const model::Vector2D &p) {
             m_visible = true;
@@ -30,7 +32,9 @@ namespace rts::core::ui {
 
             bus.push(std::make_unique<command::SelectCommand>(
                 camera.screenToWorld(m_start),
-                camera.screenToWorld(m_end)
+                camera.screenToWorld(m_end),
+                m_additive,
+                m_sameType
             ));
         };
     }

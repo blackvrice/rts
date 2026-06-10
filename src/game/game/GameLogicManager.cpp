@@ -66,7 +66,16 @@ namespace rts::core::manager {
 
         m_router.on<command::SelectCommand>([this](const command::SelectCommand &cmd) {
             auto lock = m_world.acquireWriteLock();
-            m_selection.selectInArea(m_world, cmd.area());
+            if (cmd.sameType()) {
+                const auto a = cmd.area();
+                const core::model::Vector2D point {
+                    (a.left() + a.right()) * 0.5f,
+                    (a.top() + a.bottom()) * 0.5f
+                };
+                m_selection.selectSameType(m_world, point, cmd.additive());
+            } else {
+                m_selection.selectInArea(m_world, cmd.area(), cmd.additive());
+            }
         });
 
         // Restart is accepted only once the match is decided (the result screen).

@@ -18,7 +18,11 @@ namespace rts::core::manager {
 namespace rts::core::ui {
     class SelectBox : public IUIElement {
     public:
-        explicit SelectBox(command::LogicCommandBus& bus, manager::CameraManager& camera);
+        // additive/sameType are live modifier flags owned by the UI manager: shift
+        // (add/toggle) and ctrl-or-double-click (select all of one type). They are
+        // read when the drag/click is released.
+        SelectBox(command::LogicCommandBus& bus, manager::CameraManager& camera,
+                  const bool& additive, const bool& sameType);
 
         void update() override;
 
@@ -28,5 +32,7 @@ namespace rts::core::ui {
         bool m_visible  = false;
         model::Vector2D m_start;
         model::Vector2D m_end;
+        const bool& m_additive;
+        const bool& m_sameType;
     };
 }
