@@ -149,7 +149,9 @@ namespace rts::core::world {
                 radiusTiles = static_cast<int>(std::ceil(unit->getSightRange() / tileSize));
             } else if (const auto building = std::dynamic_pointer_cast<model::Building>(element)) {
                 const auto& d = data::DataRegistry::global().building(building->buildingType());
-                radiusTiles = std::max(d.footprintWidth, d.footprintHeight) + 3;
+                radiusTiles = d.sightRange > 0.f
+                    ? static_cast<int>(std::ceil(d.sightRange / tileSize))
+                    : std::max(d.footprintWidth, d.footprintHeight) + 3;
             } else {
                 continue;
             }

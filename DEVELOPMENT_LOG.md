@@ -1,5 +1,13 @@
 # Development Log
 
+## 2026-06-11 - Building Vision From JSON
+
+- Added `BuildingStaticData::sightRange` and loaded it from `data/buildings.json`, matching the existing unit `sightRange` data flow.
+- Updated fog-of-war reveal logic so player buildings use the JSON sight radius when present, while old or partial data still falls back to the previous `footprint + 3` tile radius.
+- Added initial building sight values to `buildings.json`: Town Hall `224.0`, Barracks `192.0`, preserving the previous visible radius on the current 32px-tile skirmish map.
+- Verification: built `RTS` with `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j 4`, then launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
+- Follow-up: if maps with other tile sizes become primary, building sight values can be tuned per design instead of inheriting the old tile-count-derived behavior.
+
 ## 2026-06-11 - Copy tmxlite Runtime DLL
 
 - Fixed the debug launch failure where `RTS.exe` exited with `-1073741515` / `0xC0000135` because Windows could not find `libtmxlite-d.dll`.

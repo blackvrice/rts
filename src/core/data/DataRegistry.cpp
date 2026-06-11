@@ -265,6 +265,7 @@ namespace rts::core::data {
                 d.maxHp           = e.value("maxHp", d.maxHp);
                 d.footprintWidth  = e.value("footprintWidth", d.footprintWidth);
                 d.footprintHeight = e.value("footprintHeight", d.footprintHeight);
+                d.sightRange      = e.value("sightRange", d.sightRange);
                 d.buildTimeSeconds= e.value("buildTimeSeconds", d.buildTimeSeconds);
                 d.goldCost        = e.value("goldCost", d.goldCost);
                 d.woodCost        = e.value("woodCost", d.woodCost);
@@ -301,6 +302,10 @@ namespace rts::core::data {
                 if (!requirePositive("maxHp", id, d.maxHp)) { allOk = false; continue; }
                 if (!requirePositive("footprintWidth", id, d.footprintWidth)) { allOk = false; continue; }
                 if (!requirePositive("footprintHeight", id, d.footprintHeight)) { allOk = false; continue; }
+                if (e.contains("sightRange") && !requirePositive("sightRange", id, d.sightRange)) {
+                    allOk = false;
+                    continue;
+                }
                 m_buildings[*type] = d;
                 ++buildingCount;
             }
