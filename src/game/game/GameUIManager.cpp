@@ -5,6 +5,8 @@
 #include "game/game/GameUIManager.hpp"
 
 #include <chrono>
+#include <cmath>
+#include <unordered_set>
 #include <utility>
 
 #include "core/command/CommandRouterBase.hpp"
@@ -20,6 +22,7 @@
 #include "core/model/ResourceNode.hpp"
 #include "core/data/BuildingStaticData.hpp"
 #include "core/data/UnitStaticData.hpp"
+#include "core/map/FogOfWar.hpp"
 #include "core/render/RenderCommand.hpp"
 #include "core/render/RenderQueue.hpp"
 #include "core/ui/IUIElement.hpp"
@@ -181,6 +184,24 @@ namespace rts::core::manager {
             }
         );
 
+        router.on<command::MinimapCommand>(
+            [this](const command::MinimapCommand &cmd) {
+                const float tile = m_world.gridTransform().tileSize;
+                const float worldW = static_cast<float>(m_world.gridWidth()) * tile;
+                const float worldH = static_cast<float>(m_world.gridHeight()) * tile;
+                if (worldW <= 0.0f || worldH <= 0.0f) return;
+                const core::model::Vector2D world{ cmd.u() * worldW, cmd.v() * worldH };
+                if (cmd.isRight()) {
+                    // Right-click on the minimap issues a world order at that point.
+                    issueWorldOrderAtWorld(world);
+                } else {
+                    // Left-click recenters the camera on that point.
+                    const auto& vp = m_camera.viewportSize();
+                    m_camera.setPosition({ world.x - vp.x * 0.5f, world.y - vp.y * 0.5f });
+                }
+            }
+        );
+
         router.on<command::GameplayInputCommand>(
             [this](const command::GameplayInputCommand &cmd) {
                 handleGameplayInput(cmd);
@@ -279,10 +300,13 @@ namespace rts::core::manager {
     }
 
     void GameUIManager::issueWorldOrder(const core::model::Vector2D& screenPosition) {
+        issueWorldOrderAtWorld(m_camera.screenToWorld(screenPosition));
+    }
+
+    void GameUIManager::issueWorldOrderAtWorld(const core::model::Vector2D& worldPos) {
         if (m_world.gameResult() != core::world::GameResult::InProgress) {
             return;
         }
-        const core::model::Vector2D worldPos = m_camera.screenToWorld(screenPosition);
 
         switch (m_worldOrderMode) {
             case WorldOrderMode::Move:
@@ -582,8 +606,104 @@ namespace rts::core::manager {
             element->buildRenderCommands(m_renderQueue);
         }
 
+        // Fog of war: hide enemy elements that are not in the player's current
+        // vision, and shroud unexplored/explored tiles.
+        const auto& fog = m_world.fog();
+        const auto& tf = m_world.gridTransform();
+        const float tile = tf.tileSize;
+
+        std::unordered_set<const void*> hiddenByFog;
+        for (const auto& element : m_world.getElements()) {
+            auto ge = std::dynamic_pointer_cast<core::model::IGameElement>(element);
+            if (!ge || ge->getTeamId() != core::model::TeamId::Enemy) {
+                continue;  // own and neutral elements are always drawn
+            }
+            const auto cell = tf.worldToGrid(ge->getPosition());
+            if (fog.get(cell.x, cell.y) != core::map::FogOfWar::State::Visible) {
+                hiddenByFog.insert(element.get());
+            }
+        }
+
         for (auto &viewModel: m_viewModels) {
+            if (hiddenByFog.count(viewModel->modelPtr())) {
+                continue;  // enemy out of sight
+            }
             viewModel->buildRenderCommands(m_renderQueue);
+        }
+
+        // Fog shroud quads (World layer, above sprites). Only the camera-visible tile
+        // range is emitted to bound the rect count.
+        if (tile > 0.0f && fog.width() > 0 && fog.height() > 0) {
+            const auto camPos = m_camera.position();
+            const auto& vp = m_camera.viewportSize();
+            const int minX = std::max(0, static_cast<int>(std::floor(camPos.x / tile)));
+            const int minY = std::max(0, static_cast<int>(std::floor(camPos.y / tile)));
+            const int maxX = std::min(fog.width() - 1, static_cast<int>(std::ceil((camPos.x + vp.x) / tile)));
+            const int maxY = std::min(fog.height() - 1, static_cast<int>(std::ceil((camPos.y + vp.y) / tile)));
+            for (int y = minY; y <= maxY; ++y) {
+                for (int x = minX; x <= maxX; ++x) {
+                    const auto state = fog.get(x, y);
+                    if (state == core::map::FogOfWar::State::Visible) {
+                        continue;
+                    }
+                    const std::uint32_t fill =
+                        state == core::map::FogOfWar::State::Unexplored
+                            ? 0xE605070Au   // unexplored: near-opaque shroud
+                            : 0x6605070Au;  // explored: translucent shroud
+                    const core::model::Vector2D tl{ x * tile, y * tile };
+                    const core::model::Vector2D br{ tl.x + tile, tl.y + tile };
+                    m_renderQueue.emplace(
+                        core::render::RenderLayer::World,
+                        100,
+                        core::render::DrawRect{
+                            .rect = core::model::Rect{ tl, br },
+                            .border_color = 0x00000000u,
+                            .color = fill
+                        });
+                }
+            }
+        }
+
+        // Minimap snapshot: world size, camera viewport, fog grid and entity blips
+        // (fogged enemies omitted), consumed by the HUD overlay.
+        {
+            core::render::UpdateMinimap mm;
+            const float worldW = static_cast<float>(m_world.gridWidth()) * tile;
+            const float worldH = static_cast<float>(m_world.gridHeight()) * tile;
+            mm.worldW = worldW;
+            mm.worldH = worldH;
+            if (worldW > 0.0f && worldH > 0.0f) {
+                const auto camPos = m_camera.position();
+                const auto& vp = m_camera.viewportSize();
+                mm.camU = camPos.x / worldW;
+                mm.camV = camPos.y / worldH;
+                mm.camW = vp.x / worldW;
+                mm.camH = vp.y / worldH;
+            }
+            mm.fogW = fog.width();
+            mm.fogH = fog.height();
+            mm.fog.reserve(fog.states().size());
+            for (const auto s : fog.states()) {
+                mm.fog.push_back(static_cast<std::uint8_t>(s));
+            }
+            if (worldW > 0.0f && worldH > 0.0f) {
+                for (const auto& element : m_world.getElements()) {
+                    auto ge = std::dynamic_pointer_cast<core::model::IGameElement>(element);
+                    if (!ge || ge->getAction() == core::model::ActionType::Dead) {
+                        continue;
+                    }
+                    if (hiddenByFog.count(element.get())) {
+                        continue;  // don't reveal fogged enemies on the minimap
+                    }
+                    const int team = ge->getTeamId();
+                    const std::uint8_t dotTeam =
+                        team == core::model::TeamId::Player ? 0
+                        : (team == core::model::TeamId::Enemy ? 1 : 2);
+                    const auto p = ge->getPosition();
+                    mm.dots.push_back({ p.x / worldW, p.y / worldH, dotTeam });
+                }
+            }
+            m_renderQueue.emplace(core::render::RenderLayer::UI, -97, std::move(mm));
         }
 
         // Victory / defeat banner centered on screen once the match is decided.

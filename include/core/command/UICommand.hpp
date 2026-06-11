@@ -173,6 +173,23 @@ namespace rts::core::command {
         GameplayInputAction m_action;
     };
 
+    // A click on the minimap, in normalized 0..1 world coordinates. The left button
+    // recenters the camera; the right button issues a world order at that point.
+    class MinimapCommand final : public UICommand {
+    public:
+        MinimapCommand(float u, float v, bool rightButton)
+            : m_u(u), m_v(v), m_right(rightButton) {}
+
+        float u() const noexcept { return m_u; }
+        float v() const noexcept { return m_v; }
+        bool isRight() const noexcept { return m_right; }
+
+    private:
+        float m_u;
+        float m_v;
+        bool m_right;
+    };
+
     class ChangeUILogicSourceCommand final : public UICommand {
     public:
         explicit ChangeUILogicSourceCommand(

@@ -59,6 +59,8 @@ namespace rts::core::manager {
         };
 
         void issueWorldOrder(const core::model::Vector2D& screenPosition);
+        // Same as issueWorldOrder but takes a world-space point directly (minimap).
+        void issueWorldOrderAtWorld(const core::model::Vector2D& worldPos);
         void handleGameplayInput(const command::GameplayInputCommand& cmd);
 
         std::vector<int> unitElement;

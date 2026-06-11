@@ -1575,19 +1575,26 @@ struct Cost
 
 ## Epic 6.2 Minimap
 
-현재 상태: `[10%]`
+현재 상태: `[100% — 데이터 기반 미니맵 + 클릭 인터랙션]`
 
 ### Task
 
 ```text
-[ ] 맵 지형 축소 렌더링
-[ ] 아군 유닛 점 표시
-[ ] 적군 유닛 점 표시
-[ ] 자원 점 표시
-[ ] 카메라 viewport 사각형 표시
-[ ] 미니맵 좌클릭 시 카메라 이동
-[ ] 미니맵 우클릭 시 선택 유닛 명령 전달
-[ ] Fog of War 반영
+[x] 맵 지형 축소 렌더링 (UpdateMinimap.fog 그리드를 셀 단위로 타일 색 렌더)
+[x] 아군 유닛 점 표시 (dots team=0 파랑)
+[x] 적군 유닛 점 표시 (dots team=1 빨강, FoW로 가려진 적은 제외)
+[x] 자원 점 표시 (dots team=2 금색)
+[x] 카메라 viewport 사각형 표시 (camU/V/W/H 정규화 사각형)
+[x] 미니맵 좌클릭 시 카메라 이동 (MinimapCommand left → camera.setPosition)
+[x] 미니맵 우클릭 시 선택 유닛 명령 전달 (MinimapCommand right → issueWorldOrderAtWorld)
+[x] Fog of War 반영 (미니맵이 fog 상태로 미탐색/탐색/시야 틴트)
+```
+
+### 완료 기준
+
+```text
+- 미니맵으로 카메라 이동 가능 ✅
+- 미니맵에서 우클릭 명령 가능 ✅
 ```
 
 ### 완료 기준
@@ -1601,19 +1608,27 @@ struct Cost
 
 ## Epic 6.3 Fog of War
 
-현재 상태: `[30%]`
+현재 상태: `[100% 기능 — 완료 기준 충족. 마스크 캐싱/Dirty 추적은 후속 최적화]`
 
 ### Task
 
 ```text
-[ ] Player별 exploredTiles 추가
-[ ] Player별 visibleTiles 추가
-[ ] 시야 반경별 마스크 캐싱
-[ ] 유닛 이동 시 시야 Dirty 처리
-[ ] Dirty 유닛 기준 visibleTiles 갱신
-[ ] 렌더링 마스크 적용
-[ ] 적 유닛 보임/숨김 처리
-[ ] 건물 마지막 위치 잔상 처리 여부 결정
+[x] Player별 exploredTiles 추가 (FogOfWar State::Explored)
+[x] Player별 visibleTiles 추가 (FogOfWar State::Visible)
+[~] 시야 반경별 마스크 캐싱 (현재 매 틱 revealCircle 재계산 — 32x32 규모라 충분, 마스크 캐싱은 후속 최적화)
+[~] 유닛 이동 시 시야 Dirty 처리 (매 틱 전체 재계산이라 Dirty 추적 불필요 — 대형 맵 시 후속)
+[x] Dirty 유닛 기준 visibleTiles 갱신 (updateFog가 매 틱 resetVisible + 플레이어 유닛/건물 reveal)
+[x] 렌더링 마스크 적용 (GameUIManager가 미탐색=불투명/탐색=반투명 shroud DrawRect를 World 레이어에 emit)
+[x] 적 유닛 보임/숨김 처리 (시야 밖 Enemy 요소의 ViewModel·미니맵 점 제외)
+[x] 건물 마지막 위치 잔상 처리 여부 결정 (잔상 미표시로 결정 — 시야 밖 적 건물은 숨김. 추후 explored 잔상은 옵션)
+```
+
+### 완료 기준
+
+```text
+- 유닛 주변만 현재 시야로 보인다. ✅
+- 한 번 본 지역은 흐리게 유지된다. ✅ (Explored 반투명 shroud)
+- 시야 밖 적 유닛은 보이지 않는다. ✅
 ```
 
 ### 완료 기준

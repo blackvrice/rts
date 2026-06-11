@@ -1,5 +1,22 @@
 # Development Log
 
+## 2026-06-11 - Epic 6.2/6.3 미니맵 + 전장의 안개
+
+### Epic 6.3 Fog of War
+- **세계 통합**: GameWorld에 `map::FogOfWar m_fog`(로컬 플레이어) + `updateFog()`/`fog()`. initTileMap/생성자에서 그리드 크기로 init. GameLogicManager::tick 매 틱 `updateFog()` 호출.
+- **시야 계산**: updateFog가 resetVisible(Visible→Explored) 후, 살아있는 플레이어 유닛(sightRange/tileSize 반경)·건물(footprint+3 반경)에서 revealCircle. 자원/적은 시야 부여 안 함.
+- **렌더 마스크**: GameUIManager가 카메라 가시 타일 범위에 대해 미탐색=거의 불투명/탐색=반투명 shroud를 World 레이어(z=100) DrawRect로 emit(스프라이트 위 덮음).
+- **적 은폐**: 시야(Visible)가 아닌 타일의 Enemy 요소는 hiddenByFog 집합에 넣어 ViewModel 렌더·미니맵 점에서 제외. 플레이어/중립은 항상 표시. 건물 잔상은 미표시로 결정.
+- 마스크 캐싱/Dirty 추적은 매 틱 전체 재계산(32x32 규모 충분)으로 대체 — 대형 맵 최적화는 후속.
+
+### Epic 6.2 Minimap
+- **데이터 배선**: 새 render command `UpdateMinimap`(worldW/H, 카메라 viewport 정규화 rect, fog 그리드, 엔티티 dots). GameUIManager가 매 프레임 구성(적은 FoW로 제외). SfmlRenderManager가 큐에서 추출해 HUD에 전달.
+- **렌더**: drawMiniMap가 fog 셀 색(미탐색/탐색/시야)으로 지형 축소 렌더 + 유닛 점(아군 파랑/적 빨강/자원 금색) + 카메라 viewport 사각형.
+- **인터랙션**: 미니맵 위 ImGui InvisibleButton이 클릭을 캡처(WantCaptureMouse로 월드 클릭과 중복 방지). 좌클릭→정규화 좌표로 카메라 setPosition, 우클릭→`MinimapCommand`→`issueWorldOrderAtWorld`로 월드 명령. issueWorldOrder를 화면/월드 좌표 버전으로 분리.
+
+### 검증
+- 빌드 성공(전 타깃, 23/23 링크). IDE clang 진단은 거짓 양성. 미니맵/안개 시각·클릭 동작은 수동 확인 필요.
+
 ## 2026-06-11 - Epic 6.1/6.4 HUD 폴리시 (선택 패널 + 명령 카드 잠금)
 
 ### Epic 6.1 Wireframe 추가

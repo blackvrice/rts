@@ -21,6 +21,7 @@ namespace rts::core::command {
 
 namespace rts::core::render {
     struct UpdateHudSelection;
+    struct UpdateMinimap;
 }
 
 namespace rts::platform::sfml {
@@ -35,7 +36,8 @@ namespace rts::platform::sfml {
         void render(
             sf::RenderWindow& window,
             const core::model::PlayerResourceState& resources,
-            const core::render::UpdateHudSelection& selection);
+            const core::render::UpdateHudSelection& selection,
+            const core::render::UpdateMinimap& minimap);
 
     private:
         void initialize(sf::RenderWindow& window);
@@ -47,7 +49,8 @@ namespace rts::platform::sfml {
         void drawHud(
             const ImVec2& displaySize,
             const core::model::PlayerResourceState& resources,
-            const core::render::UpdateHudSelection& selection);
+            const core::render::UpdateHudSelection& selection,
+            const core::render::UpdateMinimap& minimap);
 
         ImGuiContext* m_context = nullptr;
         std::array<bool, 3> m_mouseButtons{};

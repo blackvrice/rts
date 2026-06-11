@@ -228,6 +228,19 @@ namespace {
         return {};
     }
 
+    rts::core::render::UpdateMinimap hudMinimap(
+        const rts::core::render::RenderQueue& queue
+    ) {
+        for (const auto& command : queue.commands()) {
+            const auto* minimap = std::get_if<rts::core::render::UpdateMinimap>(&command.data);
+            if (minimap) {
+                return *minimap;
+            }
+        }
+
+        return {};
+    }
+
     std::string hudCursor(
         const rts::core::render::RenderQueue& queue
     ) {
@@ -465,6 +478,7 @@ namespace rts::platform::sfml {
         const auto selectedHudUnit = selectedHudSprite(queue);
         const auto resources = hudResources(queue);
         const auto selection = hudSelection(queue);
+        const auto minimap = hudMinimap(queue);
         const auto cursorKey = hudCursor(queue);
         const auto cameraPosition = camera.position();
         sf::View worldView;
@@ -507,7 +521,7 @@ namespace rts::platform::sfml {
             );
         }
 
-        m_hud->render(*sfWindow, resources, selection);
+        m_hud->render(*sfWindow, resources, selection, minimap);
         drawSelectedHudSprite(*sfWindow, selectedHudUnit);
         drawMouseCursor(*sfWindow, cursorKey);
     }
@@ -662,5 +676,12 @@ namespace rts::platform::sfml {
         sf::RenderWindow&,
         const core::render::UpdateHudCursor&
     ) {
+    }
+
+    void SfmlRenderManager::draw(
+        sf::RenderWindow&,
+        const core::render::UpdateMinimap&
+    ) {
+        // Minimap is drawn by the ImGui HUD overlay, not the world pass.
     }
 }

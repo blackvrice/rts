@@ -111,6 +111,29 @@ namespace rts::core::render {
         std::string cursorKey { "default" };
     };
 
+    // A single blip on the minimap; position is normalized 0..1 over the world.
+    struct MinimapDot {
+        float u { 0.0f };
+        float v { 0.0f };
+        uint8_t team { 0 };  // 0 = player, 1 = enemy, 2 = neutral/resource
+    };
+
+    // Snapshot the HUD needs to draw the minimap and translate clicks back to world
+    // coordinates. Fog states (size fogW*fogH, row-major) mirror FogOfWar::State.
+    struct UpdateMinimap {
+        float worldW { 0.0f };
+        float worldH { 0.0f };
+        // Camera viewport as a normalized rect over the world (for the viewport box).
+        float camU { 0.0f };
+        float camV { 0.0f };
+        float camW { 0.0f };
+        float camH { 0.0f };
+        int fogW { 0 };
+        int fogH { 0 };
+        std::vector<uint8_t> fog {};
+        std::vector<MinimapDot> dots {};
+    };
+
     using RenderCommandData = std::variant<
         DrawRect,
         DrawText,
@@ -118,7 +141,8 @@ namespace rts::core::render {
         DrawCircle,
         UpdateHudResources,
         UpdateHudSelection,
-        UpdateHudCursor
+        UpdateHudCursor,
+        UpdateMinimap
     >;
 
     struct RenderCommand {

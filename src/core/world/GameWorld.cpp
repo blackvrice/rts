@@ -21,6 +21,7 @@ namespace rts::core::world {
         , m_pathManager(std::make_unique<manager::PathManager>())
         , m_gridTransform{64.f} {
         m_tileMap->init(32, 32);
+        m_fog.init(32, 32);
         m_playerResources.emplace(model::PlayerId::Local, model::PlayerResourceState {});
         m_playerResources.emplace(model::PlayerId::Enemy, model::PlayerResourceState {});
     }
@@ -126,8 +127,34 @@ namespace rts::core::world {
 
     void GameWorld::initTileMap(const int width, const int height, const float tileSize) {
         m_tileMap->init(width, height);
+        m_fog.init(width, height);
         m_gridTransform.tileSize = tileSize;
         onCollisionChanged();
+    }
+
+    void GameWorld::updateFog() {
+        // Demote last tick's Visible cells to Explored, then re-reveal from each live
+        // player unit/building. Resources grant no vision; enemy elements never reveal.
+        m_fog.resetVisible();
+        const float tileSize = m_gridTransform.tileSize > 0.f ? m_gridTransform.tileSize : 1.f;
+        for (const auto& element : m_elements) {
+            const auto ge = std::dynamic_pointer_cast<model::IGameElement>(element);
+            if (!ge || ge->getTeamId() != model::TeamId::Player ||
+                ge->getAction() == model::ActionType::Dead) {
+                continue;
+            }
+            const auto cell = m_gridTransform.worldToGrid(ge->getPosition());
+            int radiusTiles = 0;
+            if (const auto unit = std::dynamic_pointer_cast<model::Unit>(element)) {
+                radiusTiles = static_cast<int>(std::ceil(unit->getSightRange() / tileSize));
+            } else if (const auto building = std::dynamic_pointer_cast<model::Building>(element)) {
+                const auto& d = data::DataRegistry::global().building(building->buildingType());
+                radiusTiles = std::max(d.footprintWidth, d.footprintHeight) + 3;
+            } else {
+                continue;
+            }
+            m_fog.revealCircle(cell.x, cell.y, radiusTiles);
+        }
     }
 
     void GameWorld::setTileBlocked(const int x, const int y, const bool blocked) {

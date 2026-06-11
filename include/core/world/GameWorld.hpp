@@ -13,6 +13,7 @@
 
 #include "core/data/CombatTypes.hpp"
 #include "core/ecs/EntityManager.hpp"
+#include "core/map/FogOfWar.hpp"
 #include "core/model/PlayerResourceState.hpp"
 #include "core/sim/SimClock.hpp"
 #include "core/world/GridTransform.hpp"
@@ -111,6 +112,12 @@ namespace rts::core::world {
 
         void onCollisionChanged();
 
+        // Fog of war for the local player. updateFog re-derives the current vision
+        // each tick from live player units/buildings; fog() exposes the grid for
+        // rendering and minimap tinting. Caller holds the write lock for updateFog.
+        void updateFog();
+        const map::FogOfWar& fog() const noexcept { return m_fog; }
+
     private:
         // Area-of-effect damage around a splash impact; opposing team only, with
         // distance falloff and weapon/armor scaling. Used by splashing projectiles.
@@ -125,6 +132,7 @@ namespace rts::core::world {
         std::unique_ptr<map::TileMapSoA> m_tileMap;
         // gridW*gridH, row-major: 1 where a live building/resource footprint sits.
         std::vector<std::uint8_t> m_structureOccupancy;
+        map::FogOfWar m_fog;  // local player's vision (explored/visible)
         std::vector<std::shared_ptr<model::IElement>> m_elements;
         std::vector<std::shared_ptr<model::Projectile>> m_projectiles;
         ecs::EntityManager m_entities;

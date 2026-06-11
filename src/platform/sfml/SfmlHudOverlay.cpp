@@ -356,28 +356,58 @@ namespace {
         drawList.AddText({max.x - valueSize.x - 12.0f, min.y + 7.0f}, valueColor, value);
     }
 
-    void drawMiniMap(ImDrawList& drawList, const ImVec2 min, const ImVec2 max) {
-        const ImVec2 mapMin{min.x + 14.0f, min.y + 38.0f};
-        const ImVec2 mapMax{max.x - 14.0f, max.y - 14.0f};
-        drawList.AddRectFilled(mapMin, mapMax, IM_COL32(8, 25, 24, 255), 1.0f);
+    // Inner drawable rect of the minimap panel (where the map proper is rendered).
+    void minimapInnerRect(const ImVec2 min, const ImVec2 max, ImVec2& outMin, ImVec2& outMax) {
+        outMin = ImVec2{min.x + 14.0f, min.y + 38.0f};
+        outMax = ImVec2{max.x - 14.0f, max.y - 14.0f};
+    }
 
-        constexpr int grid = 8;
-        const float cellW = (mapMax.x - mapMin.x) / grid;
-        const float cellH = (mapMax.y - mapMin.y) / grid;
-        for (int y = 0; y < grid; ++y) {
-            for (int x = 0; x < grid; ++x) {
-                const bool ridge = (x + y) % 3 == 0;
-                const ImU32 tile = ridge ? IM_COL32(30, 74, 58, 255) : IM_COL32(18, 52, 56, 255);
-                const ImVec2 a{mapMin.x + x * cellW + 1.0f, mapMin.y + y * cellH + 1.0f};
-                const ImVec2 b{a.x + cellW - 2.0f, a.y + cellH - 2.0f};
-                drawList.AddRectFilled(a, b, tile);
+    void drawMiniMap(ImDrawList& drawList, const ImVec2 min, const ImVec2 max,
+                     const rts::core::render::UpdateMinimap& mm) {
+        ImVec2 mapMin, mapMax;
+        minimapInnerRect(min, max, mapMin, mapMax);
+        const float spanX = mapMax.x - mapMin.x;
+        const float spanY = mapMax.y - mapMin.y;
+        drawList.AddRectFilled(mapMin, mapMax, IM_COL32(6, 14, 16, 255), 1.0f);
+
+        // Terrain + fog: one cell per fog tile, tinted by explored/visible/unexplored.
+        if (mm.fogW > 0 && mm.fogH > 0 &&
+            static_cast<int>(mm.fog.size()) >= mm.fogW * mm.fogH) {
+            const float cw = spanX / static_cast<float>(mm.fogW);
+            const float ch = spanY / static_cast<float>(mm.fogH);
+            for (int y = 0; y < mm.fogH; ++y) {
+                for (int x = 0; x < mm.fogW; ++x) {
+                    const uint8_t s = mm.fog[static_cast<std::size_t>(y) * mm.fogW + x];
+                    ImU32 col;
+                    if (s == 2)      col = IM_COL32(36, 92, 70, 255);   // visible terrain
+                    else if (s == 1) col = IM_COL32(20, 48, 44, 255);   // explored (dim)
+                    else             col = IM_COL32(8, 16, 18, 255);    // unexplored
+                    const ImVec2 a{mapMin.x + x * cw, mapMin.y + y * ch};
+                    drawList.AddRectFilled(a, {a.x + cw + 1.0f, a.y + ch + 1.0f}, col);
+                }
             }
         }
 
-        drawList.AddRect({mapMin.x + 42.0f, mapMin.y + 32.0f}, {mapMin.x + 132.0f, mapMin.y + 88.0f}, IM_COL32(210, 238, 230, 220), 0.0f, 0, 2.0f);
-        drawList.AddCircleFilled({mapMin.x + 72.0f, mapMin.y + 62.0f}, 4.0f, kMineral, 16);
-        drawList.AddCircleFilled({mapMin.x + 178.0f, mapMin.y + 126.0f}, 4.0f, kWarning, 16);
-        drawList.AddCircleFilled({mapMin.x + 216.0f, mapMin.y + 50.0f}, 3.0f, kGas, 16);
+        // Entity blips (player/enemy/resource); GameUIManager omits fogged enemies.
+        for (const auto& dot : mm.dots) {
+            const ImVec2 p{mapMin.x + dot.u * spanX, mapMin.y + dot.v * spanY};
+            ImU32 col;
+            switch (dot.team) {
+                case 1:  col = IM_COL32(232, 86, 74, 255);  break;   // enemy red
+                case 2:  col = IM_COL32(236, 198, 81, 255); break;   // neutral/resource gold
+                default: col = IM_COL32(86, 200, 235, 255); break;   // player blue
+            }
+            drawList.AddRectFilled({p.x - 2.0f, p.y - 2.0f}, {p.x + 2.0f, p.y + 2.0f}, col);
+        }
+
+        // Camera viewport rectangle.
+        if (mm.camW > 0.0f && mm.camH > 0.0f) {
+            const ImVec2 vMin{mapMin.x + mm.camU * spanX, mapMin.y + mm.camV * spanY};
+            const ImVec2 vMax{vMin.x + mm.camW * spanX, vMin.y + mm.camH * spanY};
+            drawList.AddRect(vMin, vMax, IM_COL32(220, 240, 232, 235), 0.0f, 0, 1.5f);
+        }
+
+        drawList.AddRect(mapMin, mapMax, kPanelHigh, 1.0f, 0, 1.0f);
     }
 
     void drawPortrait(ImDrawList& drawList, const ImVec2 min, const ImVec2 max, const sf::Texture* avatar) {
@@ -501,7 +531,8 @@ namespace rts::platform::sfml {
     void SfmlHudOverlay::render(
         sf::RenderWindow& window,
         const core::model::PlayerResourceState& resources,
-        const core::render::UpdateHudSelection& selection) {
+        const core::render::UpdateHudSelection& selection,
+        const core::render::UpdateMinimap& minimap) {
         if (!m_context) {
             initialize(window);
         }
@@ -516,7 +547,7 @@ namespace rts::platform::sfml {
         syncMouseButtons();
         ImGui::NewFrame();
 
-        drawHud(ImGui::GetIO().DisplaySize, resources, selection);
+        drawHud(ImGui::GetIO().DisplaySize, resources, selection, minimap);
 
         ImGui::Render();
         if (!window.setActive(true)) {
@@ -619,7 +650,8 @@ namespace rts::platform::sfml {
     void SfmlHudOverlay::drawHud(
         const ImVec2& displaySize,
         const core::model::PlayerResourceState& resources,
-        const core::render::UpdateHudSelection& selection) {
+        const core::render::UpdateHudSelection& selection,
+        const core::render::UpdateMinimap& minimap) {
         const float width = std::max(displaySize.x, 1280.0f);
         const float height = std::max(displaySize.y, 720.0f);
         // HUD ADJUST: bottomHeight changes the full lower HUD height; margin changes outer spacing.
@@ -686,7 +718,28 @@ namespace rts::platform::sfml {
         drawPanelFrame(drawList, miniMin, miniMax, "MINI MAP", bannerSlots, 64.0f, 32.0f);
         drawPanelFrame(drawList, statusMin, statusMax, "SELECTION", woodTable, 128.0f, 56.0f);
         drawPanelFrame(drawList, commandMin, commandMax, "COMMAND", woodSlots, 64.0f, 32.0f);
-        drawMiniMap(drawList, miniMin, miniMax);
+        drawMiniMap(drawList, miniMin, miniMax, minimap);
+
+        // Minimap interaction: a click maps to normalized world coords. Left button
+        // recenters the camera; right button issues a world order there. An invisible
+        // button over the inner map captures the click without blocking other input.
+        {
+            ImVec2 mapMin, mapMax;
+            minimapInnerRect(miniMin, miniMax, mapMin, mapMax);
+            ImGui::SetCursorScreenPos(mapMin);
+            ImGui::InvisibleButton("##minimap", {mapMax.x - mapMin.x, mapMax.y - mapMin.y});
+            if (ImGui::IsItemActive() || ImGui::IsItemHovered()) {
+                const bool left = ImGui::IsMouseClicked(ImGuiMouseButton_Left) ||
+                                  ImGui::IsMouseDragging(ImGuiMouseButton_Left);
+                const bool right = ImGui::IsMouseClicked(ImGuiMouseButton_Right);
+                if ((left || right) && ImGui::IsItemHovered()) {
+                    const ImVec2 mp = ImGui::GetMousePos();
+                    const float u = std::clamp((mp.x - mapMin.x) / std::max(1.0f, mapMax.x - mapMin.x), 0.0f, 1.0f);
+                    const float v = std::clamp((mp.y - mapMin.y) / std::max(1.0f, mapMax.y - mapMin.y), 0.0f, 1.0f);
+                    m_uiBus.push(std::make_unique<core::command::MinimapCommand>(u, v, right));
+                }
+            }
+        }
 
         const ImVec2 portraitMin{statusMin.x + 18.0f, statusMin.y + 44.0f};
         const ImVec2 portraitMax{portraitMin.x + 132.0f, statusMax.y - 18.0f};
