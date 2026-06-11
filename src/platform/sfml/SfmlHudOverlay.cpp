@@ -394,6 +394,81 @@ namespace {
         }
     }
 
+    // Green/amber/red by health fraction, for HP bars and portrait tints.
+    ImU32 hpBarColor(const float ratio) {
+        if (ratio > 0.6f) return IM_COL32(78, 200, 96, 255);
+        if (ratio > 0.3f) return IM_COL32(236, 198, 81, 255);
+        return IM_COL32(228, 86, 74, 255);
+    }
+
+    // A framed bar filled left-to-right by ratio (0..1).
+    void drawStatBar(ImDrawList& drawList, const ImVec2 pos, const ImVec2 size,
+                     const float ratio, const ImU32 color) {
+        const ImVec2 max{pos.x + size.x, pos.y + size.y};
+        drawList.AddRectFilled(pos, max, IM_COL32(12, 18, 22, 230), 2.0f);
+        const float clamped = ratio < 0.0f ? 0.0f : (ratio > 1.0f ? 1.0f : ratio);
+        drawList.AddRectFilled(pos, {pos.x + size.x * clamped, max.y}, color, 2.0f);
+        drawList.AddRect(pos, max, IM_COL32(70, 126, 138, 210), 2.0f, 0, 1.0f);
+    }
+
+    // A label above a progress bar with a trailing percentage.
+    void drawLabeledProgress(ImDrawList& drawList, const ImVec2 pos, const ImVec2 size,
+                             const char* label, const float ratio, const ImU32 color) {
+        drawList.AddText({pos.x, pos.y - 16.0f}, kTextDim, label);
+        drawStatBar(drawList, pos, size, ratio, color);
+        const int pct = static_cast<int>(std::lround((ratio < 0.0f ? 0.0f : (ratio > 1.0f ? 1.0f : ratio)) * 100.0f));
+        const std::string text = std::to_string(pct) + "%";
+        const ImVec2 ts = ImGui::CalcTextSize(text.c_str());
+        drawList.AddText({pos.x + size.x - ts.x - 4.0f, pos.y + (size.y - ts.y) * 0.5f}, kTextMain, text.c_str());
+    }
+
+    // A small stat icon (or a colored swatch fallback when the texture is missing).
+    void drawStatIcon(ImDrawList& drawList, const ImVec2 pos, const sf::Texture* icon, const ImU32 fallback) {
+        const ImVec2 max{pos.x + 18.0f, pos.y + 18.0f};
+        if (icon) {
+            drawImage(drawList, icon, pos, max);
+        } else {
+            drawList.AddRectFilled(pos, max, fallback, 3.0f);
+        }
+    }
+
+    // Tint for a selected element's portrait by its kind.
+    ImU32 portraitKindColor(const rts::core::render::HudSelectionKind kind) {
+        switch (kind) {
+            case rts::core::render::HudSelectionKind::Worker:    return IM_COL32(78, 218, 148, 255);
+            case rts::core::render::HudSelectionKind::CombatUnit:return IM_COL32(75, 196, 235, 255);
+            case rts::core::render::HudSelectionKind::Building:  return IM_COL32(82, 145, 158, 255);
+            case rts::core::render::HudSelectionKind::Resource:  return IM_COL32(236, 198, 81, 255);
+            default:                                             return IM_COL32(120, 130, 134, 255);
+        }
+    }
+
+    // Grid of small portraits (one per selected unit) with an HP tint bar each.
+    void drawSelectionPortraits(ImDrawList& drawList, const ImVec2 min, const ImVec2 max,
+                                const std::vector<rts::core::render::HudPortrait>& portraits) {
+        const int count = static_cast<int>(portraits.size());
+        if (count == 0) return;
+        const int cols = count <= 6 ? 3 : (count <= 12 ? 4 : 6);
+        const float gap = 4.0f;
+        const float cellW = (max.x - min.x - gap * (cols - 1)) / static_cast<float>(cols);
+        const float cellH = std::min(cellW, 34.0f);
+        for (int i = 0; i < count; ++i) {
+            const int col = i % cols;
+            const int row = i / cols;
+            const ImVec2 cellMin{min.x + col * (cellW + gap), min.y + row * (cellH + gap)};
+            if (cellMin.y + cellH > max.y) break;  // clip overflow rows
+            const ImVec2 cellMax{cellMin.x + cellW, cellMin.y + cellH};
+            drawList.AddRectFilled(cellMin, cellMax, kPanelDark, 2.0f);
+            drawList.AddRect(cellMin, cellMax, portraitKindColor(portraits[i].kind), 2.0f, 0, 1.5f);
+            // HP tint bar along the bottom of each portrait.
+            const float barH = 4.0f;
+            const float ratio = portraits[i].hp01 < 0.0f ? 0.0f : (portraits[i].hp01 > 1.0f ? 1.0f : portraits[i].hp01);
+            drawList.AddRectFilled({cellMin.x + 2.0f, cellMax.y - barH - 2.0f},
+                                   {cellMin.x + 2.0f + (cellW - 4.0f) * ratio, cellMax.y - 2.0f},
+                                   hpBarColor(ratio));
+        }
+    }
+
     void drawStatusBar(ImDrawList& drawList, const ImVec2 min, const ImVec2 max, const float ratio, const ImU32 color, const char* label, const sf::Texture* base, const sf::Texture* fill) {
         if (base) {
             drawImage(drawList, base, min, max);
@@ -616,7 +691,22 @@ namespace rts::platform::sfml {
         const ImVec2 portraitMin{statusMin.x + 18.0f, statusMin.y + 44.0f};
         const ImVec2 portraitMax{portraitMin.x + 132.0f, statusMax.y - 18.0f};
         // HUD ADJUST: selection portrait and unit text positions start here.
-        drawPortrait(drawList, portraitMin, portraitMax, avatar);
+        const bool multiSelect = selection.portraits.size() > 1;
+        if (multiSelect) {
+            // Multi-selection: a grid of small portraits, each with an HP tint bar,
+            // replaces the single large portrait.
+            drawSelectionPortraits(drawList, portraitMin,
+                                   {statusMax.x - 18.0f, statusMax.y - 18.0f},
+                                   selection.portraits);
+        } else {
+            drawPortrait(drawList, portraitMin, portraitMax, avatar);
+            // Single selection: an HP bar under the portrait.
+            if (selection.hasPrimaryUnit && selection.maxHp > 0.0f) {
+                const float ratio = std::clamp(selection.hp / selection.maxHp, 0.0f, 1.0f);
+                drawStatBar(drawList, {portraitMin.x, portraitMax.y + 6.0f},
+                            {portraitMax.x - portraitMin.x, 10.0f}, ratio, hpBarColor(ratio));
+            }
+        }
 
         const ImVec2 infoMin{portraitMax.x + 24.0f, statusMin.y + 48.0f};
         const std::string selectedCount = "Selected: " + std::to_string(selection.selectedCount) +
@@ -625,11 +715,6 @@ namespace rts::platform::sfml {
         const std::string hp = selection.hasPrimaryUnit
             ? "HP " + formatRounded(selection.hp) + " / " + formatRounded(selection.maxHp)
             : "HP -";
-        const std::string combatStats = selection.hasCombatStats
-            ? "Atk " + formatRounded(selection.attackDamage) +
-              "  Armor " + formatRounded(selection.armor) +
-              "  Range " + formatRounded(selection.attackRange)
-            : "Stats -";
         const std::string position = selection.hasPrimaryUnit
             ? "Position " + formatPosition(selection.position)
             : "Position -";
@@ -638,11 +723,41 @@ namespace rts::platform::sfml {
         drawList.AddText(infoMin, kTextMain, selection.primaryName.c_str());
         drawList.AddText({infoMin.x, infoMin.y + 28.0f}, kTextDim, selectedCount.c_str());
         drawList.AddText({infoMin.x, infoMin.y + 56.0f}, kTextDim, action.c_str());
-        drawList.AddText({infoMin.x, infoMin.y + 84.0f}, selection.hasCombatStats ? kTextMain : kTextDim, combatStats.c_str());
-        // StarCraft-style unit HUD shows health as a compact number instead of a filled bar.
+
+        // Combat stats with attack/armor icons (Icon_04 = attack, Icon_05 = armor).
+        const float statsY = infoMin.y + 84.0f;
+        if (selection.hasCombatStats) {
+            const sf::Texture* atkIcon = texture("UI Elements/UI Elements/Icons/Icon_04.png");
+            const sf::Texture* armIcon = texture("UI Elements/UI Elements/Icons/Icon_05.png");
+            const std::string atk = formatRounded(selection.attackDamage);
+            const std::string arm = formatRounded(selection.armor);
+            const std::string rng = "Rng " + formatRounded(selection.attackRange);
+            drawStatIcon(drawList, {infoMin.x, statsY}, atkIcon, kWarning);
+            drawList.AddText({infoMin.x + 24.0f, statsY + 2.0f}, kTextMain, atk.c_str());
+            drawStatIcon(drawList, {infoMin.x + 78.0f, statsY}, armIcon, kMineral);
+            drawList.AddText({infoMin.x + 102.0f, statsY + 2.0f}, kTextMain, arm.c_str());
+            drawList.AddText({infoMin.x + 156.0f, statsY + 2.0f}, kTextDim, rng.c_str());
+        } else {
+            drawList.AddText({infoMin.x, statsY}, kTextDim, "Stats -");
+        }
+
         drawList.AddText({infoMin.x, infoMin.y + 116.0f}, selection.hasPrimaryUnit ? kTextMain : kTextDim, hp.c_str());
         drawList.AddText({infoMin.x, infoMin.y + 148.0f}, kTextMain, position.c_str());
         drawList.AddText({infoMin.x, infoMin.y + 180.0f}, kWarning, command.c_str());
+
+        // Building progress overlays: construction first, otherwise training progress.
+        if (selection.kind == core::render::HudSelectionKind::Building) {
+            const ImVec2 barPos{infoMin.x, infoMin.y + 208.0f};
+            const ImVec2 barSize{220.0f, 12.0f};
+            if (selection.underConstruction) {
+                drawLabeledProgress(drawList, barPos, barSize, "Building",
+                                    selection.buildProgress01, kGas);
+            } else if (selection.trainQueueCount > 0) {
+                const std::string lbl = "Training x" + std::to_string(selection.trainQueueCount);
+                drawLabeledProgress(drawList, barPos, barSize, lbl.c_str(),
+                                    selection.trainProgress01, kWarning);
+            }
+        }
 
         // Command buttons depend on what is selected, so a barracks offers Train
         // while a worker offers Build/Gather and combat units offer Attack/Patrol.
@@ -651,10 +766,12 @@ namespace rts::platform::sfml {
         std::vector<HudCommandButton> commands;
         switch (selection.kind) {
             case HudSelectionKind::Building:
-                // A producing building always shows Train; it is locked (greyed) until
-                // the building is complete and its tech prerequisites are met.
+                // A producing building always shows Train; it is locked (greyed) when
+                // the building is not ready (incomplete / tech) or the player cannot
+                // afford the unit.
                 if (selection.producesUnits) {
-                    commands.push_back({"Train", GameplayInputAction::TrainUnit, "T", !selection.canProduce});
+                    const bool trainLocked = !selection.canProduce || !selection.trainAffordable;
+                    commands.push_back({"Train", GameplayInputAction::TrainUnit, "T", trainLocked});
                 }
                 commands.push_back({"Cancel", GameplayInputAction::CancelProduction, "C"});
                 break;

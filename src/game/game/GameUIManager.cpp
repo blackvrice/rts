@@ -19,6 +19,7 @@
 #include "core/model/Building.hpp"
 #include "core/model/ResourceNode.hpp"
 #include "core/data/BuildingStaticData.hpp"
+#include "core/data/UnitStaticData.hpp"
 #include "core/render/RenderCommand.hpp"
 #include "core/render/RenderQueue.hpp"
 #include "core/ui/IUIElement.hpp"
@@ -429,11 +430,33 @@ namespace rts::core::manager {
             }
 
             ++selection.selectedCount;
+
+            // Classify every selected element so the multi-selection portrait strip
+            // can show one entry per unit (capped to keep the render command small).
+            core::render::HudPortrait portrait;
+            if (auto unit = std::dynamic_pointer_cast<core::model::Unit>(element)) {
+                portrait.kind = unit->isWorker()
+                    ? core::render::HudSelectionKind::Worker
+                    : core::render::HudSelectionKind::CombatUnit;
+                const float maxHp = unit->getMaxHp();
+                portrait.hp01 = maxHp > 0.0f ? unit->getHp() / maxHp : 0.0f;
+            } else if (auto building = std::dynamic_pointer_cast<core::model::Building>(element)) {
+                portrait.kind = core::render::HudSelectionKind::Building;
+                const float maxHp = building->getMaxHp();
+                portrait.hp01 = maxHp > 0.0f ? building->getHp() / maxHp : 0.0f;
+            } else if (std::dynamic_pointer_cast<core::model::ResourceNode>(element)) {
+                portrait.kind = core::render::HudSelectionKind::Resource;
+            }
+            constexpr std::size_t kMaxPortraits = 24;
+            if (selection.portraits.size() < kMaxPortraits) {
+                selection.portraits.push_back(portrait);
+            }
+
             if (!selection.hasPrimaryUnit) {
                 selection.hasPrimaryUnit = true;
                 selection.primaryName = gameElement->displayName();
                 selection.action = actionText(gameElement->getAction());
-                
+
                 if (auto unit = std::dynamic_pointer_cast<core::model::Unit>(element)) {
                     selection.hp = unit->getHp();
                     selection.maxHp = unit->getMaxHp();
@@ -448,10 +471,21 @@ namespace rts::core::manager {
                     selection.hp = building->getHp();
                     selection.maxHp = building->getMaxHp();
                     selection.kind = core::render::HudSelectionKind::Building;
-                    const bool typeProduces =
-                        !core::data::buildingStaticDataFor(building->buildingType()).produces.empty();
+                    const auto& bdata = core::data::buildingStaticDataFor(building->buildingType());
+                    const bool typeProduces = !bdata.produces.empty();
                     selection.producesUnits = typeProduces;
                     selection.canProduce = building->isComplete() && typeProduces;
+                    selection.underConstruction = !building->isComplete();
+                    selection.buildProgress01 = building->buildProgress01();
+                    selection.trainProgress01 = building->trainProgress();
+                    selection.trainQueueCount = building->trainQueueSize();
+                    // Resource-affordability lock for the Train button (Epic 6.4).
+                    if (typeProduces) {
+                        const auto defaultUnit = bdata.produces.front();
+                        const auto cost = core::data::unitStaticDataFor(defaultUnit).cost();
+                        selection.trainAffordable =
+                            m_world.playerResources(building->getTeamId()).canAfford(cost);
+                    }
                 } else if (auto resource = std::dynamic_pointer_cast<core::model::ResourceNode>(element)) {
                     selection.hp = resource->remaining();
                     selection.maxHp = resource->totalAmount();

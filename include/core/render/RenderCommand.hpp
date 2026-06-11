@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <string>
 #include <variant>
+#include <vector>
 
 #include "core/font/FontTypes.hpp"
 #include "core/model/PlayerResourceState.hpp"
@@ -73,6 +74,12 @@ namespace rts::core::render {
         Resource
     };
 
+    // One entry per selected unit, for the multi-selection portrait strip.
+    struct HudPortrait {
+        HudSelectionKind kind { HudSelectionKind::None };
+        float hp01 { 1.0f };  // current/max health, 0..1 (drives the portrait HP tint/bar)
+    };
+
     struct UpdateHudSelection {
         int selectedCount {};
         bool hasPrimaryUnit {};
@@ -88,6 +95,14 @@ namespace rts::core::render {
         HudSelectionKind kind { HudSelectionKind::None };
         bool canProduce { false };   // completed building whose produces list is non-empty
         bool producesUnits { false };  // building type can train units (even if not yet ready)
+        bool trainAffordable { true };  // player can pay for the building's default unit
+        // Building progress overlays (0..1; <0 means not applicable).
+        bool underConstruction { false };
+        float buildProgress01 { 0.0f };   // construction completion
+        float trainProgress01 { 0.0f };   // front-of-queue training completion
+        int trainQueueCount { 0 };
+        // Portraits for every selected unit (capped); portraits.size()<=selectedCount.
+        std::vector<HudPortrait> portraits {};
     };
 
     struct UpdateHudCursor {

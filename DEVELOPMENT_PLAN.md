@@ -1564,11 +1564,11 @@ struct Cost
 ### 추가 Task
 
 ```text
-[ ] 다중 선택 초상화 표시
-[ ] 선택 유닛 HP 바 표시
-[ ] 생산 중인 건물 진행도 표시
-[ ] 건설 중인 건물 진행도 표시
-[ ] 공격력/방어력 아이콘 표시
+[x] 다중 선택 초상화 표시 (UpdateHudSelection.portraits → drawSelectionPortraits 그리드, 종류별 테두리+HP 틴트바)
+[x] 선택 유닛 HP 바 표시 (단일 선택 시 초상화 아래 HP 바, 비율별 녹/황/적)
+[x] 생산 중인 건물 진행도 표시 (trainProgress01 + 큐 개수 → drawLabeledProgress)
+[x] 건설 중인 건물 진행도 표시 (buildProgress01 → drawLabeledProgress)
+[x] 공격력/방어력 아이콘 표시 (Icon_04/05 아이콘 + 수치)
 ```
 
 ---
@@ -1628,7 +1628,7 @@ struct Cost
 
 ## Epic 6.4 Command Card
 
-현재 상태: `[80% — 선택 종류별 명령 버튼 동적 구성. 비활성 버튼 잠금 표시만 후속]`
+현재 상태: `[100% — 선택 종류별 명령 버튼 동적 구성 + 조건/자원 미충족 시 회색 잠금]`
 
 ### Task
 
@@ -1639,7 +1639,7 @@ struct Cost
 [x] Worker 선택 시 Build 버튼 표시
 [x] 생산 건물 선택 시 생산 버튼 표시 (Train → TrainUnit, canProduce일 때)
 [x] 버튼 Hotkey 연결 (HUD 버튼·핫키 모두 GameplayInputCommand 경유로 동일 경로)
-[ ] 비활성 버튼 잠금 표시 (자원 부족/조건 미충족 회색 처리 — 후속)
+[x] 비활성 버튼 잠금 표시 (조건 미충족=TechTreeValidator, 자원 부족=trainAffordable → HudCommandButton.locked 회색·비클릭)
 ```
 
 ### 완료 기준

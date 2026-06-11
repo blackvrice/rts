@@ -1,5 +1,20 @@
 # Development Log
 
+## 2026-06-11 - Epic 6.1/6.4 HUD 폴리시 (선택 패널 + 명령 카드 잠금)
+
+### Epic 6.1 Wireframe 추가
+- **UpdateHudSelection 확장**: portraits(종류+hp01 벡터, 24개 캡), underConstruction/buildProgress01, trainProgress01/trainQueueCount, trainAffordable. GameUIManager가 선택 루프에서 채움.
+- **다중 선택 초상화**: 2개 이상 선택 시 drawSelectionPortraits가 종류별 테두리색 + 하단 HP 틴트바 그리드 렌더(단일 선택은 기존 대형 초상화 + 아래 HP 바).
+- **HP 바**: 비율별 녹(>0.6)/황(>0.3)/적 색(hpBarColor).
+- **건설/생산 진행도**: 건물 선택 시 건설 중이면 buildProgress01, 아니면 큐가 있을 때 trainProgress01을 drawLabeledProgress로 표시(라벨+%).
+- **공격/방어 아이콘**: Icon_04(공격)/Icon_05(방어) + 수치, 사거리 텍스트.
+
+### Epic 6.4 Command Card 완료
+- Train 버튼 잠금 조건에 자원 부족(trainAffordable=false)을 추가(기존 조건/완성 미충족 TechTreeValidator와 함께). HudCommandButton.locked가 회색·비클릭 처리(5.4에서 도입).
+
+### 검증
+- 빌드 성공(전 타깃). IDE clang 진단은 거짓 양성. 인게임 시각 요소는 수동 확인 필요.
+
 ## 2026-06-11 - Epic 5.x 경제/테크 (자원 UI / 소비 / Footprint / TechTreeValidator)
 
 ### Epic 5.1 자원 UI 추가
