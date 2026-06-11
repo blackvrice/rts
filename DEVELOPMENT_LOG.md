@@ -1,5 +1,12 @@
 # Development Log
 
+## 2026-06-11 - Copy tmxlite Runtime DLL
+
+- Fixed the debug launch failure where `RTS.exe` exited with `-1073741515` / `0xC0000135` because Windows could not find `libtmxlite-d.dll`.
+- Added a CMake post-build copy step for the shared `tmxlite` target so the built DLL is placed next to `RTS.exe`, matching the existing SFML and MinGW runtime DLL handling.
+- Verification: reproduced the failure by launching `cmake-build-debug\RTS.exe` without the tmxlite build folder on `PATH`, confirmed the process exited with `-1073741515`, rebuilt `RTS`, verified `libtmxlite-d.dll` was copied next to `RTS.exe`, then launched `cmake-build-debug\RTS.exe` without manually extending `PATH` and confirmed it stayed running for 5 seconds.
+- Follow-up: none for the launch failure; future shared runtime DLL targets should be copied beside `RTS.exe` as part of post-build setup.
+
 ## 2026-06-11 - Epic 7.1/7.3 Tiled 맵 로딩 + World Hash
 
 ### Epic 7.3 World Hash

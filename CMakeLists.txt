@@ -264,6 +264,15 @@ add_custom_command(TARGET RTS POST_BUILD
         $<TARGET_FILE_DIR:RTS>
 )
 
+get_target_property(RTS_TMXLITE_TYPE tmxlite TYPE)
+if(WIN32 AND RTS_TMXLITE_TYPE STREQUAL "SHARED_LIBRARY")
+        add_custom_command(TARGET RTS POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:tmxlite>
+                $<TARGET_FILE_DIR:RTS>
+        )
+endif()
+
 if(MINGW)
         foreach(RTS_RUNTIME_DLL libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll)
                 if(EXISTS "${RTS_MINGW_RUNTIME_DIR}/${RTS_RUNTIME_DLL}")
