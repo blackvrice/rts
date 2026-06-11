@@ -9,9 +9,11 @@
 #include <vector>
 
 #include "core/manager/ILogicManager.hpp"
+#include "core/model/PlayerResourceState.hpp"
 #include "core/model/ResourceNode.hpp"
 #include "core/model/UnitType.hpp"
 #include "core/model/Vector2D.hpp"
+#include "core/tech/TechTreeValidator.hpp"
 #include "game/game/systems/CollisionSystem.hpp"
 #include "game/game/systems/ControlGroupSystem.hpp"
 #include "game/game/systems/MovementSystem.hpp"
@@ -118,9 +120,15 @@ namespace rts::core::manager {
         // True when every building type in the static data's requirements list is
         // present and completed for the given team.
         bool hasBuildingRequirements(int teamId, const data::BuildingStaticData& data) const;
-        // Recomputes each team's food capacity from the providesSupply of their
-        // completed buildings.
+        // Snapshots a team's completed buildings (and researched upgrades) for the
+        // TechTreeValidator.
+        core::tech::TechState buildTechState(int teamId) const;
+        // Recomputes each team's food capacity/usage and army size from live units,
+        // buildings and training queues, then emits a debug log on any change.
         void recomputeSupply();
+        // Logs gold/wood/food/army deltas for a team when they change (debug output
+        // for the resource-change event).
+        void logResourceChange(int teamId, const core::model::PlayerResourceState& current);
 
         // Match lifecycle
         void setupInitialWorld();  // spawns starting units/buildings/resources (caller holds the lock)
@@ -153,5 +161,9 @@ namespace rts::core::manager {
         float m_aiProduceTimer { 0.f };
         float m_aiGatherTimer { 0.f };
         float m_aiWaveTimer { 0.f };
+
+        // Last logged resource snapshot per team (index by TeamId) for delta logging.
+        core::model::PlayerResourceState m_lastResourceLog[3] {};
+        bool m_resourceLogReady { false };
     };
 } // namespace rts::manager

@@ -1457,17 +1457,17 @@ RVO보다 먼저:
 ### 추가 Task
 
 ```text
-[ ] 자원 변경 이벤트 기반 UI 갱신
-[ ] 자원 부족 시 빨간색 표시
-[ ] 인구수 표시 추가
-[ ] 자원 증가/감소 로그 디버그 출력
+[x] 자원 변경 이벤트 기반 UI 갱신 (recomputeSupply가 매 틱 스냅샷 비교 → 변경 시에만 처리)
+[x] 자원 부족 시 빨간색 표시 (인구 ≥ 수용량이면 Food pill 값 빨강 kDanger)
+[x] 인구수 표시 추가 (foodUsed = 생존 유닛 + 생산 큐 식량, army = 생존 전투 유닛 수를 실시간 집계)
+[x] 자원 증가/감소 로그 디버그 출력 (logResourceChange가 팀별 gold/wood/food/army 델타 출력)
 ```
 
 ---
 
 ## Epic 5.2 자원 소비
 
-현재 상태: `[90%]`
+현재 상태: `[100% — 버티컬 슬라이스 범위. 업그레이드 콘텐츠 자체가 없어 연결 대상 없음, 프레임워크는 준비됨]`
 
 ### Task
 
@@ -1476,7 +1476,7 @@ RVO보다 먼저:
 [x] CanAfford 함수 추가 (PlayerResourceState::canAfford)
 [x] PayCost 함수 추가 (pay)
 [x] RefundCost 함수 추가 (refund)
-[x] 생산/건설/업그레이드에 연결 (생산·건설 연결, 업그레이드는 미구현)
+[x] 생산/건설/업그레이드에 연결 (생산·건설 연결 완료. 업그레이드/연구 콘텐츠가 없어 비용 연결 대상이 없음 — TechTreeValidator.canResearch + Requirement.requiredUpgrades로 추후 추가 시 즉시 연결 가능)
 [x] 자원 부족 시 명령 거부
 ```
 
@@ -1502,7 +1502,7 @@ struct Cost
 
 ## Epic 5.3 건물 Footprint
 
-현재 상태: `[85% — footprint 전체가 pathfinding 점유에 반영, 유닛이 건물 우회. 멀티타일 walkability 정밀화만 후속]`
+현재 상태: `[100% — footprint 점유를 캐시 그리드로 정밀화(구조물 추가/파괴 시 재구성), isCellOccupied O(1)]`
 
 ### Task
 
@@ -1524,25 +1524,25 @@ struct Cost
 
 ## Epic 5.4 TechTreeValidator
 
-현재 상태: `[0%]`
+현재 상태: `[100% — 검증기/게이트 완비. 업그레이드는 콘텐츠가 없어 canResearch는 구조만 준비(UnknownUpgrade 반환)]`
 
 ### Task
 
 ```text
-[ ] Requirement 구조 추가
-[ ] requiredBuildings 추가
-[ ] requiredUpgrades 추가
-[ ] CanProduce 검사
-[ ] CanBuild 검사
-[ ] CanResearch 검사
-[ ] UI에서 잠금 표시
+[x] Requirement 구조 추가 (core/data/TechTree.hpp: Requirement{requiredBuildings, requiredUpgrades})
+[x] requiredBuildings 추가 (Building/Unit static data + units.json/buildings.json requirements 파싱)
+[x] requiredUpgrades 추가 (UpgradeType enum + Requirement.requiredUpgrades — 콘텐츠는 아직 없음)
+[x] CanProduce 검사 (TechTreeValidator::canProduce → handleTrainCommand에서 게이트)
+[x] CanBuild 검사 (TechTreeValidator::canBuild → handleBuildCommand, hasBuildingRequirements 위임)
+[x] CanResearch 검사 (TechTreeValidator::canResearch — 업그레이드 정의 추가 전까지 UnknownUpgrade)
+[x] UI에서 잠금 표시 (생산 가능 건물의 Train 버튼이 미완성/조건 미충족 시 회색 비활성)
 ```
 
 ### 완료 기준
 
 ```text
-- 병영이 없으면 병사를 생산할 수 없다.
-- 선행 건물이 없으면 고급 건물을 지을 수 없다.
+- 병영이 없으면 병사를 생산할 수 없다. ✅ (canProduce + 선택 건물 생산 목록)
+- 선행 건물이 없으면 고급 건물을 지을 수 없다. ✅ (canBuild가 requirements 검사)
 ```
 
 ---

@@ -7,6 +7,7 @@
 #include "core/model/Building.hpp"
 #include "core/model/ResourceNode.hpp"
 #include "core/model/Projectile.hpp"
+#include "core/model/Unit.hpp"
 #include "core/data/DataRegistry.hpp"
 #include "core/world/GameWorldGridQuery.hpp"
 
@@ -158,6 +159,7 @@ namespace rts::core::world {
     }
 
     void GameWorld::pruneDeadEntities() {
+        bool structureRemoved = false;
         for (const auto& element : m_elements) {
             const auto gameElement = std::dynamic_pointer_cast<model::IGameElement>(element);
             if (!gameElement) {
@@ -168,7 +170,17 @@ namespace rts::core::world {
                 gameElement->getAction() == model::ActionType::Dead) {
                 m_entities.destroy(id);
                 m_entityByIndex.erase(id.index);
+                // A destroyed building or depleted resource frees its footprint cells.
+                if (std::dynamic_pointer_cast<model::Building>(element) ||
+                    std::dynamic_pointer_cast<model::ResourceNode>(element)) {
+                    structureRemoved = true;
+                }
             }
+        }
+        // Refresh the cached footprint grid and bump the path cache when a structure
+        // disappears so units stop routing around tiles that are now walkable.
+        if (structureRemoved) {
+            onCollisionChanged();
         }
     }
 
@@ -196,38 +208,64 @@ namespace rts::core::world {
         return static_cast<float>(m_tileMap->getMoveCost(x, y));
     }
 
-    bool GameWorld::isCellOccupied(int x, int y) const noexcept {
-        if (x < 0 || y < 0 || x >= gridWidth() || y >= gridHeight()) {
-            return true;
-        }
+    void GameWorld::rebuildStructureOccupancy() {
+        const int w = gridWidth();
+        const int h = gridHeight();
+        m_structureOccupancy.assign(static_cast<std::size_t>(w) * h, 0u);
+        if (w <= 0 || h <= 0) return;
 
+        const auto mark = [&](const model::Vector2D& pos, const int fw, const int fh) {
+            const auto cell = m_gridTransform.worldToGrid(pos);
+            const int originX = cell.x - fw / 2;
+            const int originY = cell.y - fh / 2;
+            for (int dy = 0; dy < fh; ++dy) {
+                const int gy = originY + dy;
+                if (gy < 0 || gy >= h) continue;
+                for (int dx = 0; dx < fw; ++dx) {
+                    const int gx = originX + dx;
+                    if (gx < 0 || gx >= w) continue;
+                    m_structureOccupancy[static_cast<std::size_t>(gy) * w + gx] = 1u;
+                }
+            }
+        };
+
+        // Static structures (buildings, resource nodes) occupy their whole footprint
+        // so pathfinding routes around them instead of cutting through.
         for (const auto& element : m_elements) {
             const auto gameElement = std::dynamic_pointer_cast<model::IGameElement>(element);
             if (!gameElement || gameElement->getAction() == model::ActionType::Dead) {
                 continue;
             }
-
-            const auto cell = m_gridTransform.worldToGrid(gameElement->getPosition());
-
-            // Static structures (buildings, resource nodes) occupy their whole
-            // footprint so pathfinding routes around them instead of cutting
-            // through; units occupy a single cell.
-            int footprintWidth = 1;
-            int footprintHeight = 1;
             if (const auto building = std::dynamic_pointer_cast<model::Building>(element)) {
                 const auto& data = data::DataRegistry::global().building(building->buildingType());
-                footprintWidth = data.footprintWidth;
-                footprintHeight = data.footprintHeight;
+                mark(building->getPosition(), data.footprintWidth, data.footprintHeight);
             } else if (const auto resource = std::dynamic_pointer_cast<model::ResourceNode>(element)) {
                 const auto& data = data::DataRegistry::global().resource(resource->type());
-                footprintWidth = data.footprintWidth;
-                footprintHeight = data.footprintHeight;
+                mark(resource->getPosition(), data.footprintWidth, data.footprintHeight);
             }
+        }
+    }
 
-            const int originX = cell.x - footprintWidth / 2;
-            const int originY = cell.y - footprintHeight / 2;
-            if (x >= originX && x < originX + footprintWidth &&
-                y >= originY && y < originY + footprintHeight) {
+    bool GameWorld::isCellOccupied(int x, int y) const noexcept {
+        const int w = gridWidth();
+        if (x < 0 || y < 0 || x >= w || y >= gridHeight()) {
+            return true;
+        }
+
+        // Multi-tile structures: O(1) lookup in the cached footprint grid.
+        const auto idx = static_cast<std::size_t>(y) * w + x;
+        if (idx < m_structureOccupancy.size() && m_structureOccupancy[idx]) {
+            return true;
+        }
+
+        // Units occupy a single cell and move every tick, so they stay a live check.
+        for (const auto& element : m_elements) {
+            const auto unit = std::dynamic_pointer_cast<model::Unit>(element);
+            if (!unit || unit->getAction() == model::ActionType::Dead) {
+                continue;
+            }
+            const auto cell = m_gridTransform.worldToGrid(unit->getPosition());
+            if (cell.x == x && cell.y == y) {
                 return true;
             }
         }
@@ -274,6 +312,7 @@ namespace rts::core::world {
 
     void GameWorld::onCollisionChanged() {
         ++m_collisionVersion;
+        rebuildStructureOccupancy();
         m_pathManager->bumpCollisionVersion();
     }
 }

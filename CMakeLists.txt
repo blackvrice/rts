@@ -205,6 +205,9 @@ add_executable(RTS
         src/core/world/GameWorldGridQuery.cpp
         include/core/world/GridTransform.hpp
         src/core/model/Building.cpp
+        src/core/tech/TechTreeValidator.cpp
+        include/core/tech/TechTreeValidator.hpp
+        include/core/data/TechTree.hpp
         src/core/map/FogOfWar.cpp
         src/core/model/Projectile.cpp
         src/core/model/ResourceNode.cpp

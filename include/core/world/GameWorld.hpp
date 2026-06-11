@@ -118,7 +118,13 @@ namespace rts::core::world {
                                data::WeaponType weapon, int ownerTeam,
                                const data::SplashRadii& splash);
 
+        // Rebuilds the cached structure-occupancy grid (building/resource footprints)
+        // so multi-tile walkability is an O(1) lookup instead of a per-query scan.
+        void rebuildStructureOccupancy();
+
         std::unique_ptr<map::TileMapSoA> m_tileMap;
+        // gridW*gridH, row-major: 1 where a live building/resource footprint sits.
+        std::vector<std::uint8_t> m_structureOccupancy;
         std::vector<std::shared_ptr<model::IElement>> m_elements;
         std::vector<std::shared_ptr<model::Projectile>> m_projectiles;
         ecs::EntityManager m_entities;

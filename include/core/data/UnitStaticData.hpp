@@ -3,6 +3,7 @@
 #include <string>
 
 #include "core/data/CombatTypes.hpp"
+#include "core/data/TechTree.hpp"
 #include "core/model/PlayerResourceState.hpp"
 #include "core/model/UnitType.hpp"
 
@@ -25,6 +26,7 @@ namespace rts::core::data {
         MovementDomain domain { MovementDomain::Ground };  // layer this unit occupies
         bool attacksGround { true };   // can target Ground-domain enemies
         bool attacksAir { true };      // can target Air-domain enemies
+        Requirement requirement {};    // tech gate to produce this unit
         int goldCost { 0 };
         int woodCost { 0 };
         int foodCost { 0 };

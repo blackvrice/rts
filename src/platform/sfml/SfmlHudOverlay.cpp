@@ -38,6 +38,7 @@ namespace {
     constexpr ImU32 kMineral = IM_COL32(75, 196, 235, 255);
     constexpr ImU32 kGas = IM_COL32(78, 218, 148, 255);
     constexpr ImU32 kWarning = IM_COL32(236, 198, 81, 255);
+    constexpr ImU32 kDanger = IM_COL32(228, 86, 74, 255);
 
     // HUD ADJUST: swap these paths when testing different Tiny Swords HUD png pieces.
     constexpr const char* kWoodTable = "UI Elements/UI Elements/Wood Table/WoodTable.png";
@@ -62,6 +63,7 @@ namespace {
         const char* label;
         rts::core::command::GameplayInputAction action;
         const char* hotkey;  // shown in the button corner; matches starCraftHotkeyAction
+        bool locked { false };  // greyed out and non-interactive (prereq not met)
     };
 
     struct TrimCacheKey {
@@ -331,7 +333,7 @@ namespace {
         drawList.AddLine({min.x + 8.0f, min.y + 30.0f}, {max.x - 8.0f, min.y + 30.0f}, IM_COL32(70, 120, 132, 180), 1.0f);
     }
 
-    void drawResourcePill(ImDrawList& drawList, const ImVec2 min, const ImVec2 size, const char* label, const char* value, const ImU32 color, const sf::Texture* icon, const SourceRect* iconSource = nullptr) {
+    void drawResourcePill(ImDrawList& drawList, const ImVec2 min, const ImVec2 size, const char* label, const char* value, const ImU32 color, const sf::Texture* icon, const SourceRect* iconSource = nullptr, const ImU32 valueColor = kTextMain) {
         const ImVec2 max{min.x + size.x, min.y + size.y};
         drawList.AddRectFilled(min, max, IM_COL32(8, 16, 22, 232), 2.0f);
         drawList.AddRect(min, max, IM_COL32(70, 126, 138, 210), 2.0f, 0, 1.0f);
@@ -351,7 +353,7 @@ namespace {
         drawList.AddText({min.x + 32.0f, min.y + 7.0f}, kTextDim, label);
 
         const ImVec2 valueSize = ImGui::CalcTextSize(value);
-        drawList.AddText({max.x - valueSize.x - 12.0f, min.y + 7.0f}, kTextMain, value);
+        drawList.AddText({max.x - valueSize.x - 12.0f, min.y + 7.0f}, valueColor, value);
     }
 
     void drawMiniMap(ImDrawList& drawList, const ImVec2 min, const ImVec2 max) {
@@ -587,10 +589,12 @@ namespace rts::platform::sfml {
         const std::string wood = formatNumber(resources.wood);
         const std::string food = formatFood(resources);
         const std::string army = formatNumber(resources.army);
+        // Population at/over capacity blocks new production: flag it red.
+        const bool supplyCapped = resources.foodUsed >= resources.foodCapacity;
         // HUD ADJUST: top-right resource pills are positioned and spaced in this block.
         drawResourcePill(drawList, {resourceStart, resourceTop}, resourceSize, "Gold", gold.c_str(), kMineral, texture("UI Elements/UI Elements/Icons/Icon_01.png"));
         drawResourcePill(drawList, {resourceStart + 154.0f, resourceTop}, resourceSize, "Wood", wood.c_str(), kGas, texture("UI Elements/UI Elements/Icons/Icon_02.png"));
-        drawResourcePill(drawList, {resourceStart + 308.0f, resourceTop}, resourceSize, "Food", food.c_str(), kWarning, texture("UI Elements/UI Elements/Icons/Icon_03.png"));
+        drawResourcePill(drawList, {resourceStart + 308.0f, resourceTop}, resourceSize, "Food", food.c_str(), kWarning, texture("UI Elements/UI Elements/Icons/Icon_03.png"), nullptr, supplyCapped ? kDanger : kTextMain);
         drawResourcePill(drawList, {resourceStart + 462.0f, resourceTop}, resourceSize, "Army", army.c_str(), kPanelHigh, swords, &kBlueSwordIcon);
 
         const float miniWidth = std::clamp(width * 0.18f, 285.0f, 340.0f);
@@ -647,8 +651,10 @@ namespace rts::platform::sfml {
         std::vector<HudCommandButton> commands;
         switch (selection.kind) {
             case HudSelectionKind::Building:
-                if (selection.canProduce) {
-                    commands.push_back({"Train", GameplayInputAction::TrainUnit, "T"});
+                // A producing building always shows Train; it is locked (greyed) until
+                // the building is complete and its tech prerequisites are met.
+                if (selection.producesUnits) {
+                    commands.push_back({"Train", GameplayInputAction::TrainUnit, "T", !selection.canProduce});
                 }
                 commands.push_back({"Cancel", GameplayInputAction::CancelProduction, "C"});
                 break;
@@ -692,20 +698,25 @@ namespace rts::platform::sfml {
             ImGui::SetCursorScreenPos(pos);
             const HudCommandButton& command = commands[i];
             const std::string id = std::string("##command_") + command.label;
-            const bool clicked = ImGui::InvisibleButton(id.c_str(), {cellW, cellH});
-            const bool active = ImGui::IsItemActive();
-            const bool hovered = ImGui::IsItemHovered();
+            // Locked buttons render but swallow no input (the click is ignored below).
+            const bool clicked = ImGui::InvisibleButton(id.c_str(), {cellW, cellH}) && !command.locked;
+            const bool active = ImGui::IsItemActive() && !command.locked;
+            const bool hovered = ImGui::IsItemHovered() && !command.locked;
 
-            drawImage(drawList, active ? buttonPressed : buttonRegular, pos, {pos.x + cellW, pos.y + cellH}, hovered ? IM_COL32(255, 255, 255, 255) : IM_COL32(225, 235, 240, 245));
+            const ImU32 buttonTint = command.locked
+                ? IM_COL32(120, 130, 134, 200)
+                : (hovered ? IM_COL32(255, 255, 255, 255) : IM_COL32(225, 235, 240, 245));
+            drawImage(drawList, active ? buttonPressed : buttonRegular, pos, {pos.x + cellW, pos.y + cellH}, buttonTint);
             if (const sf::Texture* icon = texture("UI Elements/UI Elements/Icons/Icon_0" + std::to_string((i % 9) + 1) + ".png")) {
                 const ImVec2 iconMin{pos.x + cellW * 0.5f - 15.0f, pos.y + 10.0f};
-                drawImage(drawList, icon, iconMin, {iconMin.x + 30.0f, iconMin.y + 30.0f});
+                drawImage(drawList, icon, iconMin, {iconMin.x + 30.0f, iconMin.y + 30.0f}, command.locked ? IM_COL32(140, 148, 150, 200) : IM_COL32_WHITE);
             }
 
+            const ImU32 labelColor = command.locked ? kTextDim : kTextMain;
             const ImVec2 textSize = ImGui::CalcTextSize(command.label);
-            drawList.AddText({pos.x + (cellW - textSize.x) * 0.5f, pos.y + cellH - textSize.y - 10.0f}, kTextMain, command.label);
+            drawList.AddText({pos.x + (cellW - textSize.x) * 0.5f, pos.y + cellH - textSize.y - 10.0f}, labelColor, command.label);
             // Hotkey hint in the top-left corner so the shortcut is discoverable.
-            drawList.AddText({pos.x + 6.0f, pos.y + 4.0f}, kWarning, command.hotkey);
+            drawList.AddText({pos.x + 6.0f, pos.y + 4.0f}, command.locked ? kTextDim : kWarning, command.hotkey);
 
             if (clicked) {
                 m_lastCommand = command.label;

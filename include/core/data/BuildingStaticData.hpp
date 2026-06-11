@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "core/data/CombatTypes.hpp"
+#include "core/data/TechTree.hpp"
 #include "core/model/Building.hpp"
 #include "core/model/PlayerResourceState.hpp"
 #include "core/model/UnitType.hpp"
@@ -27,6 +28,8 @@ namespace rts::core::data {
         bool isDropOff { false };
         // Building types that must exist (completed) before this can be built.
         std::vector<::rts::core::model::BuildingType> requirements {};
+        // Upgrades that must be researched before this can be built (none yet).
+        std::vector<UpgradeType> requiredUpgrades {};
         // Defensive class for weapon/armor effectiveness (buildings are fortified).
         ArmorType armorType { ArmorType::Fortified };
 

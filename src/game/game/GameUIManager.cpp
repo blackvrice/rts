@@ -448,8 +448,10 @@ namespace rts::core::manager {
                     selection.hp = building->getHp();
                     selection.maxHp = building->getMaxHp();
                     selection.kind = core::render::HudSelectionKind::Building;
-                    selection.canProduce = building->isComplete() &&
+                    const bool typeProduces =
                         !core::data::buildingStaticDataFor(building->buildingType()).produces.empty();
+                    selection.producesUnits = typeProduces;
+                    selection.canProduce = building->isComplete() && typeProduces;
                 } else if (auto resource = std::dynamic_pointer_cast<core::model::ResourceNode>(element)) {
                     selection.hp = resource->remaining();
                     selection.maxHp = resource->totalAmount();

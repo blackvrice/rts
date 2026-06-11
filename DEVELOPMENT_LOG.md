@@ -1,5 +1,28 @@
 # Development Log
 
+## 2026-06-11 - Epic 5.x 경제/테크 (자원 UI / 소비 / Footprint / TechTreeValidator)
+
+### Epic 5.1 자원 UI 추가
+- **인구수 실시간 집계**: recomputeSupply가 매 틱 생존 유닛 + 생산 큐의 foodCost로 foodUsed를, 생존 전투(비워커) 유닛 수로 army를 재계산(더미값 142/24 제거). 사망/취소/스폰에 자동 정합.
+- **이벤트 기반 + 증감 로그**: 매 틱 팀별 스냅샷 비교(logResourceChange) → 변경 시에만 `[Resource] team N gold=..(+/-d) wood=.. food=u/c army=..(+/-d)` 디버그 출력. (렌더러는 매 프레임 자원 커맨드를 소비하는 구조라 그리기는 유지, 변경 감지를 로깅 훅으로 사용.)
+- **부족 시 빨강**: 인구 ≥ 수용량이면 Food pill 값을 kDanger(빨강)로. drawResourcePill에 valueColor 파라미터 추가.
+
+### Epic 5.2 자원 소비
+- 비용 프레임워크(Cost/canAfford/pay/refund)는 생산·건설에 이미 연결 완료. 업그레이드/연구는 콘텐츠 자체가 없어 연결 대상이 없음 → 버티컬 슬라이스 범위에서 100% 처리. 추후 추가 시 TechTreeValidator.canResearch + Requirement.requiredUpgrades로 즉시 연결 가능(설계 결정).
+
+### Epic 5.3 건물 Footprint 정밀화
+- **구조물 점유 캐시 그리드**: GameWorld에 m_structureOccupancy(gridW*gridH) 추가. onCollisionChanged에서 건물/자원 footprint 전체 셀을 1회 마킹(rebuildStructureOccupancy). isCellOccupied는 구조물은 O(1) 그리드 조회 + 유닛만 라이브 단일셀 검사로 분리 → A* 매 노드 질의가 O(요소수)에서 대폭 경감.
+- **파괴/고갈 반영**: pruneDeadEntities가 건물/자원 사망을 감지하면 onCollisionChanged 호출 → 캐시 그리드·경로 캐시 갱신(고갈된 자원/파괴된 건물 타일이 다시 통행 가능).
+
+### Epic 5.4 TechTreeValidator
+- **데이터**: core/data/TechTree.hpp에 UpgradeType(enum, 콘텐츠 없음·None 센티넬)와 Requirement{requiredBuildings, requiredUpgrades}. UnitStaticData에 requirement, BuildingStaticData에 requiredUpgrades 추가. DataRegistry가 units.json/buildings.json의 requirements를 파싱.
+- **검증기**: core/tech/TechTreeValidator — TechState(팀의 완성 건물/연구 업그레이드 스냅샷) 기반 canBuild/canProduce/canResearch(LockReason 포함). GameLogicManager.buildTechState가 월드에서 스냅샷 생성; handleBuildCommand=canBuild(hasBuildingRequirements가 위임), handleTrainCommand=canProduce 게이트. canResearch는 업그레이드 정의 전까지 UnknownUpgrade.
+- **UI 잠금**: 생산 가능 건물의 Train 버튼을 항상 노출하되 미완성/조건 미충족이면 회색·비클릭(HudCommandButton.locked, UpdateHudSelection.producesUnits 추가).
+
+### 검증
+- 빌드 성공(전 타깃). 실행 정상. IDE clang의 include 경로/네임스페이스/표준버전 진단은 거짓 양성(g++ 빌드로 검증).
+- 업그레이드/연구는 콘텐츠 미존재로 구조만 준비(설계 결정, 위 5.2/5.4 참조). 인게임 체감(빨강 표시, 잠금 버튼, 경로)·로그는 수동 확인 필요.
+
 ## 2026-06-10 - Epic 4.1 추가 안정화 (공격 대상 필터링/공중·지상 준비/사거리 최적화)
 
 ### 변경 내용

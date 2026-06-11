@@ -86,7 +86,8 @@ namespace rts::core::render {
         float attackRange {};
         model::Vector2D position {};
         HudSelectionKind kind { HudSelectionKind::None };
-        bool canProduce { false };  // building whose produces list is non-empty
+        bool canProduce { false };   // completed building whose produces list is non-empty
+        bool producesUnits { false };  // building type can train units (even if not yet ready)
     };
 
     struct UpdateHudCursor {

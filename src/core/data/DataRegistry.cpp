@@ -222,6 +222,21 @@ namespace rts::core::data {
                 d.domain        = movementDomainFromString(e.value("domain", std::string{}), d.domain);
                 d.attacksGround = e.value("attacksGround", d.attacksGround);
                 d.attacksAir    = e.value("attacksAir", d.attacksAir);
+                // requirements: building string ids that must be completed to train
+                // this unit (unknown ids skipped). Upgrades have no ids defined yet.
+                if (e.contains("requirements")) {
+                    d.requirement.requiredBuildings.clear();
+                    for (const auto& bid : e["requirements"]) {
+                        const auto bt = buildingTypeFromId(bid.get<std::string>());
+                        if (bt) {
+                            d.requirement.requiredBuildings.push_back(*bt);
+                        } else {
+                            std::cerr << "[DataRegistry] unit '" << id << "' requires unknown building '"
+                                      << bid << "', skipped\n";
+                            allOk = false;
+                        }
+                    }
+                }
                 d.goldCost      = e.value("goldCost", d.goldCost);
                 d.woodCost      = e.value("woodCost", d.woodCost);
                 d.foodCost      = e.value("foodCost", d.foodCost);
