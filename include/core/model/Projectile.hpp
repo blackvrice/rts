@@ -19,6 +19,9 @@ namespace rts::core::model {
                    int ownerTeamId, float speed, data::WeaponType weaponType,
                    data::SplashRadii splash = {}, SplashApplier applySplash = {});
 
+        void reset(Vector2D origin, IGameElement* target, float damage,
+                   int ownerTeamId, float speed, data::WeaponType weaponType,
+                   data::SplashRadii splash = {}, SplashApplier applySplash = {});
         void tick(float dt);
 
         bool     expired()   const noexcept { return m_expired; }

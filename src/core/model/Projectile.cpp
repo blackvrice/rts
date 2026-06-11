@@ -6,17 +6,26 @@ namespace rts::core::model {
     static constexpr float kPi = 3.14159265f;
 
     Projectile::Projectile(Vector2D origin, IGameElement* target, float damage,
+                            int ownerTeamId, float speed, data::WeaponType weaponType,
+                            data::SplashRadii splash, SplashApplier applySplash)
+        : m_position(origin) {
+        reset(origin, target, damage, ownerTeamId, speed, weaponType,
+              splash, std::move(applySplash));
+    }
+
+    void Projectile::reset(Vector2D origin, IGameElement* target, float damage,
                            int ownerTeamId, float speed, data::WeaponType weaponType,
-                           data::SplashRadii splash, SplashApplier applySplash)
-        : m_position(origin)
-        , m_target(target)
-        , m_lastKnownTargetPos(target ? target->getPosition() : origin)
-        , m_damage(damage)
-        , m_ownerTeamId(ownerTeamId)
-        , m_speed(speed)
-        , m_weaponType(weaponType)
-        , m_splash(splash)
-        , m_applySplash(std::move(applySplash)) {
+                           data::SplashRadii splash, SplashApplier applySplash) {
+        m_position = origin;
+        m_target = target;
+        m_lastKnownTargetPos = target ? target->getPosition() : origin;
+        m_damage = damage;
+        m_ownerTeamId = ownerTeamId;
+        m_speed = speed;
+        m_weaponType = weaponType;
+        m_splash = splash;
+        m_applySplash = std::move(applySplash);
+        m_expired = false;
         const float dx = m_lastKnownTargetPos.x - m_position.x;
         const float dy = m_lastKnownTargetPos.y - m_position.y;
         m_angleDeg = std::atan2(dy, dx) * (180.f / kPi);

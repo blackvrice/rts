@@ -17,7 +17,7 @@ set(RTS_TINY_SWORDS_ROOT "${CMAKE_SOURCE_DIR}/Tiny Swords (Free Pack)/Tiny Sword
 # configured absolute path so the executable finds them regardless of CWD.
 set(RTS_DATA_ROOT "${CMAKE_SOURCE_DIR}/data")
 
-find_package(SFML 3 REQUIRED COMPONENTS System Window Graphics)
+find_package(SFML 3 REQUIRED COMPONENTS System Window Graphics Audio)
 find_package(OpenGL REQUIRED)
 
 configure_file(
@@ -195,6 +195,8 @@ add_executable(RTS
         src/core/viewmodel/UnitViewModel.cpp
         include/core/map/TileMapSoA.hpp
         include/core/world/GameWorld.hpp
+        include/core/world/WorldRuntimeServices.hpp
+        src/core/world/WorldRuntimeServices.cpp
         include/core/manager/PathManager.hpp
         src/core/manager/PathManager.cpp
         include/core/path/GridTypes.hpp
@@ -243,6 +245,7 @@ target_link_libraries(RTS PRIVATE
         SFML::System
         SFML::Window
         SFML::Graphics
+        SFML::Audio
         OpenGL::GL
         tmxlite
         imgui

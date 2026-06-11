@@ -4,6 +4,7 @@
 
 #pragma once
 #include <cstdint>
+#include <unordered_map>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -75,6 +76,21 @@ namespace rts::core::manager {
             int team;
         };
 
+        enum class AiBuildOrderState {
+            Opening,
+            Gather,
+            BuildBarracks,
+            ProduceArmy,
+            Attack,
+            Rebuild
+        };
+
+        struct ElementSnapshot {
+            float hp { 0.0f };
+            bool complete { false };
+            model::ActionType action { model::ActionType::Idle };
+        };
+
         std::shared_ptr<model::IGameElement> findCommandTargetAt(
             const model::Vector2D& target,
             const SelectionSystem::SelectedList& selected) const;
@@ -136,18 +152,29 @@ namespace rts::core::manager {
 
         // AI / victory helpers
         void updateAI(float dt);
+        void updateAiBuildOrder();
         // Enemy economy: train workers (to a cap) and warriors, paying from the
         // enemy resource pool (no free units).
         void updateAiProduction(float dt);
         // Sends idle enemy workers to gather the nearest available resource.
         void updateAiWorkers(float dt);
+        void updateAiDefense(float dt);
         // Launches an attack wave once enough idle soldiers have massed, or after a
         // timeout, whichever comes first.
         void updateAiWaves(float dt);
         void checkVictoryDefeat();
         std::shared_ptr<model::Building> findTownHall(int teamId) const;
+        std::shared_ptr<model::Building> findBarracks(int teamId, bool requireComplete) const;
+        std::shared_ptr<model::Unit> findIdleWorker(int teamId) const;
+        int countCombatUnits(int teamId, bool idleOnly) const;
         int countTownHalls(int teamId) const;
+        model::Vector2D aiRallyPoint() const;
+        bool tryStartAiBarracks();
+        std::optional<model::Vector2D> findBuildSiteNear(const model::Vector2D& center,
+                                                         const data::BuildingStaticData& data) const;
+        void emitStateFeedback();
         bool inputLocked() const;
+        void captureFeedbackSnapshots();
 
         core::world::GameWorld& m_world;
         SelectionSystem m_selection;
@@ -158,12 +185,16 @@ namespace rts::core::manager {
 
         // Simple enemy AI: trains/gathers on cadences and sends idle combat units
         // at the player's town hall once they mass up.
+        AiBuildOrderState m_aiState { AiBuildOrderState::Opening };
         float m_aiProduceTimer { 0.f };
         float m_aiGatherTimer { 0.f };
         float m_aiWaveTimer { 0.f };
+        float m_aiDefenseTimer { 0.f };
+        AiBuildOrderState m_lastFeedbackAiState { AiBuildOrderState::Opening };
 
         // Last logged resource snapshot per team (index by TeamId) for delta logging.
         core::model::PlayerResourceState m_lastResourceLog[3] {};
         bool m_resourceLogReady { false };
+        std::unordered_map<std::uint32_t, ElementSnapshot> m_feedbackSnapshots;
     };
 } // namespace rts::manager

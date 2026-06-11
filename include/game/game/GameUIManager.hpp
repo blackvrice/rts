@@ -8,6 +8,7 @@
 #include "core/model/Vector2D.hpp"
 
 #include <chrono>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -79,5 +80,6 @@ namespace rts::core::manager {
         bool m_hasMousePos { false };
         bool m_isDragging { false };
         bool m_showDebugOverlay { false };  // F3 toggles tick/world-hash readout
+        std::uint64_t m_lastFeedbackSerial { 0 };
     };
 }

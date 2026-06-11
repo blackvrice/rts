@@ -10,6 +10,7 @@
 #include "core/model/Unit.hpp"
 #include "core/data/DataRegistry.hpp"
 #include "core/world/GameWorldGridQuery.hpp"
+#include "core/world/WorldRuntimeServices.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -53,18 +54,7 @@ namespace rts::core::world {
                 [this](const model::Vector2D& origin, model::IGameElement* target,
                        float damage, data::WeaponType weapon, int team,
                        data::SplashRadii splash) {
-                    constexpr float kProjectileSpeed = 520.0f;
-                    model::Projectile::SplashApplier applySplash;
-                    if (splash.any()) {
-                        applySplash = [this](const model::Vector2D& center, float dmg,
-                                             data::WeaponType wt, int ownerTeam,
-                                             data::SplashRadii radii) {
-                            applySplashDamage(center, dmg, wt, ownerTeam, radii);
-                        };
-                    }
-                    spawnProjectile(std::make_shared<model::Projectile>(
-                        origin, target, damage, team, kProjectileSpeed, weapon,
-                        splash, std::move(applySplash)));
+                    spawnProjectile(origin, target, damage, weapon, team, splash);
                 });
         }
 
@@ -74,6 +64,7 @@ namespace rts::core::world {
     void GameWorld::resetForNewMatch() {
         m_elements.clear();
         m_projectiles.clear();
+        m_projectilePool.clear();
         m_entities = ecs::EntityManager{};
         m_entityByIndex.clear();
         m_currentTick = 0;
@@ -87,15 +78,62 @@ namespace rts::core::world {
         }
     }
 
+    void GameWorld::spawnProjectile(model::Vector2D origin, model::IGameElement* target,
+                                    float damage, data::WeaponType weapon, int ownerTeam,
+                                    data::SplashRadii splash) {
+        constexpr float kProjectileSpeed = 520.0f;
+        model::Projectile::SplashApplier applySplash;
+        if (splash.any()) {
+            applySplash = [this](const model::Vector2D& center, float dmg,
+                                 data::WeaponType wt, int team,
+                                 data::SplashRadii radii) {
+                applySplashDamage(center, dmg, wt, team, radii);
+            };
+        }
+
+        std::shared_ptr<model::Projectile> projectile;
+        if (!m_projectilePool.empty()) {
+            projectile = std::move(m_projectilePool.back());
+            m_projectilePool.pop_back();
+            projectile->reset(origin, target, damage, ownerTeam, kProjectileSpeed,
+                              weapon, splash, std::move(applySplash));
+        } else {
+            projectile = std::make_shared<model::Projectile>(
+                origin, target, damage, ownerTeam, kProjectileSpeed, weapon,
+                splash, std::move(applySplash));
+        }
+
+        m_projectiles.push_back(projectile);
+        emitSound(*this, SoundCue::AttackFire, origin, 52.0f);
+        emitEffect(*this, EffectType::AttackFlash, origin, 28.0f, 0.22f);
+    }
+
     const std::vector<std::shared_ptr<model::Projectile>>& GameWorld::projectiles() const {
         return m_projectiles;
     }
 
     void GameWorld::updateProjectiles(const float dt) {
         for (const auto& projectile : m_projectiles) {
+            const bool wasExpired = projectile->expired();
             projectile->tick(dt);
+            if (!wasExpired && projectile->expired()) {
+                const auto impact = projectile->position();
+                emitSound(*this, SoundCue::Hit, impact, 58.0f);
+                emitEffect(*this, EffectType::HitSpark, impact, 40.0f, 0.35f);
+                emitEffect(*this, EffectType::ScorchDecal, impact, 26.0f, 7.0f, 0x24160D66u);
+            }
         }
-        std::erase_if(m_projectiles, [](const auto& p) { return p->expired(); });
+        auto it = m_projectiles.begin();
+        while (it != m_projectiles.end()) {
+            if ((*it)->expired()) {
+                if (m_projectilePool.size() < 128) {
+                    m_projectilePool.push_back(std::move(*it));
+                }
+                it = m_projectiles.erase(it);
+            } else {
+                ++it;
+            }
+        }
     }
 
     void GameWorld::applySplashDamage(const model::Vector2D& center, const float damage,

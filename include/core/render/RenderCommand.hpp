@@ -111,6 +111,13 @@ namespace rts::core::render {
         std::string cursorKey { "default" };
     };
 
+    struct PlaySound {
+        // Semantic cue resolved by the platform renderer. The SFML backend currently
+        // uses synthesized one-shot tones, so no external audio assets are required.
+        std::string cue {};
+        float volume { 70.0f };
+    };
+
     // A single blip on the minimap; position is normalized 0..1 over the world.
     struct MinimapDot {
         float u { 0.0f };
@@ -142,6 +149,7 @@ namespace rts::core::render {
         UpdateHudResources,
         UpdateHudSelection,
         UpdateHudCursor,
+        PlaySound,
         UpdateMinimap
     >;
 

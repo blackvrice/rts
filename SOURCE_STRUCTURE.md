@@ -6,13 +6,13 @@ This document is a quick orientation map for future AI agents working in this re
 
 - `CMakeLists.txt` defines the `RTS` executable target and the source list used by the build.
 - `src/main.cpp` is the application entry point.
-- The project currently targets C++23 in CMake and links SFML 3, OpenGL, tmxlite, and ImGui.
+- The project currently targets C++23 in CMake and links SFML 3, SFML Audio, OpenGL, tmxlite, and ImGui.
 - `include/platform/sfml/SfmlAssetPaths.hpp.in` is configured into the build directory so SFML platform code can locate packaged assets.
 - Typical build commands are:
 
 ```powershell
-cmake -S . -B build
-cmake --build build
+& "C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe" -S . -B cmake-build-debug
+& "C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe" --build cmake-build-debug --target RTS -- -j 4
 ```
 
 ## Top-Level Layout
@@ -40,8 +40,8 @@ cmake --build build
 - Sprite/animation data: `SpriteData.hpp` defines `SpriteClip`; `DataRegistry` loads `data/animations.json` into a keyed clip map (`sprite(key)`) plus a unit→sprite-set map (`unitSpriteSet`). The view models look up clips by key and fill `DrawSprite.texturePath`; `SfmlRenderManager` loads textures by path (cached). A readable `animations.json` is authoritative (replaces seeds), so clips can be added/removed/changed via data alone.
 - `include/core/model/PlayerResourceState.hpp` defines the player resource snapshot stored by `GameWorld` and forwarded to the HUD.
 - `include/core/factory` and `include/core/prototype` create game objects from static/prototype data.
-- `include/core/world`, `include/core/path`, and `src/core/world` contain grid/world representation, coordinate transforms, path queries, and map-facing logic.
-- `include/core/render` defines render commands, queues, context, and render-manager interfaces.
+- `include/core/world`, `include/core/path`, and `src/core/world` contain grid/world representation, coordinate transforms, path queries, and map-facing logic. `WorldRuntimeServices` owns transient runtime feedback events, active effect lifetimes, and the per-tick spatial grid used for optimized radius queries.
+- `include/core/render` defines render commands, queues, context, and render-manager interfaces, including the `PlaySound` command used to forward simulation feedback to the platform renderer.
 - `include/core/ui` and `src/core/ui` contain reusable UI elements such as text boxes and select boxes.
 - `include/core/font` and `src/core/font` contain font loading and font metric abstractions.
 - `include/core/viewmodel` and `src/core/viewmodel` build render/UI-facing view models.
@@ -56,7 +56,7 @@ cmake --build build
 ## Platform Layer
 
 - `include/platform/IWindow.hpp` defines the platform window abstraction.
-- `include/platform/sfml` and `src/platform/sfml` contain SFML-backed windowing, rendering, HUD overlay, font metrics, and asset-path integration.
+- `include/platform/sfml` and `src/platform/sfml` contain SFML-backed windowing, rendering, HUD overlay, font metrics, synthesized sound cue playback, and asset-path integration.
 - `SfmlHudOverlay` draws the ImGui HUD command panel and emits gameplay UI input through `UICommandBus`; `GameUIManager` translates those UI inputs into `LogicCommand` payloads when enough target data exists.
 - HUD resource numbers are supplied through `RenderQueue` using `UpdateHudResources`; avoid hardcoding live economy values in `SfmlHudOverlay`.
 

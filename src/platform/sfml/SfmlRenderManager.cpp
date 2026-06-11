@@ -9,6 +9,10 @@
 #include <SFML/Graphics/Text.hpp>
 #include <SFML/Graphics/Texture.hpp>
 #include <SFML/Graphics/View.hpp>
+#include <SFML/Audio/Sound.hpp>
+#include <SFML/Audio/SoundBuffer.hpp>
+#include <SFML/Audio/SoundChannel.hpp>
+#include <SFML/Audio/SoundSource.hpp>
 #include <SFML/Window/Mouse.hpp>
 
 #include <algorithm>
@@ -19,9 +23,12 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <numbers>
 #include <optional>
+#include <string>
 #include <unordered_map>
 #include <variant>
+#include <vector>
 
 #include <SFML/Graphics/Image.hpp>
 
@@ -72,6 +79,70 @@ namespace {
 
     std::unordered_map<const sf::Texture*, sf::Image> g_spriteTrimImages;
     std::unordered_map<SpriteTrimCacheKey, sf::IntRect, SpriteTrimCacheKeyHash> g_spriteTrimCache;
+    std::unordered_map<std::string, sf::SoundBuffer> g_soundBuffers;
+    std::vector<sf::Sound> g_playingSounds;
+
+    struct ToneSpec {
+        float frequency;
+        float duration;
+        float volumeScale;
+    };
+
+    ToneSpec toneForCue(const std::string& cue) {
+        if (cue == "select") return { 660.0f, 0.055f, 0.45f };
+        if (cue == "move") return { 520.0f, 0.07f, 0.42f };
+        if (cue == "attack") return { 220.0f, 0.11f, 0.62f };
+        if (cue == "fire") return { 880.0f, 0.045f, 0.40f };
+        if (cue == "hit") return { 180.0f, 0.08f, 0.50f };
+        if (cue == "death") return { 120.0f, 0.18f, 0.58f };
+        if (cue == "production") return { 740.0f, 0.13f, 0.48f };
+        if (cue == "construction") return { 420.0f, 0.16f, 0.52f };
+        if (cue == "shortage") return { 130.0f, 0.12f, 0.70f };
+        if (cue == "gather") return { 590.0f, 0.05f, 0.34f };
+        if (cue == "victory") return { 920.0f, 0.22f, 0.62f };
+        if (cue == "defeat") return { 90.0f, 0.25f, 0.70f };
+        if (cue == "explosion") return { 75.0f, 0.16f, 0.70f };
+        return { 440.0f, 0.06f, 0.40f };
+    }
+
+    const sf::SoundBuffer& soundBufferForCue(const std::string& cue) {
+        if (const auto it = g_soundBuffers.find(cue); it != g_soundBuffers.end()) {
+            return it->second;
+        }
+
+        constexpr unsigned int kSampleRate = 44100;
+        const ToneSpec spec = toneForCue(cue);
+        const auto sampleCount = static_cast<std::uint64_t>(kSampleRate * spec.duration);
+        std::vector<std::int16_t> samples(static_cast<std::size_t>(sampleCount));
+        for (std::uint64_t i = 0; i < sampleCount; ++i) {
+            const float t = static_cast<float>(i) / static_cast<float>(kSampleRate);
+            const float envelope = 1.0f - static_cast<float>(i) / static_cast<float>(sampleCount);
+            const float wave = std::sin(2.0f * std::numbers::pi_v<float> * spec.frequency * t);
+            samples[static_cast<std::size_t>(i)] =
+                static_cast<std::int16_t>(wave * envelope * spec.volumeScale * 30000.0f);
+        }
+
+        sf::SoundBuffer buffer;
+        const bool loaded = buffer.loadFromSamples(
+            samples.data(), sampleCount, 1, kSampleRate, { sf::SoundChannel::Mono });
+        (void)loaded;
+        auto [it, _] = g_soundBuffers.emplace(cue, std::move(buffer));
+        return it->second;
+    }
+
+    void playSoundCue(const std::string& cue, const float volume) {
+        std::erase_if(g_playingSounds, [](const sf::Sound& sound) {
+            return sound.getStatus() == sf::SoundSource::Status::Stopped;
+        });
+        if (g_playingSounds.size() >= 24) {
+            g_playingSounds.erase(g_playingSounds.begin());
+        }
+        const auto& buffer = soundBufferForCue(cue);
+        g_playingSounds.emplace_back(buffer);
+        auto& sound = g_playingSounds.back();
+        sound.setVolume(std::clamp(volume, 0.0f, 100.0f));
+        sound.play();
+    }
 
     const sf::Texture* tinySwordsWorldTileset() {
         static sf::Texture texture;
@@ -676,6 +747,13 @@ namespace rts::platform::sfml {
         sf::RenderWindow&,
         const core::render::UpdateHudCursor&
     ) {
+    }
+
+    void SfmlRenderManager::draw(
+        sf::RenderWindow&,
+        const core::render::PlaySound& sound
+    ) {
+        playSoundCue(sound.cue, sound.volume);
     }
 
     void SfmlRenderManager::draw(

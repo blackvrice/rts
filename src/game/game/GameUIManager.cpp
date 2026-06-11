@@ -26,6 +26,7 @@
 #include "core/map/FogOfWar.hpp"
 #include "core/render/RenderCommand.hpp"
 #include "core/render/RenderQueue.hpp"
+#include "core/world/WorldRuntimeServices.hpp"
 #include "core/ui/IUIElement.hpp"
 #include "core/ui/SelectBox.hpp"
 #include "core/ui/TextBox.hpp"
@@ -130,6 +131,65 @@ namespace rts::core::manager {
                 default:
                     return false;
             }
+        }
+
+        const char* effectTexture(const core::world::EffectType type) {
+            using core::world::EffectType;
+            switch (type) {
+                case EffectType::AttackFlash: return "Particle FX/Fire_01.png";
+                case EffectType::HitSpark: return "Particle FX/Explosion_01.png";
+                case EffectType::DeathBurst: return "Particle FX/Dust_02.png";
+                case EffectType::Explosion: return "Particle FX/Explosion_02.png";
+                case EffectType::ConstructionDust: return "Particle FX/Dust_01.png";
+                case EffectType::ResourceGather: return "Particle FX/Dust_02.png";
+                case EffectType::ScorchDecal:
+                case EffectType::BloodDecal:
+                    return "";
+            }
+            return "";
+        }
+
+        void emitRuntimeEffect(core::render::RenderQueue& queue,
+                               const core::world::ActiveEffect& effect) {
+            const float duration = effect.duration > 0.0f ? effect.duration : 0.1f;
+            const float fade = std::clamp(1.0f - effect.age / duration, 0.0f, 1.0f);
+            const auto alpha = static_cast<std::uint32_t>(fade * 255.0f);
+            if (effect.type == core::world::EffectType::ScorchDecal ||
+                effect.type == core::world::EffectType::BloodDecal) {
+                const std::uint32_t color =
+                    (effect.color & 0xFFFFFF00u) | std::min(alpha, effect.color & 0xFFu);
+                queue.emplace(
+                    core::render::RenderLayer::World,
+                    -5,
+                    core::render::DrawCircle {
+                        .cx = effect.position.x,
+                        .cy = effect.position.y,
+                        .radius = effect.radius,
+                        .border_color = 0x00000000u,
+                        .color = color
+                    });
+                return;
+            }
+
+            const char* texture = effectTexture(effect.type);
+            if (!texture || texture[0] == '\0') {
+                return;
+            }
+            const float size = effect.radius * (1.0f + (effect.age / duration) * 0.35f);
+            queue.emplace(
+                core::render::RenderLayer::World,
+                85,
+                core::render::DrawSprite {
+                    .x = effect.position.x - size,
+                    .y = effect.position.y - size,
+                    .w = size * 2.0f,
+                    .h = size * 2.0f,
+                    .texturePath = texture,
+                    .frameCount = 1,
+                    .framesPerSecond = 0.0f,
+                    .trimTransparent = true,
+                    .rotation = effect.rotation
+                });
         }
     }
 
@@ -606,6 +666,24 @@ namespace rts::core::manager {
             -98,
             core::render::UpdateHudCursor { cursorKey }
         );
+
+        for (const auto& event : core::world::feedbackEvents(m_world)) {
+            if (event.serial <= m_lastFeedbackSerial) {
+                continue;
+            }
+            m_renderQueue.emplace(
+                core::render::RenderLayer::UI,
+                -96,
+                core::render::PlaySound {
+                    .cue = core::world::soundCueKey(event.cue),
+                    .volume = event.volume
+                });
+            m_lastFeedbackSerial = std::max(m_lastFeedbackSerial, event.serial);
+        }
+
+        for (const auto& effect : core::world::activeEffects(m_world)) {
+            emitRuntimeEffect(m_renderQueue, effect);
+        }
 
         for (auto &element: m_elements) {
             element->buildRenderCommands(m_renderQueue);

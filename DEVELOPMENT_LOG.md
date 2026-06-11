@@ -1,5 +1,15 @@
 # Development Log
 
+## 2026-06-11 - Phase 8 AI Polish Optimization
+
+- Completed Phase 8 tactical AI with an enemy build-order state machine, worker resource assignment, barracks rebuilding, rally placement, army massing, attack timing, and local defense response around threatened structures.
+- Added `WorldRuntimeServices` as transient runtime state for feedback events, active visual effects, pooled effect lifetime updates, and spatial-grid radius queries used by command targeting and AI threat searches.
+- Wired command, combat, production, construction, resource, victory, and defeat feedback into the UI/render path through `PlaySound` render commands and short synthesized SFML Audio cues.
+- Added Tiny Swords particle/decal rendering for attack flashes, hit sparks, death bursts, construction dust, resource-gather feedback, and scorch/blood-style ground decals.
+- Added projectile reuse through a bounded projectile pool and moved repeated target scans to the runtime spatial grid; existing path request limiting and F3 debug overlay complete the Phase 8 optimization checklist.
+- Verification: built `RTS` with `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j 4`, then launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
+- Follow-up: replace synthesized tones with authored audio assets if a final sound pack is added.
+
 ## 2026-06-11 - Building Vision From JSON
 
 - Added `BuildingStaticData::sightRange` and loaded it from `data/buildings.json`, matching the existing unit `sightRange` data flow.

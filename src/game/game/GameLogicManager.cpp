@@ -20,6 +20,7 @@
 #include <core/map/MapData.hpp>
 #include <core/tech/TechTreeValidator.hpp>
 #include <core/world/GameWorld.hpp>
+#include <core/world/WorldRuntimeServices.hpp>
 
 namespace {
     constexpr float kAttackTargetPickRadius = 64.0f;
@@ -78,6 +79,7 @@ namespace rts::core::manager {
             } else {
                 m_selection.selectInArea(m_world, cmd.area(), cmd.additive());
             }
+            world::emitSound(m_world, world::SoundCue::Select, {}, 46.0f);
         });
 
         // Restart is accepted only once the match is decided (the result screen).
@@ -168,7 +170,9 @@ namespace rts::core::manager {
     void GameLogicManager::tick(float dt) {
         auto lock = m_world.acquireWriteLock();
         m_world.advanceTick();
+        world::updateRuntimeServices(m_world, dt);
         m_movement.update(m_world, dt, m_collision);
+        world::rebuildSpatialIndex(m_world);
         m_world.updateProjectiles(dt);
         handleAttackRetargets();
         handleAttackMoveOrders();
@@ -180,6 +184,7 @@ namespace rts::core::manager {
         flushPendingSpawns();
         recomputeSupply();
         m_world.updateFog();
+        captureFeedbackSnapshots();
         // Destroy EntityIds of units/buildings that died this tick so handles to
         // them stop validating (and recycled slots bump generation).
         m_world.pruneDeadEntities();
@@ -220,8 +225,11 @@ namespace rts::core::manager {
             if (auto building = std::dynamic_pointer_cast<model::Building>(weak.lock());
                 building && building->getAction() != model::ActionType::Dead) {
                 building->setRallyPoint(cmd.target());
+                world::emitEffect(m_world, world::EffectType::ConstructionDust,
+                                  cmd.target(), 34.0f, 0.35f);
             }
         }
+        world::emitSound(m_world, world::SoundCue::MoveOrder, cmd.target(), 48.0f);
         m_movement.issueMove(m_world, m_selection.selected(), cmd.target());
     }
 
@@ -231,8 +239,7 @@ namespace rts::core::manager {
         std::shared_ptr<model::IGameElement> bestTarget;
         float bestDistanceSq = std::numeric_limits<float>::max();
 
-        for (const auto& element : m_world.getElements()) {
-            auto candidate = std::dynamic_pointer_cast<model::IGameElement>(element);
+        for (auto candidate : world::queryRadius(m_world, target, kAttackTargetPickRadius)) {
             if (!candidate ||
                 candidate->getAction() == model::ActionType::Dead) {
                 continue;
@@ -383,6 +390,10 @@ namespace rts::core::manager {
             }
 
             m_world.setPlayerResources(unit->getTeamId(), resources);
+            world::emitSound(m_world, world::SoundCue::ResourceGather,
+                             unit->getPosition(), 35.0f);
+            world::emitEffect(m_world, world::EffectType::ResourceGather,
+                              unit->getPosition(), 26.0f, 0.32f);
         }
     }
 
@@ -393,8 +404,7 @@ namespace rts::core::manager {
         const float acquireRadius = std::max(kAttackMoveAcquireRadius, unit.getAttackRange());
         const float acquireRadiusSq = acquireRadius * acquireRadius;
 
-        for (const auto& element : m_world.getElements()) {
-            auto candidate = std::dynamic_pointer_cast<model::IGameElement>(element);
+        for (auto candidate : world::queryRadius(m_world, unit.getPosition(), acquireRadius)) {
             if (!candidate || !unit.canAttackTarget(candidate.get())) {
                 continue;
             }
@@ -468,8 +478,7 @@ namespace rts::core::manager {
         const float acquireRadius = std::max(kAttackMoveAcquireRadius, unit.getAttackRange());
         const float acquireRadiusSq = acquireRadius * acquireRadius;
 
-        for (const auto& element : m_world.getElements()) {
-            auto candidate = std::dynamic_pointer_cast<model::IGameElement>(element);
+        for (auto candidate : world::queryRadius(m_world, unit.getPosition(), acquireRadius)) {
             if (!candidate || !unit.canAttackTarget(candidate.get())) {
                 continue;
             }
@@ -516,8 +525,7 @@ namespace rts::core::manager {
         float bestDistanceSq = std::numeric_limits<float>::max();
         const float rangeSq = unit.getAttackRange() * unit.getAttackRange();
 
-        for (const auto& element : m_world.getElements()) {
-            auto candidate = std::dynamic_pointer_cast<model::IGameElement>(element);
+        for (auto candidate : world::queryRadius(m_world, unit.getPosition(), unit.getAttackRange())) {
             if (!candidate || !unit.canAttackTarget(candidate.get())) {
                 continue;
             }
@@ -687,8 +695,10 @@ namespace rts::core::manager {
         if (!target) {
             if (cmd.append()) {
                 queueMoveOrderForSelected(cmd.target());
+                world::emitSound(m_world, world::SoundCue::MoveOrder, cmd.target(), 44.0f);
                 return;
             }
+            world::emitSound(m_world, world::SoundCue::MoveOrder, cmd.target(), 48.0f);
             m_movement.issueMove(m_world, m_selection.selected(), cmd.target());
             return;
         }
@@ -702,13 +712,19 @@ namespace rts::core::manager {
                     model::UnitOrder { .type = model::OrderType::Gather,
                                        .targetEntityId = target->entityId() },
                     /*workersOnly=*/true);
+                world::emitSound(m_world, world::SoundCue::ResourceGather,
+                                 target->getPosition(), 42.0f);
             } else if (isOpposingTeam(attackerTeam, target->getTeamId())) {
                 enqueueOrderForSelected(
                     model::UnitOrder { .type = model::OrderType::Attack,
                                        .targetEntityId = target->entityId() },
                     /*workersOnly=*/false);
+                world::emitSound(m_world, world::SoundCue::AttackOrder,
+                                 target->getPosition(), 56.0f);
             } else {
                 queueMoveOrderForSelected(target->getPosition());
+                world::emitSound(m_world, world::SoundCue::MoveOrder,
+                                 target->getPosition(), 44.0f);
             }
             return;
         }
@@ -716,17 +732,23 @@ namespace rts::core::manager {
         if (auto resource = std::dynamic_pointer_cast<model::ResourceNode>(target)) {
             clearSelectedUnitOrderQueues();
             issueGatherToResource(*resource);
+            world::emitSound(m_world, world::SoundCue::ResourceGather,
+                             resource->getPosition(), 46.0f);
             return;
         }
 
         // Right-click follows RTS convention: friendly target means move/approach,
         // opposing team target means attack.
         if (!isOpposingTeam(attackerTeam, target->getTeamId())) {
+            world::emitSound(m_world, world::SoundCue::MoveOrder,
+                             target->getPosition(), 44.0f);
             m_movement.issueMove(m_world, m_selection.selected(), target->getPosition());
             return;
         }
 
         clearSelectedUnitOrderQueues();
+        world::emitSound(m_world, world::SoundCue::AttackOrder,
+                         target->getPosition(), 60.0f);
         for (const auto& weak : m_selection.selected()) {
             if (auto attacker = weak.lock();
                 attacker &&
@@ -742,6 +764,7 @@ namespace rts::core::manager {
         if (inputLocked()) return;
 
         clearSelectedUnitOrderQueues();
+        world::emitSound(m_world, world::SoundCue::AttackOrder, cmd.target(), 54.0f);
         m_movement.issueAttackMove(m_world, m_selection.selected(), cmd.target());
     }
 
@@ -750,6 +773,7 @@ namespace rts::core::manager {
         if (inputLocked()) return;
 
         clearSelectedUnitOrderQueues();
+        world::emitSound(m_world, world::SoundCue::MoveOrder, cmd.to(), 42.0f);
         m_movement.issuePatrol(m_world, m_selection.selected(), cmd.to());
     }
 
@@ -769,6 +793,8 @@ namespace rts::core::manager {
 
         clearSelectedUnitOrderQueues();
         issueGatherToResource(*resource);
+        world::emitSound(m_world, world::SoundCue::ResourceGather,
+                         resource->getPosition(), 46.0f);
     }
 
     // =========================================================
@@ -930,8 +956,7 @@ namespace rts::core::manager {
     }
 
     bool GameLogicManager::isEnemyNear(const model::Vector2D& point, const int team) const {
-        for (const auto& element : m_world.getElements()) {
-            auto candidate = std::dynamic_pointer_cast<model::IGameElement>(element);
+        for (auto candidate : world::queryRadius(m_world, point, kAttackTargetPickRadius)) {
             if (!candidate ||
                 candidate->getAction() == model::ActionType::Dead ||
                 !isOpposingTeam(team, candidate->getTeamId())) {
@@ -967,6 +992,10 @@ namespace rts::core::manager {
             unit->setPosition(*position);
             unit->setTeamId(spawn.team);
             m_world.addElement(unit);
+            world::emitSound(m_world, world::SoundCue::ProductionComplete,
+                             *position, spawn.team == model::TeamId::Player ? 62.0f : 34.0f);
+            world::emitEffect(m_world, world::EffectType::ConstructionDust,
+                              *position, 42.0f, 0.45f);
 
             if (spawn.hasRally) {
                 // A rally point on/near an enemy means attack-move there instead of
@@ -1009,6 +1038,8 @@ namespace rts::core::manager {
 
         auto resources = m_world.playerResources(building->getTeamId());
         if (!resources.canAfford(cost)) {
+            world::emitSound(m_world, world::SoundCue::ResourceShortage,
+                             building->getPosition(), 70.0f);
             return;
         }
 
@@ -1103,6 +1134,8 @@ namespace rts::core::manager {
 
         auto resources = m_world.playerResources(worker->getTeamId());
         if (!resources.canAfford(data.cost())) {
+            world::emitSound(m_world, world::SoundCue::ResourceShortage,
+                             worker->getPosition(), 70.0f);
             return;
         }
 
@@ -1120,6 +1153,10 @@ namespace rts::core::manager {
         site->beginConstruction(data.buildTimeSeconds, data.maxHp * 0.1f);
         registerBuildingSpawn(*site);
         m_world.addElement(site);
+        world::emitSound(m_world, world::SoundCue::ConstructionComplete,
+                         buildingPos, 38.0f);
+        world::emitEffect(m_world, world::EffectType::ConstructionDust,
+                          buildingPos, 72.0f, 0.65f);
 
         resources.pay(data.cost());
         m_world.setPlayerResources(worker->getTeamId(), resources);
@@ -1186,7 +1223,13 @@ namespace rts::core::manager {
         m_aiProduceTimer = 0.f;
         m_aiGatherTimer = 0.f;
         m_aiWaveTimer = 0.f;
+        m_aiDefenseTimer = 0.f;
+        m_aiState = AiBuildOrderState::Opening;
+        m_lastFeedbackAiState = AiBuildOrderState::Opening;
+        m_feedbackSnapshots.clear();
+        world::resetRuntimeServices(m_world);
         setupInitialWorld();
+        world::rebuildSpatialIndex(m_world);
     }
 
     // =========================================================
@@ -1195,9 +1238,11 @@ namespace rts::core::manager {
     namespace {
         constexpr float kAiProduceInterval = 5.0f;   // train workers/warriors cadence
         constexpr float kAiGatherInterval = 3.0f;     // assign idle workers cadence
+        constexpr float kAiDefenseInterval = 1.0f;    // tactical threat scan cadence
         constexpr float kAiWaveInterval = 45.0f;       // send a wave even if undersized
         constexpr int   kAiMaxWorkers = 6;             // economy worker cap
         constexpr int   kAiWaveArmySize = 6;           // launch once this many idle soldiers mass
+        constexpr float kAiDefenseRadius = 420.0f;
     }
 
     std::shared_ptr<model::Building> GameLogicManager::findTownHall(int teamId) const {
@@ -1211,6 +1256,49 @@ namespace rts::core::manager {
             }
         }
         return nullptr;
+    }
+
+    std::shared_ptr<model::Building> GameLogicManager::findBarracks(
+        const int teamId, const bool requireComplete) const {
+        for (const auto& element : m_world.getElements()) {
+            auto building = std::dynamic_pointer_cast<model::Building>(element);
+            if (building &&
+                building->buildingType() == model::BuildingType::Barracks &&
+                building->getTeamId() == teamId &&
+                building->getAction() != model::ActionType::Dead &&
+                (!requireComplete || building->isComplete())) {
+                return building;
+            }
+        }
+        return nullptr;
+    }
+
+    std::shared_ptr<model::Unit> GameLogicManager::findIdleWorker(const int teamId) const {
+        for (const auto& element : m_world.getElements()) {
+            auto unit = std::dynamic_pointer_cast<model::Unit>(element);
+            if (unit &&
+                unit->getTeamId() == teamId &&
+                unit->isWorker() &&
+                unit->getAction() == model::ActionType::Idle) {
+                return unit;
+            }
+        }
+        return nullptr;
+    }
+
+    int GameLogicManager::countCombatUnits(const int teamId, const bool idleOnly) const {
+        int count = 0;
+        for (const auto& element : m_world.getElements()) {
+            auto unit = std::dynamic_pointer_cast<model::Unit>(element);
+            if (unit &&
+                unit->getTeamId() == teamId &&
+                !unit->isWorker() &&
+                unit->getAction() != model::ActionType::Dead &&
+                (!idleOnly || unit->getAction() == model::ActionType::Idle)) {
+                ++count;
+            }
+        }
+        return count;
     }
 
     int GameLogicManager::countTownHalls(int teamId) const {
@@ -1227,14 +1315,120 @@ namespace rts::core::manager {
         return count;
     }
 
+    model::Vector2D GameLogicManager::aiRallyPoint() const {
+        const auto enemyHall = findTownHall(model::TeamId::Enemy);
+        const auto playerHall = findTownHall(model::TeamId::Player);
+        if (enemyHall && playerHall) {
+            const auto a = enemyHall->getPosition();
+            const auto b = playerHall->getPosition();
+            return { a.x * 0.65f + b.x * 0.35f, a.y * 0.65f + b.y * 0.35f };
+        }
+        return enemyHall ? enemyHall->getPosition() : model::Vector2D{ 0.0f, 0.0f };
+    }
+
+    std::optional<model::Vector2D> GameLogicManager::findBuildSiteNear(
+        const model::Vector2D& center, const data::BuildingStaticData& data) const {
+        const auto& tf = m_world.gridTransform();
+        const auto centerCell = tf.worldToGrid(center);
+        for (int radius = 5; radius <= 14; ++radius) {
+            for (int dy = -radius; dy <= radius; ++dy) {
+                for (int dx = -radius; dx <= radius; ++dx) {
+                    if (std::max(std::abs(dx), std::abs(dy)) != radius) {
+                        continue;
+                    }
+                    const int originX = centerCell.x + dx - data.footprintWidth / 2;
+                    const int originY = centerCell.y + dy - data.footprintHeight / 2;
+                    if (!canPlaceBuilding(originX, originY, data.footprintWidth, data.footprintHeight)) {
+                        continue;
+                    }
+                    const float halfW = data.footprintWidth * tf.tileSize * 0.5f;
+                    const float halfH = data.footprintHeight * tf.tileSize * 0.5f;
+                    const model::Vector2D originCenter =
+                        tf.gridToWorldCenter(path::GridPos{ originX, originY });
+                    return model::Vector2D {
+                        originCenter.x - tf.tileSize * 0.5f + halfW,
+                        originCenter.y - tf.tileSize * 0.5f + halfH
+                    };
+                }
+            }
+        }
+        return std::nullopt;
+    }
+
+    bool GameLogicManager::tryStartAiBarracks() {
+        if (findBarracks(model::TeamId::Enemy, false)) {
+            return false;
+        }
+        auto worker = findIdleWorker(model::TeamId::Enemy);
+        auto townHall = findTownHall(model::TeamId::Enemy);
+        if (!worker || !townHall) {
+            return false;
+        }
+
+        const auto data = core::data::buildingStaticDataFor(model::BuildingType::Barracks);
+        if (!hasBuildingRequirements(model::TeamId::Enemy, data)) {
+            return false;
+        }
+
+        auto resources = m_world.playerResources(model::TeamId::Enemy);
+        if (!resources.canAfford(data.cost())) {
+            return false;
+        }
+
+        const auto sitePos = findBuildSiteNear(townHall->getPosition(), data);
+        if (!sitePos) {
+            return false;
+        }
+
+        auto site = std::make_shared<model::Building>(
+            model::BuildingType::Barracks, *sitePos, model::TeamId::Enemy);
+        site->beginConstruction(data.buildTimeSeconds, data.maxHp * 0.1f);
+        site->setRallyPoint(aiRallyPoint());
+        registerBuildingSpawn(*site);
+        m_world.addElement(site);
+        resources.pay(data.cost());
+        m_world.setPlayerResources(model::TeamId::Enemy, resources);
+        worker->buildAt(site.get());
+        world::emitEffect(m_world, world::EffectType::ConstructionDust, *sitePos, 72.0f, 0.65f);
+        return true;
+    }
+
+    void GameLogicManager::emitStateFeedback() {
+        if (m_aiState == m_lastFeedbackAiState) {
+            return;
+        }
+        m_lastFeedbackAiState = m_aiState;
+        if (m_aiState == AiBuildOrderState::Attack) {
+            world::emitSound(m_world, world::SoundCue::AttackOrder, aiRallyPoint(), 35.0f);
+        }
+    }
+
     void GameLogicManager::updateAI(float dt) {
         if (m_world.gameResult() != core::world::GameResult::InProgress) {
             return;
         }
 
+        updateAiBuildOrder();
         updateAiProduction(dt);
         updateAiWorkers(dt);
+        updateAiDefense(dt);
         updateAiWaves(dt);
+    }
+
+    void GameLogicManager::updateAiBuildOrder() {
+        const auto barracks = findBarracks(model::TeamId::Enemy, false);
+        const int combat = countCombatUnits(model::TeamId::Enemy, false);
+        if (!barracks) {
+            m_aiState = combat > 0 ? AiBuildOrderState::Rebuild : AiBuildOrderState::BuildBarracks;
+            tryStartAiBarracks();
+        } else if (combat >= kAiWaveArmySize) {
+            m_aiState = AiBuildOrderState::Attack;
+        } else if (combat > 0 || findBarracks(model::TeamId::Enemy, true)) {
+            m_aiState = AiBuildOrderState::ProduceArmy;
+        } else {
+            m_aiState = AiBuildOrderState::Gather;
+        }
+        emitStateFeedback();
     }
 
     void GameLogicManager::updateAiProduction(const float dt) {
@@ -1272,6 +1466,7 @@ namespace rts::core::manager {
                 if (workerCount >= kAiMaxWorkers) continue;
                 unitType = ::rts::UnitType::Worker;
             } else {
+                building->setRallyPoint(aiRallyPoint());
                 unitType = defaultUnitFor(building->buildingType());
             }
 
@@ -1304,7 +1499,10 @@ namespace rts::core::manager {
             }
 
             auto resource = findClosestAvailableResource(
-                model::ResourceNode::ResourceType::Gold, *worker);
+                m_world.playerResources(model::TeamId::Enemy).wood < 120
+                    ? model::ResourceNode::ResourceType::Wood
+                    : model::ResourceNode::ResourceType::Gold,
+                *worker);
             if (!resource) {
                 resource = findClosestAvailableResource(
                     model::ResourceNode::ResourceType::Wood, *worker);
@@ -1318,6 +1516,51 @@ namespace rts::core::manager {
                 worker->gather(resource.get(), dropOff.get());
             }
         }
+    }
+
+    void GameLogicManager::updateAiDefense(const float dt) {
+        m_aiDefenseTimer += dt;
+        if (m_aiDefenseTimer < kAiDefenseInterval) {
+            return;
+        }
+        m_aiDefenseTimer = 0.0f;
+
+        std::optional<model::Vector2D> threatPos;
+        for (const auto& element : m_world.getElements()) {
+            auto building = std::dynamic_pointer_cast<model::Building>(element);
+            if (!building ||
+                building->getTeamId() != model::TeamId::Enemy ||
+                building->getAction() == model::ActionType::Dead) {
+                continue;
+            }
+            for (const auto& nearby : world::queryRadius(
+                     m_world, building->getPosition(), kAiDefenseRadius)) {
+                auto unit = std::dynamic_pointer_cast<model::Unit>(nearby);
+                if (unit &&
+                    unit->getTeamId() == model::TeamId::Player &&
+                    !unit->isWorker() &&
+                    unit->getAction() != model::ActionType::Dead) {
+                    threatPos = unit->getPosition();
+                    break;
+                }
+            }
+            if (threatPos) break;
+        }
+
+        if (!threatPos) {
+            return;
+        }
+
+        for (const auto& element : m_world.getElements()) {
+            auto unit = std::dynamic_pointer_cast<model::Unit>(element);
+            if (unit &&
+                unit->getTeamId() == model::TeamId::Enemy &&
+                !unit->isWorker() &&
+                unit->getAction() == model::ActionType::Idle) {
+                m_movement.issueAttackMove(m_world, *unit, *threatPos);
+            }
+        }
+        world::emitSound(m_world, world::SoundCue::AttackOrder, *threatPos, 34.0f);
     }
 
     void GameLogicManager::updateAiWaves(const float dt) {
@@ -1339,6 +1582,19 @@ namespace rts::core::manager {
         const bool massReady = idleSoldiers >= kAiWaveArmySize;
         const bool timedOut = m_aiWaveTimer >= kAiWaveInterval;
         if ((!massReady && !timedOut) || idleSoldiers == 0) {
+            if (idleSoldiers > 0) {
+                const auto rally = aiRallyPoint();
+                for (const auto& element : m_world.getElements()) {
+                    auto unit = std::dynamic_pointer_cast<model::Unit>(element);
+                    if (unit &&
+                        unit->getTeamId() == model::TeamId::Enemy &&
+                        !unit->isWorker() &&
+                        unit->getAction() == model::ActionType::Idle &&
+                        distanceSq(unit->getPosition(), rally) > 80.0f * 80.0f) {
+                        m_movement.issueMove(m_world, *unit, rally, false);
+                    }
+                }
+            }
             return;
         }
         m_aiWaveTimer = 0.f;
@@ -1356,6 +1612,7 @@ namespace rts::core::manager {
                 m_movement.issueAttackMove(m_world, *unit, target->getPosition());
             }
         }
+        world::emitSound(m_world, world::SoundCue::AttackOrder, target->getPosition(), 42.0f);
     }
 
     void GameLogicManager::checkVictoryDefeat() {
@@ -1368,9 +1625,62 @@ namespace rts::core::manager {
 
         if (playerHalls == 0) {
             m_world.setGameResult(core::world::GameResult::Defeat);
+            world::emitSound(m_world, world::SoundCue::Defeat, {}, 80.0f);
         } else if (enemyHalls == 0) {
             m_world.setGameResult(core::world::GameResult::Victory);
+            world::emitSound(m_world, world::SoundCue::Victory, {}, 80.0f);
         }
+    }
+
+    void GameLogicManager::captureFeedbackSnapshots() {
+        std::unordered_map<std::uint32_t, ElementSnapshot> next;
+        for (const auto& element : m_world.getElements()) {
+            auto gameElement = std::dynamic_pointer_cast<model::IGameElement>(element);
+            if (!gameElement) {
+                continue;
+            }
+            float hp = 0.0f;
+            bool complete = false;
+            if (const auto unit = std::dynamic_pointer_cast<model::Unit>(element)) {
+                hp = unit->getHp();
+            } else if (const auto building = std::dynamic_pointer_cast<model::Building>(element)) {
+                hp = building->getHp();
+                complete = building->isComplete();
+            } else if (const auto resource = std::dynamic_pointer_cast<model::ResourceNode>(element)) {
+                hp = static_cast<float>(resource->remaining());
+            }
+
+            const auto id = gameElement->entityId().index;
+            const auto action = gameElement->getAction();
+            if (const auto it = m_feedbackSnapshots.find(id); it != m_feedbackSnapshots.end()) {
+                const auto& prev = it->second;
+                if (hp < prev.hp && action != model::ActionType::Dead) {
+                    world::emitSound(m_world, world::SoundCue::Hit,
+                                     gameElement->getPosition(), 44.0f);
+                    world::emitEffect(m_world, world::EffectType::HitSpark,
+                                      gameElement->getPosition(), 34.0f, 0.28f);
+                }
+                if (prev.action != model::ActionType::Dead &&
+                    action == model::ActionType::Dead) {
+                    const auto pos = gameElement->getPosition();
+                    world::emitSound(m_world, world::SoundCue::Death, pos, 58.0f);
+                    world::emitEffect(m_world, world::EffectType::DeathBurst, pos, 52.0f, 0.6f);
+                    world::emitEffect(m_world, world::EffectType::BloodDecal, pos, 24.0f, 6.0f, 0x4A050566u);
+                }
+                if (!prev.complete && complete) {
+                    world::emitSound(m_world, world::SoundCue::ConstructionComplete,
+                                     gameElement->getPosition(), 62.0f);
+                    world::emitEffect(m_world, world::EffectType::ConstructionDust,
+                                      gameElement->getPosition(), 82.0f, 0.75f);
+                }
+            }
+            next[id] = ElementSnapshot {
+                .hp = hp,
+                .complete = complete,
+                .action = action
+            };
+        }
+        m_feedbackSnapshots.swap(next);
     }
 
     bool GameLogicManager::inputLocked() const {

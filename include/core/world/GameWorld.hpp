@@ -71,6 +71,9 @@ namespace rts::core::world {
         // Ranged attacks spawn projectiles here; the logic tick advances them and
         // drops the ones that hit/expire. Caller holds the write lock.
         void spawnProjectile(const std::shared_ptr<model::Projectile>& projectile);
+        void spawnProjectile(model::Vector2D origin, model::IGameElement* target,
+                             float damage, data::WeaponType weapon, int ownerTeam,
+                             data::SplashRadii splash);
         const std::vector<std::shared_ptr<model::Projectile>>& projectiles() const;
         void updateProjectiles(float dt);
 
@@ -141,6 +144,7 @@ namespace rts::core::world {
         map::FogOfWar m_fog;  // local player's vision (explored/visible)
         std::vector<std::shared_ptr<model::IElement>> m_elements;
         std::vector<std::shared_ptr<model::Projectile>> m_projectiles;
+        std::vector<std::shared_ptr<model::Projectile>> m_projectilePool;
         ecs::EntityManager m_entities;
         std::unordered_map<std::uint32_t, std::weak_ptr<model::IGameElement>> m_entityByIndex;
         std::unordered_map<int, model::PlayerResourceState> m_playerResources;

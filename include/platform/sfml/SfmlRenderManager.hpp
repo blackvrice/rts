@@ -22,6 +22,7 @@ namespace rts::core::render {
     struct UpdateHudSelection;
     struct UpdateHudCursor;
     struct UpdateMinimap;
+    struct PlaySound;
 }
 
 namespace rts::platform::sfml {
@@ -48,6 +49,8 @@ namespace rts::platform::sfml {
         static void draw(sf::RenderWindow& window, const core::render::UpdateHudSelection& selection);
 
         static void draw(sf::RenderWindow& window, const core::render::UpdateHudCursor& cursor);
+
+        static void draw(sf::RenderWindow& window, const core::render::PlaySound& sound);
 
         static void draw(sf::RenderWindow& window, const core::render::UpdateMinimap& minimap);
 
