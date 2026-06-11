@@ -78,5 +78,6 @@ namespace rts::core::manager {
         core::model::Vector2D m_mousePos {};
         bool m_hasMousePos { false };
         bool m_isDragging { false };
+        bool m_showDebugOverlay { false };  // F3 toggles tick/world-hash readout
     };
 }

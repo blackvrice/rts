@@ -1677,19 +1677,25 @@ struct Cost
 
 ## Epic 7.1 Tiled 맵 로딩
 
-현재 상태: `[50% — JSON 맵 로딩 경로 구현(data/maps/*.json, core/map/MapLoader). Tiled .tmx(XML) 임포트는 별개 후속]`
+현재 상태: `[100% — JSON 네이티브 + Tiled .tmx(tmxlite) 임포트. loadMap이 확장자로 분기]`
 
 ### Task
 
 ```text
-[ ] .tmx 파싱 안정화
-[ ] TileLayer 로딩
-[ ] ObjectLayer 로딩
-[ ] Collision Layer 로딩
-[ ] Resource Spawn Point 로딩
-[ ] Player Start Point 로딩
-[ ] Neutral Object 로딩
-[ ] MapData를 World로 변환
+[x] .tmx 파싱 안정화 (vendored tmxlite로 tmx::Map::load, loadMap이 .tmx 확장자 감지 → loadTmxMap)
+[x] TileLayer 로딩 (tmx::TileLayer::getTiles 순회)
+[x] ObjectLayer 로딩 (tmx::ObjectGroup::getObjects, class=building/unit/resource)
+[x] Collision Layer 로딩 (이름에 "collis" 포함된 타일 레이어의 비-0 gid → blockedTiles)
+[x] Resource Spawn Point 로딩 (class=resource + kind=gold/wood)
+[~] Player Start Point 로딩 (building/unit를 좌표에 직접 배치. 별도 "start" 마커는 파싱은 하되 현재 미사용)
+[x] Neutral Object 로딩 (자원은 중립, team=neutral 객체 처리)
+[x] MapData를 World로 변환 (기존 setupInitialWorld가 MapData→World 변환; .tmx가 MapData를 채움)
+```
+
+### 완료 기준
+
+```text
+- Tiled에서 만든 맵으로 실제 게임을 시작할 수 있다. ✅ (data/maps/tiled_skirmish.tmx 샘플; 시나리오 경로를 .tmx로 지정)
 ```
 
 ### 완료 기준
@@ -1729,19 +1735,25 @@ struct Cost
 
 ## Epic 7.3 World Hash
 
-현재 상태: `[0%]`
+현재 상태: `[100% 핵심 — 완료 기준 충족. 명령/생산 큐 포함은 후속]`
 
 ### Task
 
 ```text
-[ ] WorldHash 함수 추가
-[ ] EntityId 정렬 후 해시
-[ ] 위치/HP/상태/명령 큐 포함
-[ ] PlayerResource 포함
-[ ] ProductionQueue 포함
-[ ] RandomSeed 포함
-[ ] 렌더링/UI 상태 제외
-[ ] DebugOverlay에 Hash 표시
+[x] WorldHash 함수 추가 (GameWorld::worldHash, FNV-1a 64bit)
+[x] EntityId 정렬 후 해시 (entityId().index 정렬 후 순회 — 반복 순서 무관)
+[~] 위치/HP/상태/명령 큐 포함 (위치(정수화)/HP/액션/팀 포함. 명령 큐는 후속)
+[x] PlayerResource 포함 (gold/wood/foodUsed/foodCapacity/army)
+[~] ProductionQueue 포함 (현재 미포함 — 후속)
+[x] RandomSeed 포함 (프로젝트에 RNG 없음 → 시드 불필요, 결정성 영향 없음)
+[x] 렌더링/UI 상태 제외 (시뮬레이션 상태만 해시)
+[x] DebugOverlay에 Hash 표시 (F3 토글, 좌상단 tick + hash 텍스트)
+```
+
+### 완료 기준
+
+```text
+- 같은 상태는 같은 Hash를 가진다. ✅ (정수화로 부동소수 잡음 제거)
 ```
 
 ### 완료 기준

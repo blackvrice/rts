@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Sample Tiled map (object-only, no tilesets) loaded via tmxlite.
+     Object class = building|unit|resource; "kind"/"team" are custom properties.
+     Point the scenario path at this file (.tmx) to start a game from a Tiled map. -->
+<map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="32" height="32" tilewidth="64" tileheight="64" infinite="0" nextlayerid="2" nextobjectid="12">
+ <properties>
+  <property name="playerGold" type="int" value="500"/>
+  <property name="playerWood" type="int" value="300"/>
+  <property name="enemyGold" type="int" value="500"/>
+  <property name="enemyWood" type="int" value="300"/>
+ </properties>
+ <objectgroup id="1" name="objects">
+  <object id="1" class="building" x="220" y="220">
+   <properties>
+    <property name="kind" value="townhall"/>
+    <property name="team" value="player"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="2" class="building" x="500" y="220">
+   <properties>
+    <property name="kind" value="barracks"/>
+    <property name="team" value="player"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="3" class="building" x="1200" y="760">
+   <properties>
+    <property name="kind" value="townhall"/>
+    <property name="team" value="enemy"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="4" class="building" x="1480" y="760">
+   <properties>
+    <property name="kind" value="barracks"/>
+    <property name="team" value="enemy"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="5" class="unit" x="240" y="460">
+   <properties>
+    <property name="kind" value="worker"/>
+    <property name="team" value="player"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="6" class="unit" x="350" y="460">
+   <properties>
+    <property name="kind" value="warrior"/>
+    <property name="team" value="player"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="7" class="unit" x="460" y="460">
+   <properties>
+    <property name="kind" value="archer"/>
+    <property name="team" value="player"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="8" class="unit" x="1200" y="1000">
+   <properties>
+    <property name="kind" value="warrior"/>
+    <property name="team" value="enemy"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="9" class="resource" x="120" y="620">
+   <properties>
+    <property name="kind" value="gold"/>
+   </properties>
+   <point/>
+  </object>
+  <object id="10" class="resource" x="120" y="760">
+   <properties>
+    <property name="kind" value="wood"/>
+   </properties>
+   <point/>
+  </object>
+ </objectgroup>
+</map>

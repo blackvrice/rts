@@ -157,6 +157,62 @@ namespace rts::core::world {
         }
     }
 
+    std::uint64_t GameWorld::worldHash() const {
+        // FNV-1a over quantized, render-independent state. Floats are rounded so
+        // visually-identical states hash identically.
+        std::uint64_t h = 0xcbf29ce484222325ull;
+        const auto mix = [&h](const std::uint64_t v) {
+            h ^= v;
+            h *= 0x100000001b3ull;
+        };
+        const auto mixF = [&mix](const float f) {
+            mix(static_cast<std::uint64_t>(std::llround(f)));
+        };
+
+        mix(static_cast<std::uint64_t>(m_currentTick));
+
+        for (const int team : { model::TeamId::Player, model::TeamId::Enemy }) {
+            const auto& r = playerResources(team);
+            mix(static_cast<std::uint64_t>(team));
+            mix(static_cast<std::uint64_t>(static_cast<std::int64_t>(r.gold)));
+            mix(static_cast<std::uint64_t>(static_cast<std::int64_t>(r.wood)));
+            mix(static_cast<std::uint64_t>(static_cast<std::int64_t>(r.foodUsed)));
+            mix(static_cast<std::uint64_t>(static_cast<std::int64_t>(r.foodCapacity)));
+            mix(static_cast<std::uint64_t>(static_cast<std::int64_t>(r.army)));
+        }
+
+        // Entities in a stable order (by EntityId slot) so iteration order can't
+        // perturb the hash.
+        std::vector<model::IGameElement*> ents;
+        ents.reserve(m_elements.size());
+        for (const auto& el : m_elements) {
+            if (auto* ge = dynamic_cast<model::IGameElement*>(el.get())) {
+                ents.push_back(ge);
+            }
+        }
+        std::sort(ents.begin(), ents.end(), [](const auto* a, const auto* b) {
+            return a->entityId().index < b->entityId().index;
+        });
+
+        for (auto* ge : ents) {
+            const auto id = ge->entityId();
+            mix((static_cast<std::uint64_t>(id.index) << 32) ^ id.generation);
+            std::uint64_t tag = 0;
+            float hp = 0.0f;
+            if (const auto* u = dynamic_cast<const model::Unit*>(ge)) { tag = 1; hp = u->getHp(); }
+            else if (const auto* b = dynamic_cast<const model::Building*>(ge)) { tag = 2; hp = b->getHp(); }
+            else if (const auto* rn = dynamic_cast<const model::ResourceNode*>(ge)) { tag = 3; hp = static_cast<float>(rn->remaining()); }
+            mix(tag);
+            const auto p = ge->getPosition();
+            mixF(p.x);
+            mixF(p.y);
+            mixF(hp);
+            mix(static_cast<std::uint64_t>(static_cast<int>(ge->getAction())));
+            mix(static_cast<std::uint64_t>(static_cast<std::int64_t>(ge->getTeamId())));
+        }
+        return h;
+    }
+
     void GameWorld::setTileBlocked(const int x, const int y, const bool blocked) {
         if (x < 0 || y < 0 || x >= gridWidth() || y >= gridHeight()) {
             return;

@@ -118,6 +118,12 @@ namespace rts::core::world {
         void updateFog();
         const map::FogOfWar& fog() const noexcept { return m_fog; }
 
+        // Deterministic 64-bit digest of simulation state (tick, player economy and
+        // every entity's id/type/quantized position/hp/action/team), excluding
+        // rendering/UI. Equal states hash equal; used by replay verification and the
+        // debug overlay. Caller holds at least a read lock.
+        std::uint64_t worldHash() const;
+
     private:
         // Area-of-effect damage around a splash impact; opposing team only, with
         // distance falloff and weapon/armor scaling. Used by splashing projectiles.

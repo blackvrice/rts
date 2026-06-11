@@ -6,6 +6,7 @@
 
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <unordered_set>
 #include <utility>
 
@@ -237,6 +238,10 @@ namespace rts::core::manager {
                     case core::model::Key::Escape:
                         // Cancel an armed build placement back to the default mode.
                         m_worldOrderMode = WorldOrderMode::Attack;
+                        break;
+                    case core::model::Key::F3:
+                        // Toggle the deterministic debug overlay (tick + world hash).
+                        m_showDebugOverlay = !m_showDebugOverlay;
                         break;
                     case core::model::Key::Left:
                         m_camera.moveBy({-kCameraStep, 0.0f});
@@ -646,10 +651,11 @@ namespace rts::core::manager {
                     if (state == core::map::FogOfWar::State::Visible) {
                         continue;
                     }
+                    // Colors are 0xRRGGBBAA (SFML), so alpha is the last byte.
                     const std::uint32_t fill =
                         state == core::map::FogOfWar::State::Unexplored
-                            ? 0xE605070Au   // unexplored: near-opaque shroud
-                            : 0x6605070Au;  // explored: translucent shroud
+                            ? 0x05070AE6u   // unexplored: near-opaque shroud
+                            : 0x05070A66u;  // explored: translucent shroud
                     const core::model::Vector2D tl{ x * tile, y * tile };
                     const core::model::Vector2D br{ tl.x + tile, tl.y + tile };
                     m_renderQueue.emplace(
@@ -704,6 +710,24 @@ namespace rts::core::manager {
                 }
             }
             m_renderQueue.emplace(core::render::RenderLayer::UI, -97, std::move(mm));
+        }
+
+        // Debug overlay (F3): deterministic tick + world hash, top-left.
+        if (m_showDebugOverlay) {
+            char buf[96];
+            std::snprintf(buf, sizeof(buf), "tick %llu   hash %016llx",
+                          static_cast<unsigned long long>(m_world.currentTick()),
+                          static_cast<unsigned long long>(m_world.worldHash()));
+            m_renderQueue.emplace(
+                core::render::RenderLayer::UI,
+                -60,
+                core::render::DrawText {
+                    .pos = { 12.0f, 12.0f },
+                    .color = 0xE6F2FFFFu,  // light, opaque (0xRRGGBBAA)
+                    .fontId = 1u,
+                    .size = 18,
+                    .text = buf
+                });
         }
 
         // Victory / defeat banner centered on screen once the match is decided.

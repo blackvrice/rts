@@ -1,5 +1,20 @@
 # Development Log
 
+## 2026-06-11 - Epic 7.1/7.3 Tiled 맵 로딩 + World Hash
+
+### Epic 7.3 World Hash
+- **GameWorld::worldHash()**: FNV-1a 64bit. currentTick + 팀별 자원(gold/wood/foodUsed/foodCapacity/army) + EntityId.index 정렬 엔티티(타입태그/정수화 위치/HP/액션/팀) 해시. 부동소수는 llround로 정수화해 시각적 동일 상태가 동일 해시. 렌더/UI 제외. 프로젝트에 RNG가 없어 시드 불필요.
+- **디버그 오버레이**: GameUIManager에 F3 토글(m_showDebugOverlay), 좌상단에 `tick N hash 0x...` DrawText. 명령/생산 큐 해시 포함은 후속.
+- (부수) 6.3 안개 shroud 색을 SFML RGBA(0xRRGGBBAA) 규약에 맞게 수정 — 이전 값은 알파가 마지막 바이트가 아니라 거의 투명했음(0xE605070A→0x05070AE6).
+
+### Epic 7.1 Tiled 맵 로딩
+- **tmxlite 연동**: vendored external/tmxlite(이미 링크됨)로 실제 .tmx 파싱. MapLoader::loadMap이 .tmx 확장자면 loadTmxMap, 아니면 기존 네이티브 JSON.
+- **loadTmxMap**: getTileCount/getTileSize→width/height/tileSize. ObjectGroup의 객체를 class(building/unit/resource) + 프로퍼티(kind/team)로 MapData 스폰에 매핑(좌표는 픽셀 그대로). 이름에 "collis" 포함된 TileLayer의 비-0 gid를 blockedTiles로. 맵 레벨 int 프로퍼티 playerGold/Wood/enemyGold/Wood로 경제 시드.
+- **샘플**: data/maps/tiled_skirmish.tmx(타일셋 없는 오브젝트 맵). 시나리오 경로를 .tmx로 지정하면 로드(기본은 skirmish.json 유지).
+
+### 검증
+- 빌드 성공(전 타깃). tmxlite 헤더/링크 정상. World Hash·F3 오버레이·tmx 로드는 수동 확인 필요.
+
 ## 2026-06-11 - Epic 6.2/6.3 미니맵 + 전장의 안개
 
 ### Epic 6.3 Fog of War
