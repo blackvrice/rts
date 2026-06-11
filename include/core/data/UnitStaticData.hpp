@@ -22,6 +22,9 @@ namespace rts::core::data {
         WeaponType weaponType { WeaponType::Normal };
         ArmorType armorType { ArmorType::Light };
         SplashRadii splash {};  // ranged attacks splash when outer > 0
+        MovementDomain domain { MovementDomain::Ground };  // layer this unit occupies
+        bool attacksGround { true };   // can target Ground-domain enemies
+        bool attacksAir { true };      // can target Air-domain enemies
         int goldCost { 0 };
         int woodCost { 0 };
         int foodCost { 0 };

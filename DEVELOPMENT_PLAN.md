@@ -1335,9 +1335,9 @@ RVO보다 먼저:
 
 ```text
 [x] 타겟 사망 시 재탐색
-[ ] 공격 불가 대상 필터링
-[ ] 공중/지상 공격 가능 여부 추가 준비
-[ ] 사거리 계산 최적화
+[x] 공격 불가 대상 필터링 (Unit::canAttackTarget 중앙화 — 죽은/아군/중립 자원 제외, attack/beginAttack/holdEngage·자동획득 공통 적용)
+[x] 공중/지상 공격 가능 여부 추가 준비 (MovementDomain + attacksGround/attacksAir 데이터·JSON 배선, canAttackTarget에서 레이어 검사)
+[x] 사거리 계산 최적화 (m_attackRangeSq 캐시; 모든 사거리 비교는 distanceSq vs rangeSq 제곱 비교)
 ```
 
 ---

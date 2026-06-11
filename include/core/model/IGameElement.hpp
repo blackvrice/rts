@@ -82,6 +82,10 @@ namespace rts::core::model {
         // 전투 상성: 받는 쪽의 장갑 타입 (기본 Unarmored, Unit/Building이 오버라이드)
         virtual data::ArmorType armorType() const { return data::ArmorType::Unarmored; }
 
+        // 점유 레이어 (지상/공중). 공격 측의 지상/공중 공격 가능 여부 판정에 쓰인다.
+        // 기본 Ground (건물·자원 포함); 공중 유닛만 오버라이드.
+        virtual data::MovementDomain movementDomain() const { return data::MovementDomain::Ground; }
+
         // 엔티티 핸들 (GameWorld가 addElement 시 부여)
         ecs::EntityId entityId() const noexcept { return m_entityId; }
         void setEntityId(const ecs::EntityId id) noexcept { m_entityId = id; }

@@ -70,6 +70,10 @@ namespace rts::core::model {
         m_weaponType = staticData.weaponType;
         m_armorType = staticData.armorType;
         m_splash = staticData.splash;
+        m_domain = staticData.domain;
+        m_attacksGround = staticData.attacksGround;
+        m_attacksAir = staticData.attacksAir;
+        m_attackRangeSq = attackRange * attackRange;
     }
 
     ActionType Unit::getAction() const {
@@ -129,11 +133,25 @@ namespace rts::core::model {
         return attackRange >= kRangedAttackThreshold;
     }
 
+    bool Unit::canAttackTarget(const IGameElement* target) const {
+        if (!target || target == this) return false;
+        if (target->getAction() == ActionType::Dead) return false;
+        // Neutral attackers don't fight, and only non-neutral opposing teams are
+        // valid victims (neutral resources are gathered, allies are never hit).
+        if (m_teamId == TeamId::Neutral) return false;
+        const int targetTeam = target->getTeamId();
+        if (targetTeam == TeamId::Neutral || targetTeam == m_teamId) return false;
+        // Air/ground targeting capability must cover the target's layer.
+        switch (target->movementDomain()) {
+            case core::data::MovementDomain::Ground: return m_attacksGround;
+            case core::data::MovementDomain::Air:    return m_attacksAir;
+        }
+        return false;
+    }
+
     void Unit::beginAttack(IGameElement* target, bool preserveAttackMove, bool preservePatrol) {
         if (m_action == ActionType::Dead) return;
-        if (!target) return;
-        if (target->getAction() == ActionType::Dead) return;
-        if (target->getTeamId() == m_teamId && m_teamId != TeamId::Neutral) return;
+        if (!canAttackTarget(target)) return;
 
         m_attackRetargetRequested = false;
         const bool keepAttackMove = preserveAttackMove && m_attackMoveActive;
@@ -150,7 +168,7 @@ namespace rts::core::model {
         m_moveTarget = target->getPosition();
         m_finalTargetWorld = m_moveTarget;
         // The order is attack, but the sprite should run until the weapon is in range.
-        m_animationAction = distanceSq(m_moveTarget, m_position) <= attackRange * attackRange
+        m_animationAction = distanceSq(m_moveTarget, m_position) <= m_attackRangeSq
                                 ? ActionType::Attack
                                 : ActionType::Move;
         m_gridPath.clear();
@@ -195,11 +213,9 @@ namespace rts::core::model {
 
     void Unit::holdEngage(IGameElement* target) {
         if (m_action == ActionType::Dead) return;
-        if (!target || target->getAction() == ActionType::Dead) return;
-        if (target->getTeamId() == m_teamId && m_teamId != TeamId::Neutral) return;
+        if (!canAttackTarget(target)) return;
 
-        const float rangeSq = attackRange * attackRange;
-        if (distanceSq(target->getPosition(), m_position) > rangeSq) {
+        if (distanceSq(target->getPosition(), m_position) > m_attackRangeSq) {
             return;
         }
 
@@ -255,7 +271,7 @@ namespace rts::core::model {
             return;
         }
 
-        const float rangeSq = attackRange * attackRange;
+        const float rangeSq = m_attackRangeSq;
         if (distanceSq(target->getPosition(), m_position) > rangeSq) {
             // Hold position never chases; targets outside weapon range are released.
             m_attackTargetId = ecs::InvalidEntityId;
@@ -374,7 +390,7 @@ namespace rts::core::model {
         m_finalTargetWorld = targetPos;
 
         float distSq = distanceSq(targetPos, m_position);
-        float rangeSq = attackRange * attackRange;
+        float rangeSq = m_attackRangeSq;
 
         if (distSq > rangeSq) {
             m_animationAction = ActionType::Move;

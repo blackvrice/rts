@@ -392,10 +392,7 @@ namespace rts::core::manager {
 
         for (const auto& element : m_world.getElements()) {
             auto candidate = std::dynamic_pointer_cast<model::IGameElement>(element);
-            if (!candidate ||
-                candidate.get() == &unit ||
-                candidate->getAction() == model::ActionType::Dead ||
-                !isOpposingTeam(unit.getTeamId(), candidate->getTeamId())) {
+            if (!candidate || !unit.canAttackTarget(candidate.get())) {
                 continue;
             }
 
@@ -470,10 +467,7 @@ namespace rts::core::manager {
 
         for (const auto& element : m_world.getElements()) {
             auto candidate = std::dynamic_pointer_cast<model::IGameElement>(element);
-            if (!candidate ||
-                candidate.get() == &unit ||
-                candidate->getAction() == model::ActionType::Dead ||
-                !isOpposingTeam(unit.getTeamId(), candidate->getTeamId())) {
+            if (!candidate || !unit.canAttackTarget(candidate.get())) {
                 continue;
             }
 
@@ -521,10 +515,7 @@ namespace rts::core::manager {
 
         for (const auto& element : m_world.getElements()) {
             auto candidate = std::dynamic_pointer_cast<model::IGameElement>(element);
-            if (!candidate ||
-                candidate.get() == &unit ||
-                candidate->getAction() == model::ActionType::Dead ||
-                !isOpposingTeam(unit.getTeamId(), candidate->getTeamId())) {
+            if (!candidate || !unit.canAttackTarget(candidate.get())) {
                 continue;
             }
 

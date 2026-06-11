@@ -82,6 +82,10 @@ namespace rts::core::model {
         core::data::WeaponType getWeaponType() const noexcept;
         core::data::ArmorType getArmorType() const noexcept;
         core::data::ArmorType armorType() const override { return m_armorType; }
+        core::data::MovementDomain movementDomain() const override { return m_domain; }
+        // 공격 가능 대상 판정: 살아있는 적(다른 팀, 중립 자원 제외)이며
+        // 이 유닛의 지상/공중 공격 능력이 대상 레이어를 커버할 때만 true.
+        bool canAttackTarget(const IGameElement* target) const;
         ::rts::UnitType unitType() const noexcept;
         bool isWorker() const noexcept;
         bool hasResourceDeliveryReady() const noexcept;
@@ -235,6 +239,10 @@ namespace rts::core::model {
         core::data::WeaponType m_weaponType = core::data::WeaponType::Normal;
         core::data::ArmorType m_armorType = core::data::ArmorType::Light;
         core::data::SplashRadii m_splash {};  // ranged splash; outer==0 means single-target
+        core::data::MovementDomain m_domain = core::data::MovementDomain::Ground;
+        bool m_attacksGround = true;
+        bool m_attacksAir = true;
+        float m_attackRangeSq = 0.f;  // cached attackRange^2 for range checks
 
         float m_hp = 100.f;
         float m_maxHp = 100.f;

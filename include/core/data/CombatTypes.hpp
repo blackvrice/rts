@@ -5,6 +5,10 @@ namespace rts::core::data {
     enum class WeaponType { Normal, Pierce, Siege, Magic };
     // Defensive class of a target (units and buildings).
     enum class ArmorType { Unarmored, Light, Heavy, Fortified };
+    // Layer an element occupies; an attack can be restricted to one layer.
+    // Ground covers units, buildings and resources; Air is reserved for future
+    // flying units (all current content is Ground).
+    enum class MovementDomain { Ground, Air };
 
     // Area-of-effect zones (world units) around an impact: full damage within
     // inner, half within mid, quarter within outer. outer == 0 means no splash.

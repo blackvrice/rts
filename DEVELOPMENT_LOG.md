@@ -1,5 +1,16 @@
 # Development Log
 
+## 2026-06-10 - Epic 4.1 추가 안정화 (공격 대상 필터링/공중·지상 준비/사거리 최적화)
+
+### 변경 내용
+- **공격 불가 대상 필터링**: `Unit::canAttackTarget(target)` 신설 — null/자기 자신/죽은 대상/중립(자원)/아군 제외 + 공격자가 중립이면 거부. `attack`→`beginAttack`, `holdEngage`의 산발적 팀 체크를 이 한 메서드로 교체. GameLogicManager의 자동획득 스캔 3곳(attack-move/patrol/hold)도 `unit.canAttackTarget()`로 통일(기존 isOpposingTeam+dead+self 분기 대체). → 자원·아군은 모델 레벨에서 공격 불가 보장.
+- **공중/지상 공격 준비**: CombatTypes.hpp에 `MovementDomain { Ground, Air }`. IGameElement에 `virtual movementDomain()`(기본 Ground — 건물·자원 포함). UnitStaticData에 `domain`/`attacksGround`/`attacksAir`(기본 Ground·둘 다 true → 현 동작 불변) + DataRegistry JSON 파싱(`domain`/`attacksGround`/`attacksAir`, `movementDomainFromString`). canAttackTarget이 대상 레이어 대비 공격 가능 여부 검사. 공중 유닛 추가 시 데이터만으로 동작.
+- **사거리 계산 최적화**: `m_attackRangeSq` 캐시(applyStaticData에서 `attackRange^2` 1회 계산) 도입, beginAttack/holdEngage/updateAttack의 매 틱 `attackRange*attackRange` 재계산 제거. 사거리 판정은 전부 제곱거리(distanceSq) 비교 유지(불필요한 sqrt 없음 — sqrt는 이동 벡터 계산에만).
+
+### 검증
+- 빌드 성공(21/21). 실행 정상, 크래시/경고 없음. (IDE clang의 include 경로/네임스페이스 오류는 거짓 양성 — g++ 빌드로 검증.)
+- 기본 동작 불변(모든 유닛 Ground·지상공격 가능), 추가 가드/데이터 배선만 도입. 인게임 체감은 수동 확인 필요.
+
 ## 2026-06-10 - Epic 4.5 AoE / Splash (범위 피해)
 
 ### 변경 내용

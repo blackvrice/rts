@@ -50,6 +50,12 @@ namespace rts::core::data {
             return fallback;
         }
 
+        MovementDomain movementDomainFromString(const std::string& s, const MovementDomain fallback) {
+            if (s == "ground") return MovementDomain::Ground;
+            if (s == "air")    return MovementDomain::Air;
+            return fallback;
+        }
+
         bool readJsonFile(const std::string& path, json& out) {
             std::ifstream in(path);
             if (!in) {
@@ -213,6 +219,9 @@ namespace rts::core::data {
                 d.buildTimeSeconds= e.value("buildTimeSeconds", d.buildTimeSeconds);
                 d.weaponType    = weaponTypeFromString(e.value("weaponType", std::string{}), d.weaponType);
                 d.armorType     = armorTypeFromString(e.value("armorType", std::string{}), d.armorType);
+                d.domain        = movementDomainFromString(e.value("domain", std::string{}), d.domain);
+                d.attacksGround = e.value("attacksGround", d.attacksGround);
+                d.attacksAir    = e.value("attacksAir", d.attacksAir);
                 d.goldCost      = e.value("goldCost", d.goldCost);
                 d.woodCost      = e.value("woodCost", d.woodCost);
                 d.foodCost      = e.value("foodCost", d.foodCost);
