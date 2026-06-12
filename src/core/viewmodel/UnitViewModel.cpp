@@ -24,6 +24,33 @@ namespace {
         }
         return "warrior";
     }
+
+    const rts::core::data::SpriteClip* findClipWithFallback(
+        const rts::core::data::DataRegistry& registry,
+        const std::string& base,
+        const std::string& spriteKey,
+        const rts::core::model::ActionType fallbackAction) {
+        if (const auto* clip = registry.sprite(base + spriteKey)) {
+            return clip;
+        }
+
+        if (const auto dot = spriteKey.find('.'); dot != std::string::npos) {
+            if (const auto* clip = registry.sprite(base + spriteKey.substr(0, dot))) {
+                return clip;
+            }
+        }
+
+        if (spriteKey.starts_with("gather.")) {
+            if (const auto* clip = registry.sprite(base + "attack")) {
+                return clip;
+            }
+        }
+
+        if (const auto* clip = registry.sprite(base + actionKey(fallbackAction))) {
+            return clip;
+        }
+        return registry.sprite(base + "idle");
+    }
 }
 
 namespace rts::core::viewmodel {
@@ -96,8 +123,8 @@ namespace rts::core::viewmodel {
         const std::string set = registry.unitSpriteSet(unitIdStr(unit->unitType()));
         const std::string team = unit->getTeamId() == model::TeamId::Enemy ? "red" : "blue";
         const std::string base = "unit." + set + "." + team + ".";
-        const core::data::SpriteClip* clip = registry.sprite(base + actionKey(m_action));
-        if (!clip) clip = registry.sprite(base + "idle");
+        const core::data::SpriteClip* clip = findClipWithFallback(
+            registry, base, unit->spriteActionKey(), m_action);
         if (!clip) return;
 
         // Trimmed unit sprites are bottom-centered so the model position stays at the feet.

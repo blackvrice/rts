@@ -28,6 +28,34 @@ namespace {
         const float dy = a.y - b.y;
         return dx * dx + dy * dy;
     }
+
+    const char* baseSpriteActionKey(const rts::core::model::ActionType action) {
+        using A = rts::core::model::ActionType;
+        switch (action) {
+            case A::Move:   return "move";
+            case A::Attack: return "attack";
+            case A::Hold:   return "hold";
+            default:        return "idle";
+        }
+    }
+
+    const char* gatherToolKey(const rts::core::model::ResourceNode::ResourceType type) {
+        using R = rts::core::model::ResourceNode::ResourceType;
+        switch (type) {
+            case R::Wood: return "axe";
+            case R::Gold: return "pickaxe";
+        }
+        return "pickaxe";
+    }
+
+    const char* carriedResourceKey(const rts::core::model::ResourceNode::ResourceType type) {
+        using R = rts::core::model::ResourceNode::ResourceType;
+        switch (type) {
+            case R::Wood: return "wood";
+            case R::Gold: return "gold";
+        }
+        return "gold";
+    }
 }
 
 
@@ -82,6 +110,49 @@ namespace rts::core::model {
 
     ActionType Unit::getAnimationAction() const {
         return m_animationAction;
+    }
+
+    std::string Unit::spriteActionKey() const {
+        if (!isWorker()) {
+            return baseSpriteActionKey(m_animationAction);
+        }
+
+        if (m_action == ActionType::Gather) {
+            const char* tool = gatherToolKey(m_gatherState.carryingType);
+            const char* carried = carriedResourceKey(m_gatherState.carryingType);
+            switch (m_gatherState.phase) {
+                case GatherPhase::MoveToResource:
+                    return std::string("move.") + tool;
+                case GatherPhase::Gathering:
+                    return std::string("gather.") + tool;
+                case GatherPhase::MoveToDropOff:
+                    return std::string("move.") + carried;
+                case GatherPhase::DropResource:
+                case GatherPhase::NeedNewDropOff:
+                    return std::string("idle.") + carried;
+                case GatherPhase::NeedNewResource:
+                    return std::string("idle.") + tool;
+                case GatherPhase::None:
+                    break;
+            }
+        }
+
+        if (m_action == ActionType::Build) {
+            if (m_animationAction == ActionType::Move) return "move.hammer";
+            if (m_animationAction == ActionType::Attack) return "build";
+            return "idle.hammer";
+        }
+
+        if (m_action == ActionType::Attack ||
+            (m_action == ActionType::Hold && m_animationAction == ActionType::Attack)) {
+            return m_animationAction == ActionType::Move ? "move.knife" : "attack.knife";
+        }
+
+        if (m_action == ActionType::Hold) {
+            return "idle.knife";
+        }
+
+        return baseSpriteActionKey(m_animationAction);
     }
 
     void Unit::moveTo(const Vector2D& target) {

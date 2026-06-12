@@ -53,6 +53,9 @@ namespace rts::core::model {
 
         ActionType getAction() const override;
         ActionType getAnimationAction() const;
+        // Data-driven render key such as "move.wood" or "gather.pickaxe";
+        // UnitViewModel prefixes this with unit.<set>.<team>. before lookup.
+        std::string spriteActionKey() const;
 
         void moveTo(const Vector2D &target) override;
 

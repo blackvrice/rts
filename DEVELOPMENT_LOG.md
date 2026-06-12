@@ -1,5 +1,13 @@
 # Development Log
 
+## 2026-06-12 - Pawn Worker Situation Sprites
+
+- Registered every Blue/Red Pawn idle, run, carried-resource, tool, and interaction sprite variant from the Tiny Swords Pawn folders in `data/animations.json` and the fallback `DataRegistry` seed data.
+- Added `Unit::spriteActionKey()` so worker rendering now follows the current gameplay situation: wood gathering uses axe sprites, gold gathering uses pickaxe sprites, resource return uses carried wood/gold sprites, construction uses hammer sprites, and worker combat/hold uses knife sprites.
+- Updated `UnitViewModel` to resolve the situation-specific sprite key first, then fall back through the base action and idle clips if a future sprite set is incomplete.
+- Verification: parsed `data/animations.json` with `python -m json.tool`, built `RTS` with `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j 4`, then launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
+- Follow-up: meat carry sprites are registered for both teams but are not selected until a meat resource type exists in gameplay data.
+
 ## 2026-06-12 - Development Plan Source Audit
 
 - Audited `DEVELOPMENT_PLAN.md` against the current `include/`, `src/`, and `data/` source tree, including the active working-tree UI/map edits.

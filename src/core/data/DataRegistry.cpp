@@ -142,12 +142,39 @@ namespace rts::core::data {
         m_sprites["unit.warrior.red.move"]    = unitClip("Units/Red Units/Warrior/Warrior_Run.png", 6, 10.f);
         m_sprites["unit.warrior.red.attack"]  = unitClip("Units/Red Units/Warrior/Warrior_Attack1.png", 4, 8.f);
         m_sprites["unit.warrior.red.hold"]    = unitClip("Units/Red Units/Warrior/Warrior_Guard.png", 6, 6.f);
-        m_sprites["unit.pawn.blue.idle"]      = unitClip("Units/Blue Units/Pawn/Pawn_Idle.png", 8, 6.f);
-        m_sprites["unit.pawn.blue.move"]      = unitClip("Units/Blue Units/Pawn/Pawn_Run.png", 6, 10.f);
-        m_sprites["unit.pawn.blue.attack"]    = unitClip("Units/Blue Units/Pawn/Pawn_Interact Hammer.png", 3, 8.f);
-        m_sprites["unit.pawn.red.idle"]       = unitClip("Units/Red Units/Pawn/Pawn_Idle.png", 8, 6.f);
-        m_sprites["unit.pawn.red.move"]       = unitClip("Units/Red Units/Pawn/Pawn_Run.png", 6, 10.f);
-        m_sprites["unit.pawn.red.attack"]     = unitClip("Units/Red Units/Pawn/Pawn_Interact Hammer.png", 3, 8.f);
+        const auto seedPawn = [&](const std::string& teamKey, const std::string& teamFolder) {
+            const std::string prefix = "unit.pawn." + teamKey + ".";
+            const std::string folder = "Units/" + teamFolder + " Units/Pawn/";
+            const auto add = [&](const std::string& key, const std::string& file,
+                                 const int frames, const float fps) {
+                m_sprites[prefix + key] = unitClip(folder + file, frames, fps);
+            };
+
+            add("idle", "Pawn_Idle.png", 8, 6.f);
+            add("idle.axe", "Pawn_Idle Axe.png", 8, 6.f);
+            add("idle.gold", "Pawn_Idle Gold.png", 8, 6.f);
+            add("idle.hammer", "Pawn_Idle Hammer.png", 8, 6.f);
+            add("idle.knife", "Pawn_Idle Knife.png", 8, 6.f);
+            add("idle.meat", "Pawn_Idle Meat.png", 8, 6.f);
+            add("idle.pickaxe", "Pawn_Idle Pickaxe.png", 8, 6.f);
+            add("idle.wood", "Pawn_Idle Wood.png", 8, 6.f);
+            add("move", "Pawn_Run.png", 6, 10.f);
+            add("move.axe", "Pawn_Run Axe.png", 6, 10.f);
+            add("move.gold", "Pawn_Run Gold.png", 6, 10.f);
+            add("move.hammer", "Pawn_Run Hammer.png", 6, 10.f);
+            add("move.knife", "Pawn_Run Knife.png", 6, 10.f);
+            add("move.meat", "Pawn_Run Meat.png", 6, 10.f);
+            add("move.pickaxe", "Pawn_Run Pickaxe.png", 6, 10.f);
+            add("move.wood", "Pawn_Run Wood.png", 6, 10.f);
+            add("attack", "Pawn_Interact Knife.png", 4, 8.f);
+            add("attack.knife", "Pawn_Interact Knife.png", 4, 8.f);
+            add("attack.hammer", "Pawn_Interact Hammer.png", 3, 8.f);
+            add("build", "Pawn_Interact Hammer.png", 3, 8.f);
+            add("gather.axe", "Pawn_Interact Axe.png", 6, 8.f);
+            add("gather.pickaxe", "Pawn_Interact Pickaxe.png", 6, 8.f);
+        };
+        seedPawn("blue", "Blue");
+        seedPawn("red", "Red");
 
         m_unitSpriteSets = {
             { "warrior", "warrior" }, { "archer", "warrior" },
