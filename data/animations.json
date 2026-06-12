@@ -3,8 +3,8 @@
 
   "unitSpriteSets": {
     "warrior": "warrior",
-    "archer": "warrior",
-    "marine": "warrior",
+    "archer": "archer",
+    "lancer": "lancer",
     "worker": "pawn"
   },
 
@@ -17,6 +17,24 @@
     "unit.warrior.red.move":    { "texture": "Units/Red Units/Warrior/Warrior_Run.png",       "frameCount": 6, "fps": 10, "sourceW": 192, "sourceH": 192, "displayW": 96, "displayH": 96, "anchorX": 48, "anchorY": 96, "trim": true },
     "unit.warrior.red.attack":  { "texture": "Units/Red Units/Warrior/Warrior_Attack1.png",   "frameCount": 4, "fps": 8,  "sourceW": 192, "sourceH": 192, "displayW": 96, "displayH": 96, "anchorX": 48, "anchorY": 96, "trim": true },
     "unit.warrior.red.hold":    { "texture": "Units/Red Units/Warrior/Warrior_Guard.png",     "frameCount": 6, "fps": 6,  "sourceW": 192, "sourceH": 192, "displayW": 96, "displayH": 96, "anchorX": 48, "anchorY": 96, "trim": true },
+
+    "unit.archer.blue.idle":    { "texture": "Units/Blue Units/Archer/Archer_Idle.png",       "frameCount": 6, "fps": 6,  "sourceW": 192, "sourceH": 192, "displayW": 96,  "displayH": 96,  "anchorX": 48, "anchorY": 96,  "trim": true },
+    "unit.archer.blue.move":    { "texture": "Units/Blue Units/Archer/Archer_Run.png",        "frameCount": 4, "fps": 10, "sourceW": 192, "sourceH": 192, "displayW": 96,  "displayH": 96,  "anchorX": 48, "anchorY": 96,  "trim": true },
+    "unit.archer.blue.attack":  { "texture": "Units/Blue Units/Archer/Archer_Shoot.png",      "frameCount": 8, "fps": 8,  "sourceW": 192, "sourceH": 192, "displayW": 96,  "displayH": 96,  "anchorX": 48, "anchorY": 96,  "trim": true },
+    "unit.archer.blue.hold":    { "texture": "Units/Blue Units/Archer/Archer_Idle.png",       "frameCount": 6, "fps": 6,  "sourceW": 192, "sourceH": 192, "displayW": 96,  "displayH": 96,  "anchorX": 48, "anchorY": 96,  "trim": true },
+    "unit.archer.red.idle":     { "texture": "Units/Red Units/Archer/Archer_Idle.png",        "frameCount": 6, "fps": 6,  "sourceW": 192, "sourceH": 192, "displayW": 96,  "displayH": 96,  "anchorX": 48, "anchorY": 96,  "trim": true },
+    "unit.archer.red.move":     { "texture": "Units/Red Units/Archer/Archer_Run.png",         "frameCount": 4, "fps": 10, "sourceW": 192, "sourceH": 192, "displayW": 96,  "displayH": 96,  "anchorX": 48, "anchorY": 96,  "trim": true },
+    "unit.archer.red.attack":   { "texture": "Units/Red Units/Archer/Archer_Shoot.png",       "frameCount": 8, "fps": 8,  "sourceW": 192, "sourceH": 192, "displayW": 96,  "displayH": 96,  "anchorX": 48, "anchorY": 96,  "trim": true },
+    "unit.archer.red.hold":     { "texture": "Units/Red Units/Archer/Archer_Idle.png",        "frameCount": 6, "fps": 6,  "sourceW": 192, "sourceH": 192, "displayW": 96,  "displayH": 96,  "anchorX": 48, "anchorY": 96,  "trim": true },
+
+    "unit.lancer.blue.idle":    { "texture": "Units/Blue Units/Lancer/Lancer_Idle.png",       "frameCount": 12, "fps": 6,  "sourceW": 320, "sourceH": 320, "displayW": 112, "displayH": 112, "anchorX": 56, "anchorY": 112, "trim": true },
+    "unit.lancer.blue.move":    { "texture": "Units/Blue Units/Lancer/Lancer_Run.png",        "frameCount": 6,  "fps": 10, "sourceW": 320, "sourceH": 320, "displayW": 112, "displayH": 112, "anchorX": 56, "anchorY": 112, "trim": true },
+    "unit.lancer.blue.attack":  { "texture": "Units/Blue Units/Lancer/Lancer_Down_Attack.png", "frameCount": 3, "fps": 8,  "sourceW": 320, "sourceH": 320, "displayW": 112, "displayH": 112, "anchorX": 56, "anchorY": 112, "trim": true },
+    "unit.lancer.blue.hold":    { "texture": "Units/Blue Units/Lancer/Lancer_Down_Defence.png", "frameCount": 6, "fps": 6, "sourceW": 320, "sourceH": 320, "displayW": 112, "displayH": 112, "anchorX": 56, "anchorY": 112, "trim": true },
+    "unit.lancer.red.idle":     { "texture": "Units/Red Units/Lancer/Lancer_Idle.png",        "frameCount": 12, "fps": 6,  "sourceW": 320, "sourceH": 320, "displayW": 112, "displayH": 112, "anchorX": 56, "anchorY": 112, "trim": true },
+    "unit.lancer.red.move":     { "texture": "Units/Red Units/Lancer/Lancer_Run.png",         "frameCount": 6,  "fps": 10, "sourceW": 320, "sourceH": 320, "displayW": 112, "displayH": 112, "anchorX": 56, "anchorY": 112, "trim": true },
+    "unit.lancer.red.attack":   { "texture": "Units/Red Units/Lancer/Lancer_Down_Attack.png", "frameCount": 3,  "fps": 8,  "sourceW": 320, "sourceH": 320, "displayW": 112, "displayH": 112, "anchorX": 56, "anchorY": 112, "trim": true },
+    "unit.lancer.red.hold":     { "texture": "Units/Red Units/Lancer/Lancer_Down_Defence.png", "frameCount": 6, "fps": 6, "sourceW": 320, "sourceH": 320, "displayW": 112, "displayH": 112, "anchorX": 56, "anchorY": 112, "trim": true },
 
     "unit.pawn.blue.idle":            { "texture": "Units/Blue Units/Pawn/Pawn_Idle.png",              "frameCount": 8, "fps": 6,  "sourceW": 192, "sourceH": 192, "displayW": 96, "displayH": 96, "anchorX": 48, "anchorY": 96, "trim": true },
     "unit.pawn.blue.idle.axe":        { "texture": "Units/Blue Units/Pawn/Pawn_Idle Axe.png",          "frameCount": 8, "fps": 6,  "sourceW": 192, "sourceH": 192, "displayW": 96, "displayH": 96, "anchorX": 48, "anchorY": 96, "trim": true },
@@ -89,7 +107,7 @@
     "command.train.worker":     { "texture": "UI Elements/UI Elements/Human Avatars/Avatars_01.png", "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": false },
     "command.train.warrior":    { "texture": "UI Elements/UI Elements/Human Avatars/Avatars_02.png", "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": false },
     "command.train.archer":     { "texture": "UI Elements/UI Elements/Human Avatars/Avatars_03.png", "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": false },
-    "command.train.marine":     { "texture": "UI Elements/UI Elements/Human Avatars/Avatars_04.png", "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": false },
+    "command.train.lancer":     { "texture": "UI Elements/UI Elements/Human Avatars/Avatars_04.png", "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": false },
     "command.build.town_hall":  { "texture": "Buildings/Blue Buildings/Castle.png",   "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": true },
     "command.build.barracks":   { "texture": "Buildings/Blue Buildings/Barracks.png", "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": true },
 

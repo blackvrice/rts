@@ -19,7 +19,7 @@ namespace {
         switch (type) {
             case rts::UnitType::Warrior: return "warrior";
             case rts::UnitType::Archer:  return "archer";
-            case rts::UnitType::Marine:  return "marine";
+            case rts::UnitType::Marine:  return "lancer";
             case rts::UnitType::Worker:  return "worker";
         }
         return "warrior";

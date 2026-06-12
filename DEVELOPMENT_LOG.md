@@ -1,5 +1,13 @@
 # Development Log
 
+## 2026-06-13 - Archer And Lancer Sprite Sets
+
+- Added JSON sprite clips for Blue/Red Archer idle, move, attack, and hold states using the dedicated Archer sprite sheets.
+- Added JSON sprite clips for Blue/Red Lancer idle, move, attack, and hold states using the dedicated Lancer sprite sheets, including 320px source-frame support.
+- Updated fallback `DataRegistry` seed data and unit sprite id routing so Archer resolves to `unit.archer.*` and the existing Marine enum slot can resolve through the `lancer` data/sprite id.
+- Verification: parsed `data/animations.json` with `python -m json.tool`; built `RTS` with `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j 4`; launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
+- Follow-up: if the gameplay data is renamed from `marine` to `lancer`, the registry now accepts both ids for the same internal unit slot.
+
 ## 2026-06-13 - Building Production List HUD
 
 - Added production queue item data to `UpdateHudSelection` so selected buildings can expose the exact unit types waiting in their train queue, not just the queue count.

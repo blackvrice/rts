@@ -37,7 +37,7 @@ namespace rts::core::data {
         // Sprite/animation clip by key (e.g. "unit.warrior.blue.move",
         // "building.barracks.red", "resource.gold.3"); nullptr when unknown.
         const SpriteClip* sprite(const std::string& key) const;
-        // Maps a unit string id to its sprite-set name (e.g. "archer" -> "warrior");
+        // Maps a unit string id to its sprite-set name (e.g. "lancer" -> "lancer");
         // returns the id itself when no mapping is defined.
         std::string unitSpriteSet(const std::string& unitId) const;
 

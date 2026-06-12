@@ -15,6 +15,7 @@ namespace rts::core::data {
         // String id -> internal enum id. The enum is a code concept; JSON refers
         // to it by a stable string. Unknown ids return nullopt (logged by caller).
         std::optional<::rts::UnitType> unitTypeFromId(const std::string& id) {
+            if (id == "lancer")  return ::rts::UnitType::Marine;
             if (id == "marine")  return ::rts::UnitType::Marine;
             if (id == "warrior") return ::rts::UnitType::Warrior;
             if (id == "archer")  return ::rts::UnitType::Archer;
@@ -106,6 +107,7 @@ namespace rts::core::data {
         }
 
         m_unitIds = {
+            { "lancer", ::rts::UnitType::Marine },
             { "marine", ::rts::UnitType::Marine },
             { "warrior", ::rts::UnitType::Warrior },
             { "archer", ::rts::UnitType::Archer },
@@ -142,6 +144,39 @@ namespace rts::core::data {
         m_sprites["unit.warrior.red.move"]    = unitClip("Units/Red Units/Warrior/Warrior_Run.png", 6, 10.f);
         m_sprites["unit.warrior.red.attack"]  = unitClip("Units/Red Units/Warrior/Warrior_Attack1.png", 4, 8.f);
         m_sprites["unit.warrior.red.hold"]    = unitClip("Units/Red Units/Warrior/Warrior_Guard.png", 6, 6.f);
+
+        auto sheetClip = [](std::string texture, const int frameCount, const float fps,
+                            const int sourceSize, const float displaySize) {
+            return SpriteClip {
+                .texture = std::move(texture), .frameCount = frameCount, .fps = fps,
+                .sourceX = 0, .sourceY = 0, .sourceW = sourceSize, .sourceH = sourceSize,
+                .displayW = displaySize, .displayH = displaySize,
+                .anchorX = displaySize * 0.5f, .anchorY = displaySize,
+                .trim = true
+            };
+        };
+        const auto seedArcher = [&](const std::string& teamKey, const std::string& teamFolder) {
+            const std::string prefix = "unit.archer." + teamKey + ".";
+            const std::string folder = "Units/" + teamFolder + " Units/Archer/";
+            m_sprites[prefix + "idle"] = sheetClip(folder + "Archer_Idle.png", 6, 6.f, 192, 96.f);
+            m_sprites[prefix + "move"] = sheetClip(folder + "Archer_Run.png", 4, 10.f, 192, 96.f);
+            m_sprites[prefix + "attack"] = sheetClip(folder + "Archer_Shoot.png", 8, 8.f, 192, 96.f);
+            m_sprites[prefix + "hold"] = m_sprites[prefix + "idle"];
+        };
+        seedArcher("blue", "Blue");
+        seedArcher("red", "Red");
+
+        const auto seedLancer = [&](const std::string& teamKey, const std::string& teamFolder) {
+            const std::string prefix = "unit.lancer." + teamKey + ".";
+            const std::string folder = "Units/" + teamFolder + " Units/Lancer/";
+            m_sprites[prefix + "idle"] = sheetClip(folder + "Lancer_Idle.png", 12, 6.f, 320, 112.f);
+            m_sprites[prefix + "move"] = sheetClip(folder + "Lancer_Run.png", 6, 10.f, 320, 112.f);
+            m_sprites[prefix + "attack"] = sheetClip(folder + "Lancer_Down_Attack.png", 3, 8.f, 320, 112.f);
+            m_sprites[prefix + "hold"] = sheetClip(folder + "Lancer_Down_Defence.png", 6, 6.f, 320, 112.f);
+        };
+        seedLancer("blue", "Blue");
+        seedLancer("red", "Red");
+
         const auto seedPawn = [&](const std::string& teamKey, const std::string& teamFolder) {
             const std::string prefix = "unit.pawn." + teamKey + ".";
             const std::string folder = "Units/" + teamFolder + " Units/Pawn/";
@@ -177,8 +212,8 @@ namespace rts::core::data {
         seedPawn("red", "Red");
 
         m_unitSpriteSets = {
-            { "warrior", "warrior" }, { "archer", "warrior" },
-            { "marine", "warrior" }, { "worker", "pawn" },
+            { "warrior", "warrior" }, { "archer", "archer" },
+            { "lancer", "lancer" }, { "marine", "lancer" }, { "worker", "pawn" },
         };
 
         auto buildingClip = [](std::string texture) {
@@ -232,6 +267,7 @@ namespace rts::core::data {
         m_sprites["command.train.worker"] = commandClip("UI Elements/UI Elements/Human Avatars/Avatars_01.png");
         m_sprites["command.train.warrior"] = commandClip("UI Elements/UI Elements/Human Avatars/Avatars_02.png");
         m_sprites["command.train.archer"] = commandClip("UI Elements/UI Elements/Human Avatars/Avatars_03.png");
+        m_sprites["command.train.lancer"] = commandClip("UI Elements/UI Elements/Human Avatars/Avatars_04.png");
         m_sprites["command.train.marine"] = commandClip("UI Elements/UI Elements/Human Avatars/Avatars_04.png");
         m_sprites["command.build.town_hall"] = commandClip("Buildings/Blue Buildings/Castle.png", true);
         m_sprites["command.build.barracks"] = commandClip("Buildings/Blue Buildings/Barracks.png", true);
