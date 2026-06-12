@@ -19,6 +19,7 @@ namespace rts::core::manager {
             model::Vector2D center {};
             float radius {};
             bool hasCenter {};
+            bool isUnit {};
         };
 
         bool canMoveUnitTo(const world::GameWorld& world,
@@ -32,6 +33,10 @@ namespace rts::core::manager {
         std::optional<model::Vector2D> localAvoidancePush(const world::GameWorld& world,
                                                           const model::Unit& unit,
                                                           const model::Vector2D& pos) const;
+
+        bool canApplyUnitSeparationTo(const world::GameWorld& world,
+                                      const model::Unit& unit,
+                                      const model::Vector2D& pos) const;
 
         float movingUnitRadius() const noexcept;
     };

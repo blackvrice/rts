@@ -439,6 +439,26 @@ namespace {
         return true;
     }
 
+    bool applyUnitSeparation(
+        const GameWorld& world,
+        Unit& unit,
+        const CollisionSystem& collision) {
+        const auto push = collision.localAvoidancePush(world, unit, unit.getPosition());
+        if (!push) {
+            return false;
+        }
+
+        const auto pushedPosition = unit.getPosition() + *push;
+        if (!collision.canApplyUnitSeparationTo(world, unit, pushedPosition)) {
+            return false;
+        }
+
+        // Unit-unit overlaps resolve over several ticks; requiring one push to
+        // fully clear the collision would keep fully stacked units permanently stuck.
+        unit.setPosition(pushedPosition);
+        return true;
+    }
+
     const char* pathFailureReason(
         GameWorld& world,
         const rts::core::path::GridPos& start,
@@ -561,28 +581,22 @@ namespace rts::core::manager {
         for (const auto& element : world.getElements()) {
             if (auto unit = std::dynamic_pointer_cast<model::Unit>(element)) {
                 const auto previousPosition = unit->getPosition();
+                bool separatedFromUnits = false;
                 if (unit->getAction() == model::ActionType::Move ||
                     unit->getAction() == model::ActionType::Patrol) {
                     unit->updateMove(dt, world.gridTransform());
-                    const bool stillMoving =
-                        unit->getAction() == model::ActionType::Move ||
-                        unit->getAction() == model::ActionType::Patrol;
-                    if (stillMoving) {
-                        if (auto push = collision.localAvoidancePush(world, *unit, unit->getPosition())) {
-                            const auto pushedPosition = unit->getPosition() + *push;
-                            if (!collision.findMoveBlocker(world, *unit, pushedPosition).has_value()) {
-                                unit->setPosition(pushedPosition);
-                            }
-                        }
-                    }
                 } else {
                     unit->tick(dt);
+                }
+
+                if (unit->getAction() != model::ActionType::Dead) {
+                    separatedFromUnits = applyUnitSeparation(world, *unit, collision);
                 }
 
                 // Movement is speculative until the collision system accepts the next position.
                 if (unit->getAction() != model::ActionType::Dead) {
                     const auto hit = collision.findMoveBlocker(world, *unit, unit->getPosition());
-                    if (hit.has_value()) {
+                    if (hit.has_value() && !(separatedFromUnits && hit->isUnit)) {
                         unit->setPosition(previousPosition);
                         if (finalTargetBlockedByHit(*unit, collision, *hit)) {
                             unit->stop();

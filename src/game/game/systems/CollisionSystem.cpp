@@ -80,13 +80,15 @@ namespace rts::core::manager {
             const auto otherPosition = other->getPosition();
             const float dx = otherPosition.x - pos.x;
             const float dy = otherPosition.y - pos.y;
-            const float minDistance = movingUnitRadius() + collisionRadiusFor(*other);
+            const float minDistance = unit.getCollisionRadius() + collisionRadiusFor(*other);
 
             if ((dx * dx + dy * dy) < minDistance * minDistance) {
+                const bool blockerIsUnit = dynamic_cast<const model::Unit*>(other.get()) != nullptr;
                 return CollisionHit {
                     otherPosition,
                     collisionRadiusFor(*other),
-                    true
+                    true,
+                    blockerIsUnit
                 };
             }
         }
@@ -114,7 +116,7 @@ namespace rts::core::manager {
             const auto otherPosition = otherUnit->getPosition();
             const float dx = pos.x - otherPosition.x;
             const float dy = pos.y - otherPosition.y;
-            const float minDistance = movingUnitRadius() + kUnitCollisionRadius;
+            const float minDistance = unit.getCollisionRadius() + otherUnit->getCollisionRadius();
             const float distSq = dx * dx + dy * dy;
             if (distSq >= minDistance * minDistance) {
                 ++otherOrdinal;
@@ -150,6 +152,36 @@ namespace rts::core::manager {
         }
 
         return push;
+    }
+
+    bool CollisionSystem::canApplyUnitSeparationTo(
+        const world::GameWorld& world,
+        const model::Unit& unit,
+        const model::Vector2D& pos) const {
+        if (pos.x < kMapMinX || pos.y < kMapMinY ||
+            pos.x > kMapMaxX || pos.y > kMapMaxY) {
+            return false;
+        }
+
+        for (const auto& element : world.getElements()) {
+            const auto other = std::dynamic_pointer_cast<model::IGameElement>(element);
+            if (!other ||
+                other.get() == static_cast<const model::IGameElement*>(&unit) ||
+                other->getAction() == model::ActionType::Dead ||
+                std::dynamic_pointer_cast<model::Unit>(element)) {
+                continue;
+            }
+
+            const auto otherPosition = other->getPosition();
+            const float dx = otherPosition.x - pos.x;
+            const float dy = otherPosition.y - pos.y;
+            const float minDistance = unit.getCollisionRadius() + collisionRadiusFor(*other);
+            if ((dx * dx + dy * dy) < minDistance * minDistance) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     float CollisionSystem::movingUnitRadius() const noexcept {

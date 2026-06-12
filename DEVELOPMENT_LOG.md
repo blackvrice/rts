@@ -1,5 +1,13 @@
 # Development Log
 
+## 2026-06-13 - Unit Overlap Auto-Separation
+
+- Fixed stacked units getting stuck by allowing unit-unit overlap separation to apply over several ticks instead of requiring a single local-avoidance push to fully clear collision immediately.
+- Extended `CollisionSystem` hits with unit/static blocker classification and added a separation-only placement check that ignores other units while still rejecting map bounds, buildings, and resources.
+- Updated `MovementSystem` so every live unit, including idle or blocked units, can receive deterministic local separation push before hard collision recovery runs.
+- Verification: built `RTS` with `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j 4`, then launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
+- Follow-up: the remaining determinism roadmap item can later replace insertion-order tie-breaking with EntityId ordering.
+
 ## 2026-06-12 - Multi-Selection HUD Detail Suppression
 
 - Fixed the selection HUD so the single-selection detail area is only drawn for zero or one selected element; multi-selection now keeps the StarCraft-style portrait grid without also showing the primary unit name, stats, HP, position, or building progress text.
