@@ -1,5 +1,13 @@
 # Development Log
 
+## 2026-06-12 - Development Plan Source Audit
+
+- Audited `DEVELOPMENT_PLAN.md` against the current `include/`, `src/`, and `data/` source tree, including the active working-tree UI/map edits.
+- Reclassified stale roadmap items: selection priority/double-click/control groups, combat filtering/cancel paths, AI barracks construction, command bus ownership, command validation, building footprint walkability, build/train command-card submenu support, and sprint summaries now match the implemented source.
+- Kept partial or policy-dependent items marked `[~]` or `[ ]`, including RallyPoint UI, all-buildings defeat fallback, terrain/near-ally build policy, generic invalid-command feedback, Fixed range/projectile migration, local-avoidance EntityId ordering, and deeper Save/Replay hashing.
+- Updated the top-level priority section from initial feature construction to the current QA/polish/determinism phase.
+- Verification: documentation-only update; no build/run required for the plan audit itself.
+
 ## 2026-06-11 - Phase 8 AI Polish Optimization
 
 - Completed Phase 8 tactical AI with an enemy build-order state machine, worker resource assignment, barracks rebuilding, rally placement, army massing, attack timing, and local defense response around threatened structures.

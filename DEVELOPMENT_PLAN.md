@@ -21,21 +21,17 @@
 
 # 1. 전체 우선순위
 
-현재 가장 중요한 개발 순서는 다음과 같습니다.
+현재 소스 검증 후 가장 중요한 순서는 다음과 같습니다.
 
 ```text
-1. 자원 채집 루프 완성
-2. 자원 소비 + 생산 큐 완성
-3. 건물 배치 + 건설 루프 완성
-4. 단순 AI 완성
-5. 승패 조건 완성
-6. Command Queue / AttackMove / Hold 추가
-7. Fog of War / Minimap / Command Card 추가
-8. Save / Replay / World Hash 추가
+1. 전체 플레이 QA 패스와 실패 항목 수정
+2. RallyPoint UI / InvalidCommand / 모든 건물 파괴 패배 같은 잔여 UX·룰 정책 결정
+3. Save / Replay / World Hash 심화 검증
+4. Fixed 기반 결정론 마이그레이션 마무리
+5. 밸런스, 사운드 에셋, 큰 맵 성능 polish
 ```
 
-현재 목표는 모든 RTS 기능을 한 번에 만드는 것이 아니라,  
-**작은 RTS 한 판이 끝까지 플레이되는 Vertical Slice**를 먼저 완성하는 것입니다.
+핵심 목표였던 **작은 RTS 한 판이 끝까지 플레이되는 Vertical Slice**는 현재 소스 기준 달성되었습니다.
 
 ---
 
@@ -45,6 +41,33 @@
 [100%] : 기능이 실제 런타임 동작으로 연결되어 사용 가능
 [1~99%] : 일부 모델, 명령, UI, 렌더링은 있으나 전체 로직이 연결되지 않음
 [0%] : 아직 구현이 없거나 핵심 시스템에 연결되지 않음
+~ : 핵심 기능은 동작하나 원래 요구의 세부 정책, 최적화, QA 또는 고도화가 남음
+```
+
+---
+
+# 2.1 현재 소스 검증 요약
+
+검증 기준: `2026-06-12` 현재 `include/`, `src/`, `data/`의 실제 소스와 작업트리 변경 포함.
+
+```text
+핵심 루프 완료:
+- 선택/명령/이동/채집/건설/생산/전투/AI/승패
+- Fog of War / Minimap / Command Card
+- JSON/Tiled 맵 로딩
+- Save / Load / Replay / WorldHash 핵심
+- Phase 8 AI / sound / effect / optimization
+
+주요 잔여:
+- RallyPoint UI 표시
+- 모든 건물 파괴 시 패배 fallback
+- 건설 가능 지형 태그 / 아군 건물 근처 조건
+- 일반 InvalidCommand 사운드/커서 이벤트
+- Fixed 사거리/투사체 마이그레이션
+- Local Avoidance EntityId 순서 결정론
+- Save CommandQueue 저장, WorldHash 명령/생산 큐 포함
+- Replay 재생 속도 조절
+- 큰 맵 기준 FoW 캐싱/Dirty 추적, 밸런스/수동 QA
 ```
 
 ---
@@ -65,7 +88,7 @@
 
 ## Epic 0.1 유닛 기본 제어
 
-현재 상태: `[100%]`
+현재 상태: `[95% — 선택 우선순위·더블클릭·컨트롤그룹 구현 확인 / 맵 밖 비활성 선택 정리 정책만 후속]`
 
 ### 완료된 항목
 
@@ -81,10 +104,10 @@
 
 ```text
 [x] 선택된 유닛 사망 시 선택 목록에서 자동 제거
-[ ] 선택 중인 유닛이 맵 밖/비활성 상태가 되면 선택 해제
-[ ] 드래그 선택 시 건물/유닛 우선순위 적용
-[ ] 같은 타입 더블클릭 선택 준비
-[ ] Ctrl + 번호 부대 지정 안정성 테스트
+[~] 선택 중인 유닛이 맵 밖/비활성 상태가 되면 선택 해제 (Dead/expired 선택 정리는 구현, 맵 밖 비활성 정책은 후속)
+[x] 드래그 선택 시 건물/유닛 우선순위 적용 (플레이어 유닛 > 유닛 > 기타)
+[x] 같은 타입 더블클릭 선택 준비 (Ctrl/더블클릭 selectSameType)
+[x] Ctrl + 번호 부대 지정 안정성 테스트 (ControlGroupSystem + expired weak_ptr 정리)
 ```
 
 ### 완료 기준
@@ -100,7 +123,7 @@
 
 ## Epic 0.2 기본 전투
 
-현재 상태: `[100%]`
+현재 상태: `[95% — 타겟 사망·공격 필터·명령 취소·충돌/렌더 제거 확인 / 시야 이탈 중단 정책은 후속]`
 
 ### 완료된 항목
 
@@ -117,13 +140,13 @@
 
 ```text
 [x] 공격 대상이 죽었을 때 다음 대상 탐색
-[ ] 공격 대상이 시야/사거리 밖으로 나갔을 때 추격/중단 처리
-[ ] 공격 불가능 대상 필터링
-[ ] 아군 오인 공격 방지
-[ ] 사망한 유닛의 충돌 제거
-[ ] 사망한 유닛의 렌더 오브젝트 제거
-[ ] 공격 중 Stop 명령 처리
-[ ] 공격 중 Move 명령 처리
+[~] 공격 대상이 시야/사거리 밖으로 나갔을 때 추격/중단 처리 (사거리 밖 추격 구현, 시야 밖 중단 정책은 후속)
+[x] 공격 불가능 대상 필터링 (Unit::canAttackTarget 중앙화)
+[x] 아군 오인 공격 방지 (중립/아군 제외)
+[x] 사망한 유닛의 충돌 제거 (Dead 요소 충돌 제외 + EntityId prune)
+[x] 사망한 유닛의 렌더 오브젝트 제거 (ViewModel/선택/HUD가 Dead 요소 제외)
+[x] 공격 중 Stop 명령 처리 (공격 FSM 취소)
+[x] 공격 중 Move 명령 처리 (공격 FSM 취소)
 ```
 
 ### 완료 기준
@@ -352,7 +375,7 @@ MoveToResource
 
 ## Epic 0.4 유닛 생산 루프
 
-현재 상태: `[95% — 생산/비용/스폰/RallyPoint 로직 완료(방향 우선·공간없으면 대기·적 rally면 AttackMove) / HUD 명령카드·사운드·RallyPoint UI만 후속]`
+현재 상태: `[95% — 생산/비용/스폰/RallyPoint 로직·사운드 완료(방향 우선·공간없으면 대기·적 rally면 AttackMove) / RallyPoint UI만 후속]`
 
 ### 현재 구현된 항목
 
@@ -513,7 +536,7 @@ struct ProductionQueue
 
 ## Epic 0.5 건설 루프
 
-현재 상태: `[90% — Build Preview·건설 진행도 UI 완료 / footprint walkability(5.3)·건물 타입 선택 UI는 후속]`
+현재 상태: `[95% — Build Preview·건설 진행도 UI·footprint walkability·건물 타입 선택 UI 확인 / 지형 태그·아군 근처 조건은 정책 후속]`
 
 ### 현재 구현된 항목
 
@@ -534,7 +557,7 @@ struct ProductionQueue
 - (완료) 건물 배치 프리뷰 (초록/빨강 footprint 고스트 — 0.5.2)
 - (완료) 건설 중 진행도 UI (BuildingViewModel 청록 진행도 바)
 - footprint를 그리드 walkability에 반영 (Epic 5.3, 현재 단일 점유 셀 기준)
-- 건물 타입 선택 UI (현재 B = Barracks 고정)
+- 건물 타입 선택 UI (Worker Build submenu에서 건물 타입 선택)
 ```
 
 ---
@@ -586,10 +609,10 @@ struct ProductionQueue
 ```text
 [x] 맵 경계 밖인지 검사 (isTileBlocked가 경계 포함)
 [x] 타일이 이동 가능한지 검사 (isTileBlocked moveCost)
-[x] 다른 건물 footprint와 겹치는지 검사 (isCellOccupied, 단일 점유 셀 기준)
+[x] 다른 건물 footprint와 겹치는지 검사 (isCellOccupied가 구조물 footprint 캐시 그리드 사용)
 [x] 자원 노드와 겹치는지 검사 (isCellOccupied)
 [x] 유닛과 겹치는지 검사 (isCellOccupied)
-[ ] 지형 타입이 건설 가능한지 검사 (현재 walkability로 근사)
+[~] 지형 타입이 건설 가능한지 검사 (별도 지형 태그 없이 walkability로 근사)
 [ ] 필요한 경우 아군 건물 근처인지 검사
 ```
 
@@ -675,7 +698,7 @@ Idle
 [x] 완성된 건물 HP 설정 (m_hp = m_maxHp)
 [x] 생산 가능 건물이면 ProductionQueue 활성화 (완성 후 tick에서 train 가능)
 [x] Drop-off 건물이면 자원 반납 후보 등록 (isDropOff = 완성 + TownHall)
-[ ] 타일 walkability 최종 반영 (Epic 5.3 후속)
+[x] 타일 walkability 최종 반영 (Epic 5.3 구조물 footprint 점유 캐시 적용)
 ```
 
 #### 완료 기준
@@ -689,7 +712,7 @@ Idle
 
 ## Epic 0.6 단순 적 AI
 
-현재 상태: `[90% — 0.6.1/0.6.2 완료, 0.6.3 경제 루프 구현(일꾼 생산·채집·유료 생산·병력 기반 웨이브) / 신규 병영 건설만 후속]`
+현재 상태: `[100% — 경제 루프·유료 생산·병력 웨이브·Phase 8 병영 재건설까지 구현 확인]`
 
 ### 목표
 
@@ -754,7 +777,7 @@ AI 병사 5기 생성
 ```text
 [x] AI 일꾼 생산 (enemy TownHall이 워커를 cap(6)까지 유료 train)
 [x] AI 자원 채집 (유휴 enemy 워커를 최근접 가용 자원으로 gather 배정)
-[ ] AI 병영 건설 (신규 병영 건설은 후속 — 현재 적은 시작 병영 보유)
+[x] AI 병영 건설 (tryStartAiBarracks: 자원/선행조건/배치 검증 후 워커 건설)
 [x] AI 병사 생산 (Barracks Warrior 주기적 유료 train — 비용 차감, 더 이상 무료 아님)
 [x] 일정 수 이상 모이면 공격 (유휴 병사 ≥ kAiWaveArmySize 또는 타임아웃 시 웨이브)
 ```
@@ -825,15 +848,15 @@ Vertical Slice 단계에서는 Wave Attack AI만 먼저 구현해도 충분합�
 
 ## Epic 1.1 명령 버스 체계
 
-현재 상태: `[100%]`
+현재 상태: `[90% — Logic/UI 버스 분리·UI World 직접 수정 방지·처리 순서 고정 확인 / 상시 Tick별 명령 로그는 후속]`
 
 ### 추가 점검 Task
 
 ```text
-[ ] LogicCommandBus와 UICommandBus 책임 분리 문서화
-[ ] UI 명령이 직접 World를 수정하지 않도록 검증
-[ ] Command 처리 순서 고정
-[ ] Tick별 명령 처리 로그 추가
+[x] LogicCommandBus와 UICommandBus 책임 분리 문서화 (SOURCE_STRUCTURE/DI 구성 확인)
+[x] UI 명령이 직접 World를 수정하지 않도록 검증 (UI는 LogicCommand/UICommand 발행, World 변경은 LogicManager)
+[x] Command 처리 순서 고정 (LogicThread가 command drain 후 fixed tick 실행)
+[~] Tick별 명령 처리 로그 추가 (Replay recording 경로는 구현, 상시 디버그 로그는 후속)
 ```
 
 ### 완료 기준
@@ -862,14 +885,14 @@ Vertical Slice 단계에서는 Wave Attack AI만 먼저 구현해도 충분합�
 [x] moveSpeed
 [x] attackRange
 [x] attackCooldown
-[x] sightRange (Unit에 저장·getter, fog 연결은 후속 — revealCircle 소비처 미구현)
+[x] sightRange (Unit/Building JSON 값 저장·getter, Fog revealCircle 소비 연결)
 [x] collisionRadius (CollisionSystem이 유닛별 반경 사용)
 [x] costGold
 [x] costWood
 [x] supplyCost
 [x] buildTime (buildTimeSeconds — 생산 시 건물이 유닛별 값 사용)
-[x] weaponType (enum, JSON 문자열 매핑 — 데미지 테이블은 후속)
-[x] armorType (enum, JSON 문자열 매핑 — 데미지 테이블은 후속)
+[x] weaponType (enum, JSON 문자열 매핑 + damageMultiplier 적용)
+[x] armorType (enum, JSON 문자열 매핑 + Unit/Building 장갑 타입 적용)
 ```
 
 ---
@@ -1077,23 +1100,23 @@ struct EntityId
 
 ## Epic 2.2 기본 명령
 
-현재 상태: `[100%]`
+현재 상태: `[90% — Move/Attack/Stop 검증·선택 필터링·주요 피드백 사운드 확인 / 일반 InvalidCommand 커서 이벤트는 후속]`
 
 ### 추가 Task
 
 ```text
-[ ] MoveCommand validation
-[ ] AttackTargetCommand validation
-[ ] StopCommand validation
-[ ] 명령 실패 사운드/커서 이벤트
-[ ] 선택 유닛 중 명령 수행 가능 유닛만 필터링
+[x] MoveCommand validation (입력 잠금, Dead 제외, 이동 가능 유닛만 MovementSystem 처리)
+[x] AttackTargetCommand validation (EntityId/live/opposing-team/resource 검증 후 fallback)
+[x] StopCommand validation (Dead 제외, queue/path 취소)
+[~] 명령 실패 사운드/커서 이벤트 (자원 부족/명령 피드백 사운드 구현, 일반 InvalidCommand 커서 이벤트는 후속)
+[x] 선택 유닛 중 명령 수행 가능 유닛만 필터링 (worker/building/combat 명령 경로별 필터)
 ```
 
 ---
 
 ## Epic 2.3 Smart Command Resolver
 
-현재 상태: `[70%]`
+현재 상태: `[70% — 땅/적/자원 우클릭은 구현, repair/build/invalid 세부 resolver는 후속]`
 
 ### Task
 
@@ -1102,7 +1125,7 @@ struct EntityId
 [x] 우클릭 대상이 적이면 AttackTargetCommand
 [x] 우클릭 대상이 자원이면 GatherCommand (handleAttackCommand의 resource 분기)
 [ ] 우클릭 대상이 미완성 건물이면 Build/RepairCommand
-[ ] 우클릭 대상이 아군 건물이면 RallyPoint 또는 Repair
+[~] 우클릭 대상이 아군 건물이면 RallyPoint 또는 Repair (건물 선택 후 Move로 RallyPoint 설정은 구현, 유닛 우클릭 Repair/Rally resolver는 후속)
 [ ] 우클릭 불가 대상이면 InvalidCommand
 ```
 
@@ -1419,14 +1442,14 @@ RVO보다 먼저:
 
 ## Epic 4.5 AoE / Splash
 
-현재 상태: `[100%]`
+현재 상태: `[95% — Splash 피해/낙폭/피아 정책 구현 확인 / splash 전용 spatial query 전환은 후속]`
 
 ### Task
 
 ```text
 [x] SplashData 추가 (CombatTypes.hpp SplashRadii; UnitStaticData.splash, marine 기본값)
 [x] 중심/중간/외곽 반경 추가 (inner/mid/outer = 100%/50%/25%, outer==0이면 단일타격)
-[x] Spatial Query로 범위 내 대상 검색 (GameWorld::applySplashDamage가 m_elements 순회)
+[~] Spatial Query로 범위 내 대상 검색 (현재 GameWorld::applySplashDamage는 m_elements 순회, WorldRuntimeServices spatial grid 재사용은 후속)
 [x] 거리별 데미지 배율 적용 (splashFalloff × damageMultiplier 적용 takeDamage)
 [x] 아군 피해 여부 정책 추가 (적 팀만 피격; 아군·중립 자원 제외)
 ```
@@ -1643,7 +1666,7 @@ struct Cost
 
 ## Epic 6.4 Command Card
 
-현재 상태: `[100% — 선택 종류별 명령 버튼 동적 구성 + 조건/자원 미충족 시 회색 잠금]`
+현재 상태: `[100% — 선택 종류별 명령 버튼 동적 구성 + 생산/건설 서브메뉴 + 조건/자원 미충족 잠금]`
 
 ### Task
 
@@ -1651,8 +1674,8 @@ struct Cost
 [x] 선택 대상 기준 사용 가능한 명령 목록 생성 (UpdateHudSelection.kind/canProduce → SfmlHudOverlay)
 [x] 3x3 버튼 UI 생성 (기존 그리드 재사용, 동적 개수)
 [x] Move/Attack/Stop/Hold/Patrol 버튼 연결 (전투/워커 종류별)
-[x] Worker 선택 시 Build 버튼 표시
-[x] 생산 건물 선택 시 생산 버튼 표시 (Train → TrainUnit, canProduce일 때)
+[x] Worker 선택 시 Build 버튼 표시 (Build submenu → 건물 타입 선택)
+[x] 생산 건물 선택 시 생산 버튼 표시 (trainOptions → 유닛 타입별 Train)
 [x] 버튼 Hotkey 연결 (HUD 버튼·핫키 모두 GameplayInputCommand 경유로 동일 경로)
 [x] 비활성 버튼 잠금 표시 (조건 미충족=TechTreeValidator, 자원 부족=trainAffordable → HudCommandButton.locked 회색·비클릭)
 ```
@@ -1697,14 +1720,6 @@ struct Cost
 ```text
 - Tiled에서 만든 맵으로 실제 게임을 시작할 수 있다. ✅ (data/maps/tiled_skirmish.tmx 샘플; 시나리오 경로를 .tmx로 지정)
 ```
-
-### 완료 기준
-
-```text
-- Tiled에서 만든 맵으로 실제 게임을 시작할 수 있다.
-```
-
----
 
 ## Epic 7.2 Save / Load
 
@@ -1921,12 +1936,12 @@ Worker가 Gold/Wood를 실제로 채집하고 타운홀에 반납한다.
 ### 작업 순서
 
 ```text
-1. Cost 구조 추가
-2. CanAfford / PayCost 추가
-3. ProductionQueue 추가
-4. 생산 진행도 Tick 처리
-5. 유닛 스폰 위치 계산
-6. RallyPoint 이동 연결
+[x] Cost 구조 추가
+[x] CanAfford / PayCost 추가
+[x] ProductionQueue 추가
+[x] 생산 진행도 Tick 처리
+[x] 유닛 스폰 위치 계산
+[x] RallyPoint 이동 연결
 ```
 
 ### 완료 결과
@@ -1942,12 +1957,12 @@ Worker가 Gold/Wood를 실제로 채집하고 타운홀에 반납한다.
 ### 작업 순서
 
 ```text
-1. BuildingStaticData 추가
-2. Build Preview 추가
-3. PlacementValidator 추가
-4. ConstructionSite 추가
-5. Worker Build FSM 추가
-6. 완성 건물 전환
+[x] BuildingStaticData 추가
+[x] Build Preview 추가
+[x] PlacementValidator 추가
+[x] ConstructionSite 추가
+[x] Worker Build FSM 추가
+[x] 완성 건물 전환
 ```
 
 ### 완료 결과
@@ -1963,11 +1978,11 @@ Worker가 새 건물을 지을 수 있다.
 ### 작업 순서
 
 ```text
-1. AI Wave Attack 추가
-2. TownHall 승패 조건 추가
-3. 결과 UI 추가
-4. 테스트 맵 구성
-5. 밸런스 1차 조정
+[x] AI Wave Attack 추가
+[x] TownHall 승패 조건 추가
+[x] 결과 UI 추가
+[x] 테스트 맵 구성
+[~] 밸런스 1차 조정 (플레이 QA 기준 추가 튜닝 필요)
 ```
 
 ### 완료 결과
@@ -2021,38 +2036,46 @@ Worker가 새 건물을 지을 수 있다.
 
 # 14. 지금 가장 먼저 할 일
 
-현재 개발 우선순위는 다음입니다.
+현재 소스 기준 핵심 로드맵은 완료되었고, 남은 작업은 기능 추가보다 검증/정책/완성도 보강이다.
 
 ```text
-1. 자원 채집 안정화
-   - MaxGatherers 초과 시 대기/다른 자원 탐색
-   - Drop-off 파괴 시 재탐색
-2. ProductionQueue 구현
-3. 생산 비용 차감 처리
-4. 생산 진행도 Tick 업데이트
-5. 유닛 스폰 위치 계산
-6. RallyPoint 이동 연결
+1. 전체 플레이 QA 패스
+   - 선택/명령/채집/건설/생산/전투/AI/승패/FoW/미니맵/Save/Replay를 한 판 흐름으로 검증
+2. stale 후속 정책 결정
+   - RallyPoint UI 표시
+   - 모든 건물 파괴 시 패배
+   - 건설 가능 지형 태그/아군 건물 근처 조건
+   - 일반 InvalidCommand 사운드/커서 이벤트
+3. 결정론 보강
+   - 공격 사거리 Fixed 전환
+   - 투사체 Fixed 전환
+   - Local Avoidance EntityId 순서 처리
+4. Save/Replay 심화
+   - 유닛 CommandQueue 저장
+   - WorldHash에 명령/생산 큐 포함
+   - Replay 재생 속도 조절
+5. 폴리시/밸런스 마감
+   - 큰 맵 기준 FoW 캐싱/Dirty 추적 필요성 재평가
+   - 사운드 synthesized tone을 실제 에셋으로 교체할지 결정
 ```
 
-자원 채집 기본 루프는 구현되었고, 안정화 항목을 보강하면 Sprint 1을 닫을 수 있습니다.
-
-그 다음 순서는 다음과 같습니다.
+작업 순서는 다음이 가장 안전하다.
 
 ```text
-ProductionQueue
+QA 체크리스트 작성/실행
  ↓
-BuildingConstruction
+실패/불편 항목 수정
  ↓
-AI
+Save/Replay/Fixed 결정론 보강
  ↓
-VictoryCondition
+밸런스/에셋/성능 마감
 ```
 
 ---
 
 # 15. 최종 목표
 
-본 로드맵의 1차 완료 목표는 다음과 같습니다.
+본 로드맵의 1차 완료 목표는 현재 소스 기준 달성되었습니다.
 
 ```text
 일꾼이 자원을 채집하고,
@@ -2062,17 +2085,16 @@ VictoryCondition
 적 타운홀을 파괴하면 승리하는 작은 RTS를 완성한다.
 ```
 
-이 목표가 달성되면 이후 다음 시스템을 안정적으로 확장할 수 있습니다.
+이후 다음 시스템은 확장/고도화 대상으로 남습니다.
 
 ```text
-- Fog of War
-- Minimap
-- Command Card
-- TechTree
-- Upgrade
-- Projectile
-- Advanced AI
-- Save / Load
-- Replay
+- Fog of War 최적화
+- Minimap polish
+- Command Card polish
+- Upgrade 콘텐츠
+- Projectile directional/Fixed 고도화
+- Advanced AI 튜닝
+- Save / Load 심화
+- Replay UX/검증 고도화
 - Multiplayer Lockstep
 ```
