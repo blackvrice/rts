@@ -246,6 +246,13 @@ namespace rts::core::data {
             .displayW = 64.f, .displayH = 64.f, .anchorX = 32.f, .anchorY = 48.f,
             .trim = false
         };
+        m_sprites["resource.meat"] = SpriteClip {
+            .texture = "Terrain/Resources/Meat/Meat Resource/Meat Resource.png",
+            .frameCount = 1, .fps = 0.f,
+            .sourceX = 0, .sourceY = 0, .sourceW = 0, .sourceH = 0,
+            .displayW = 64.f, .displayH = 64.f, .anchorX = 32.f, .anchorY = 48.f,
+            .trim = false
+        };
 
         auto commandClip = [](std::string texture, const bool trim = false) {
             return SpriteClip {

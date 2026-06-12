@@ -53,6 +53,9 @@ namespace {
     constexpr const char* kBarFill = "UI Elements/UI Elements/Bars/BigBar_Fill.png";
     constexpr const char* kAvatar = "UI Elements/UI Elements/Human Avatars/Avatars_01.png";
     constexpr const char* kSwords = "UI Elements/UI Elements/Swords/Swords.png";
+    constexpr const char* kHudGoldIcon = "resource.gold.6";
+    constexpr const char* kHudWoodIcon = "resource.wood";
+    constexpr const char* kHudFoodIcon = "resource.meat";
 
     struct SourceRect {
         float x;
@@ -750,9 +753,20 @@ namespace rts::platform::sfml {
         // Population at/over capacity blocks new production: flag it red.
         const bool supplyCapped = resources.foodUsed >= resources.foodCapacity;
         // HUD ADJUST: top-right resource pills are positioned and spaced in this block.
-        drawResourcePill(drawList, {resourceStart, resourceTop}, resourceSize, "Gold", gold.c_str(), kMineral, texture("UI Elements/UI Elements/Icons/Icon_01.png"));
-        drawResourcePill(drawList, {resourceStart + 154.0f, resourceTop}, resourceSize, "Wood", wood.c_str(), kGas, texture("UI Elements/UI Elements/Icons/Icon_02.png"));
-        drawResourcePill(drawList, {resourceStart + 308.0f, resourceTop}, resourceSize, "Food", food.c_str(), kWarning, texture("UI Elements/UI Elements/Icons/Icon_03.png"), nullptr, supplyCapped ? kDanger : kTextMain);
+        const auto drawResourceSpritePill = [&](const ImVec2 pos, const char* label, const char* value, const ImU32 color, const char* spriteKey, const ImU32 valueColor = kTextMain) {
+            const auto* clip = core::data::DataRegistry::global().sprite(spriteKey);
+            const sf::Texture* icon = clip ? texture(clip->texture) : nullptr;
+            SourceRect source {};
+            const SourceRect* sourcePtr = nullptr;
+            if (clip && icon) {
+                source = spriteClipSourceRect(*icon, *clip);
+                sourcePtr = &source;
+            }
+            drawResourcePill(drawList, pos, resourceSize, label, value, color, icon, sourcePtr, valueColor);
+        };
+        drawResourceSpritePill({resourceStart, resourceTop}, "Gold", gold.c_str(), kMineral, kHudGoldIcon);
+        drawResourceSpritePill({resourceStart + 154.0f, resourceTop}, "Wood", wood.c_str(), kGas, kHudWoodIcon);
+        drawResourceSpritePill({resourceStart + 308.0f, resourceTop}, "Food", food.c_str(), kWarning, kHudFoodIcon, supplyCapped ? kDanger : kTextMain);
         drawResourcePill(drawList, {resourceStart + 462.0f, resourceTop}, resourceSize, "Army", army.c_str(), kPanelHigh, swords, &kBlueSwordIcon);
 
         const float miniWidth = std::clamp(width * 0.18f, 285.0f, 340.0f);

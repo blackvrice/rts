@@ -1,5 +1,13 @@
 # Development Log
 
+## 2026-06-13 - Resource HUD Sprite Icons
+
+- Replaced the top resource HUD placeholder UI icons with Tiny Swords resource art resolved from `data/animations.json`.
+- Added a data/fallback `resource.meat` sprite entry so the Food supply pill can use the matching Meat Resource PNG while Gold uses the existing `resource.gold.6` pile clip and Wood uses `resource.wood`.
+- Updated `SfmlHudOverlay` to draw resource pill icons through the sprite registry, keeping the art editable from JSON instead of hardcoded `UI Elements/Icons/Icon_01~03.png` paths.
+- Verification: parsed `data/animations.json` with `python -m json.tool`; built `RTS` with `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j 4`, then launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
+- Follow-up: none.
+
 ## 2026-06-13 - Archer Arrow Projectile Sprite
 
 - Extended projectile spawning so ranged attacks can carry an optional Tiny Swords texture path from the firing unit to the pooled `Projectile` model.

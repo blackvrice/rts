@@ -1,5 +1,5 @@
 {
-  "_comment": "Sprite/animation clips. Add, remove, or edit entries here (plus the PNG) to change visuals without recompiling. Keys: unit.<set>.<team>.<action>, building.<type>.<team>, resource.gold.<stage 1-6>, resource.wood, command.<action/type>, cursor.<state>. texture paths are relative to the Tiny Swords asset root.",
+  "_comment": "Sprite/animation clips. Add, remove, or edit entries here (plus the PNG) to change visuals without recompiling. Keys: unit.<set>.<team>.<action>, building.<type>.<team>, resource.gold.<stage 1-6>, resource.wood, resource.meat, command.<action/type>, cursor.<state>. texture paths are relative to the Tiny Swords asset root.",
 
   "unitSpriteSets": {
     "warrior": "warrior",
@@ -94,6 +94,7 @@
     "resource.gold.5": { "texture": "Terrain/Resources/Gold/Gold Stones/Gold Stone 5_Highlight.png", "frameCount": 6, "fps": 8, "sourceW": 128, "sourceH": 128, "displayW": 64, "displayH": 64, "anchorX": 32, "anchorY": 48, "trim": false },
     "resource.gold.6": { "texture": "Terrain/Resources/Gold/Gold Stones/Gold Stone 6_Highlight.png", "frameCount": 6, "fps": 8, "sourceW": 128, "sourceH": 128, "displayW": 64, "displayH": 64, "anchorX": 32, "anchorY": 48, "trim": false },
     "resource.wood":   { "texture": "Terrain/Resources/Wood/Wood Resource/Wood Resource.png",         "frameCount": 1, "fps": 0,                                 "displayW": 64, "displayH": 64, "anchorX": 32, "anchorY": 48, "trim": false },
+    "resource.meat":   { "texture": "Terrain/Resources/Meat/Meat Resource/Meat Resource.png",         "frameCount": 1, "fps": 0,                                 "displayW": 64, "displayH": 64, "anchorX": 32, "anchorY": 48, "trim": false },
 
     "command.default":          { "texture": "UI Elements/UI Elements/Icons/Icon_12.png", "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": false },
     "command.move":             { "texture": "UI Elements/UI Elements/Icons/Icon_07.png", "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": false },
