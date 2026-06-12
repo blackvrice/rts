@@ -894,6 +894,81 @@ namespace rts::platform::sfml {
             drawList.AddText({infoMin.x, infoMin.y + 148.0f}, kTextMain, position.c_str());
             drawList.AddText({infoMin.x, infoMin.y + 180.0f}, kWarning, command.c_str());
 
+            if (selection.kind == core::render::HudSelectionKind::Building && selection.producesUnits) {
+                constexpr float kCell = 32.0f;
+                constexpr float kGap = 5.0f;
+                constexpr int kMaxCells = 5;
+                const float listWidth = kCell * kMaxCells + kGap * (kMaxCells - 1);
+                const float listX = std::max(infoMin.x + 230.0f, statusMax.x - 18.0f - listWidth);
+                const auto drawUnitCell = [&](const ImVec2 cellMin,
+                                              const std::string& iconKey,
+                                              const bool locked,
+                                              const bool hovered,
+                                              const float progress) {
+                    const ImVec2 cellMax{cellMin.x + kCell, cellMin.y + kCell};
+                    drawList.AddRectFilled(cellMin, cellMax, kPanelDark, 2.0f);
+                    const auto* clip = core::data::DataRegistry::global().sprite(iconKey);
+                    if (!clip) {
+                        clip = core::data::DataRegistry::global().sprite("command.default");
+                    }
+                    if (clip) {
+                        drawSpriteClip(
+                            drawList,
+                            texture(clip->texture),
+                            *clip,
+                            {cellMin.x + 3.0f, cellMin.y + 3.0f},
+                            {cellMax.x - 3.0f, cellMax.y - 7.0f},
+                            locked ? IM_COL32(140, 148, 150, 190) : IM_COL32_WHITE);
+                    }
+                    if (progress > 0.0f) {
+                        const float ratio = std::clamp(progress, 0.0f, 1.0f);
+                        drawList.AddRectFilled(
+                            {cellMin.x + 2.0f, cellMax.y - 5.0f},
+                            {cellMin.x + 2.0f + (kCell - 4.0f) * ratio, cellMax.y - 2.0f},
+                            kWarning);
+                    }
+                    drawList.AddRect(
+                        cellMin,
+                        cellMax,
+                        hovered ? IM_COL32(255, 255, 255, 255)
+                                : (locked ? kTextDim : kPanelEdge),
+                        2.0f,
+                        0,
+                        hovered ? 2.0f : 1.25f);
+                };
+
+                const ImVec2 producesPos{listX, infoMin.y + 84.0f};
+                drawList.AddText({producesPos.x, producesPos.y - 17.0f}, kTextDim, "Produces");
+                const int produceCount = std::min(static_cast<int>(selection.trainOptions.size()), kMaxCells);
+                for (int i = 0; i < produceCount; ++i) {
+                    const auto& opt = selection.trainOptions[i];
+                    const ImVec2 cellMin{producesPos.x + i * (kCell + kGap), producesPos.y};
+                    const bool locked = !selection.canProduce || opt.locked;
+                    ImGui::SetCursorScreenPos(cellMin);
+                    const std::string id = "##produce_icon_" + std::to_string(i);
+                    const bool clicked = ImGui::InvisibleButton(id.c_str(), {kCell, kCell}) && !locked;
+                    const bool hovered = ImGui::IsItemHovered() && !locked;
+                    drawUnitCell(cellMin, opt.iconKey, locked, hovered, 0.0f);
+                    if (clicked) {
+                        m_lastCommand = opt.label;
+                        m_uiBus.push(std::make_unique<core::command::TrainMenuSelectCommand>(opt.unitTypeId));
+                    }
+                }
+
+                if (!selection.trainQueue.empty()) {
+                    const ImVec2 queuePos{listX, infoMin.y + 144.0f};
+                    const std::string queueLabel = "Queue " + std::to_string(selection.trainQueue.size())
+                        + "/" + std::to_string(kMaxCells);
+                    drawList.AddText({queuePos.x, queuePos.y - 17.0f}, kTextDim, queueLabel.c_str());
+                    const int queueCount = std::min(static_cast<int>(selection.trainQueue.size()), kMaxCells);
+                    for (int i = 0; i < queueCount; ++i) {
+                        const auto& item = selection.trainQueue[i];
+                        const ImVec2 cellMin{queuePos.x + i * (kCell + kGap), queuePos.y};
+                        drawUnitCell(cellMin, item.iconKey, false, false, i == 0 ? item.progress01 : 0.0f);
+                    }
+                }
+            }
+
             // Building progress overlays: construction first, otherwise training progress.
             if (selection.kind == core::render::HudSelectionKind::Building) {
                 const ImVec2 barPos{infoMin.x, infoMin.y + 208.0f};

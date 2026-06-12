@@ -103,6 +103,14 @@ namespace rts::core::render {
         std::string iconKey {};  // data/animations.json sprite key for the command HUD
     };
 
+    // One unit currently queued inside a selected production building.
+    struct HudProductionQueueItem {
+        int unitTypeId { -1 };
+        std::string label;
+        std::string iconKey {};
+        float progress01 { 0.0f };  // front item uses train progress; queued items stay 0
+    };
+
     struct UpdateHudSelection {
         int selectedCount {};
         bool hasPrimaryUnit {};
@@ -130,6 +138,8 @@ namespace rts::core::render {
         std::vector<HudBuildOption> buildOptions {};
         // Trainable units for a selected production building.
         std::vector<HudTrainOption> trainOptions {};
+        // Actual in-progress/queued units for a selected production building.
+        std::vector<HudProductionQueueItem> trainQueue {};
     };
 
     struct UpdateHudCursor {

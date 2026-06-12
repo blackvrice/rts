@@ -1,5 +1,13 @@
 # Development Log
 
+## 2026-06-13 - Building Production List HUD
+
+- Added production queue item data to `UpdateHudSelection` so selected buildings can expose the exact unit types waiting in their train queue, not just the queue count.
+- Updated `GameUIManager` to populate queued unit icons from `Building::trainQueueAt()` and the same `command.train.*` icon keys used by command-card buttons.
+- Added a StarCraft-style production area to the building selection HUD: `Produces` shows clickable trainable unit icons, and `Queue` shows the currently queued units with front-item progress.
+- Verification: built `RTS` with `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j 4`, then launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
+- Follow-up: none.
+
 ## 2026-06-13 - Square Multi-Selection Portrait Grid
 
 - Changed the multi-selection HUD list so portrait cells keep a square shape instead of stretching horizontally across the whole selection panel.

@@ -644,6 +644,14 @@ namespace rts::core::manager {
                     selection.buildProgress01 = building->buildProgress01();
                     selection.trainProgress01 = building->trainProgress();
                     selection.trainQueueCount = building->trainQueueSize();
+                    for (int i = 0; i < building->trainQueueSize(); ++i) {
+                        const auto queuedType = building->trainQueueAt(i);
+                        const auto& queuedData = core::data::unitStaticDataFor(queuedType);
+                        selection.trainQueue.push_back(
+                            { static_cast<int>(queuedType), queuedData.displayName,
+                              trainCommandIconKey(queuedType),
+                              i == 0 ? building->trainProgress() : 0.0f });
+                    }
                     // Production list: one entry per producible unit, locked when its
                     // prerequisites are unmet or it is unaffordable (Epic 6.4 / 5.4).
                     if (typeProduces) {
