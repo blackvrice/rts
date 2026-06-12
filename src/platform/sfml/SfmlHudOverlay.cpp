@@ -802,37 +802,45 @@ namespace rts::platform::sfml {
             const ImVec2 gridMin = portraitMin;
             const ImVec2 gridMax{statusMax.x - 18.0f, statusMax.y - 18.0f};
             const int count = static_cast<int>(selection.portraits.size());
-            const int cols = count <= 6 ? 3 : (count <= 12 ? 4 : 6);
-            const float gap = 4.0f;
-            const float cellW = (gridMax.x - gridMin.x - gap * (cols - 1)) / static_cast<float>(cols);
-            const float cellH = std::min(cellW, 34.0f);
-            for (int i = 0; i < count; ++i) {
-                const auto& p = selection.portraits[i];
-                const int col = i % cols;
-                const int row = i / cols;
-                const ImVec2 cMin{gridMin.x + col * (cellW + gap), gridMin.y + row * (cellH + gap)};
-                if (cMin.y + cellH > gridMax.y) break;  // clip overflow rows
-                const ImVec2 cMax{cMin.x + cellW, cMin.y + cellH};
-                ImGui::SetCursorScreenPos(cMin);
-                const std::string pid = "##portrait_" + std::to_string(i);
-                const bool clicked = ImGui::InvisibleButton(pid.c_str(), {cellW, cellH});
-                const bool hovered = ImGui::IsItemHovered();
+            if (count > 0) {
+                const int cols = count <= 6 ? 3 : (count <= 12 ? 4 : 6);
+                const int rows = (count + cols - 1) / cols;
+                const float gap = 4.0f;
+                // Keep the multi-selection list compact: cells are square and no longer
+                // stretch across the full status panel width.
+                const float cellSize = std::floor(std::min({
+                    44.0f,
+                    (gridMax.x - gridMin.x - gap * (cols - 1)) / static_cast<float>(cols),
+                    (gridMax.y - gridMin.y - gap * (rows - 1)) / static_cast<float>(rows)
+                }));
+                for (int i = 0; i < count; ++i) {
+                    const auto& p = selection.portraits[i];
+                    const int col = i % cols;
+                    const int row = i / cols;
+                    const ImVec2 cMin{gridMin.x + col * (cellSize + gap), gridMin.y + row * (cellSize + gap)};
+                    if (cMin.y + cellSize > gridMax.y) break;  // clip overflow rows
+                    const ImVec2 cMax{cMin.x + cellSize, cMin.y + cellSize};
+                    ImGui::SetCursorScreenPos(cMin);
+                    const std::string pid = "##portrait_" + std::to_string(i);
+                    const bool clicked = ImGui::InvisibleButton(pid.c_str(), {cellSize, cellSize});
+                    const bool hovered = ImGui::IsItemHovered();
 
-                drawList.AddRectFilled(cMin, cMax, kPanelDark, 2.0f);
-                if (const sf::Texture* icon = portraitTexture(p)) {
-                    drawImage(drawList, icon, {cMin.x + 3.0f, cMin.y + 3.0f},
-                              {cMax.x - 3.0f, cMax.y - 8.0f});
-                }
-                drawList.AddRect(cMin, cMax,
-                                 hovered ? IM_COL32(255, 255, 255, 255) : portraitKindColor(p.kind),
-                                 2.0f, 0, hovered ? 2.0f : 1.5f);
-                const float ratio = std::clamp(p.hp01, 0.0f, 1.0f);
-                drawList.AddRectFilled({cMin.x + 2.0f, cMax.y - 6.0f},
-                                       {cMin.x + 2.0f + (cellW - 4.0f) * ratio, cMax.y - 2.0f},
-                                       hpBarColor(ratio));
-                if (clicked) {
-                    m_uiBus.push(std::make_unique<core::command::SelectEntityUICommand>(
-                        p.entityIndex, p.entityGeneration));
+                    drawList.AddRectFilled(cMin, cMax, kPanelDark, 2.0f);
+                    if (const sf::Texture* icon = portraitTexture(p)) {
+                        drawImage(drawList, icon, {cMin.x + 3.0f, cMin.y + 3.0f},
+                                  {cMax.x - 3.0f, cMax.y - 8.0f});
+                    }
+                    drawList.AddRect(cMin, cMax,
+                                     hovered ? IM_COL32(255, 255, 255, 255) : portraitKindColor(p.kind),
+                                     2.0f, 0, hovered ? 2.0f : 1.5f);
+                    const float ratio = std::clamp(p.hp01, 0.0f, 1.0f);
+                    drawList.AddRectFilled({cMin.x + 2.0f, cMax.y - 6.0f},
+                                           {cMin.x + 2.0f + (cellSize - 4.0f) * ratio, cMax.y - 2.0f},
+                                           hpBarColor(ratio));
+                    if (clicked) {
+                        m_uiBus.push(std::make_unique<core::command::SelectEntityUICommand>(
+                            p.entityIndex, p.entityGeneration));
+                    }
                 }
             }
         } else {

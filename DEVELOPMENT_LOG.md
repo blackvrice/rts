@@ -1,5 +1,12 @@
 # Development Log
 
+## 2026-06-13 - Square Multi-Selection Portrait Grid
+
+- Changed the multi-selection HUD list so portrait cells keep a square shape instead of stretching horizontally across the whole selection panel.
+- Kept the existing StarCraft-style column counts, click-to-select behavior, portrait tint, and HP bar, but now the grid chooses a compact square cell size from the available width/height.
+- Verification: built `RTS` with `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j 4`, then launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
+- Follow-up: none.
+
 ## 2026-06-13 - Data-Driven Command HUD Icons
 
 - Added `iconKey` to HUD build/train options so command-card buttons can resolve their artwork from the sprite registry instead of using slot-order placeholder icons.
