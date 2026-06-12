@@ -82,6 +82,9 @@ namespace rts::core::world {
 
         bool isTileBlocked(int x, int y) const noexcept;
         float tileMoveCost(int x, int y) const noexcept;
+        bool isStructureCellOccupied(int x, int y) const noexcept;
+        bool isStructurePathBlocked(int x, int y) const noexcept;
+        bool isUnitCellOccupied(int x, int y) const noexcept;
         bool isCellOccupied(int x, int y) const noexcept;
         uint64_t collisionVersion() const noexcept;
         const path::IGridQuery& gridQuery() const noexcept;
@@ -142,6 +145,8 @@ namespace rts::core::world {
         std::unique_ptr<map::TileMapSoA> m_tileMap;
         // gridW*gridH, row-major: 1 where a live building/resource footprint sits.
         std::vector<std::uint8_t> m_structureOccupancy;
+        // Same layout, inflated by unit radius for pathfinding clearance.
+        std::vector<std::uint8_t> m_structurePathBlocking;
         map::FogOfWar m_fog;  // local player's vision (explored/visible)
         std::vector<std::shared_ptr<model::IElement>> m_elements;
         std::vector<std::shared_ptr<model::Projectile>> m_projectiles;

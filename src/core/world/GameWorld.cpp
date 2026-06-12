@@ -16,6 +16,10 @@
 #include <cmath>
 
 namespace rts::core::world {
+    namespace {
+        constexpr float kPathingAgentRadius = 28.0f;
+    }
+
     GameWorld::GameWorld()
         : m_tileMap(std::make_unique<map::TileMapSoA>())
         , m_gridQuery(std::make_unique<GameWorldGridQuery>(*this))
@@ -335,21 +339,39 @@ namespace rts::core::world {
         const int w = gridWidth();
         const int h = gridHeight();
         m_structureOccupancy.assign(static_cast<std::size_t>(w) * h, 0u);
+        m_structurePathBlocking.assign(static_cast<std::size_t>(w) * h, 0u);
         if (w <= 0 || h <= 0) return;
 
-        const auto mark = [&](const model::Vector2D& pos, const int fw, const int fh) {
-            const auto cell = m_gridTransform.worldToGrid(pos);
-            const int originX = cell.x - fw / 2;
-            const int originY = cell.y - fh / 2;
+        const auto markCells = [&](std::vector<std::uint8_t>& grid,
+                                   const int originX,
+                                   const int originY,
+                                   const int fw,
+                                   const int fh) {
             for (int dy = 0; dy < fh; ++dy) {
                 const int gy = originY + dy;
                 if (gy < 0 || gy >= h) continue;
                 for (int dx = 0; dx < fw; ++dx) {
                     const int gx = originX + dx;
                     if (gx < 0 || gx >= w) continue;
-                    m_structureOccupancy[static_cast<std::size_t>(gy) * w + gx] = 1u;
+                    grid[static_cast<std::size_t>(gy) * w + gx] = 1u;
                 }
             }
+        };
+
+        const auto mark = [&](const model::Vector2D& pos, const int fw, const int fh) {
+            const auto cell = m_gridTransform.worldToGrid(pos);
+            const int originX = cell.x - fw / 2;
+            const int originY = cell.y - fh / 2;
+            markCells(m_structureOccupancy, originX, originY, fw, fh);
+
+            const float tileSize = m_gridTransform.tileSize > 0.0f ? m_gridTransform.tileSize : 1.0f;
+            const int clearanceTiles = static_cast<int>(std::ceil(kPathingAgentRadius / tileSize));
+            markCells(
+                m_structurePathBlocking,
+                originX - clearanceTiles,
+                originY - clearanceTiles,
+                fw + clearanceTiles * 2,
+                fh + clearanceTiles * 2);
         };
 
         // Static structures (buildings, resource nodes) occupy their whole footprint
@@ -369,7 +391,7 @@ namespace rts::core::world {
         }
     }
 
-    bool GameWorld::isCellOccupied(int x, int y) const noexcept {
+    bool GameWorld::isStructureCellOccupied(int x, int y) const noexcept {
         const int w = gridWidth();
         if (x < 0 || y < 0 || x >= w || y >= gridHeight()) {
             return true;
@@ -377,7 +399,24 @@ namespace rts::core::world {
 
         // Multi-tile structures: O(1) lookup in the cached footprint grid.
         const auto idx = static_cast<std::size_t>(y) * w + x;
-        if (idx < m_structureOccupancy.size() && m_structureOccupancy[idx]) {
+        return idx < m_structureOccupancy.size() && m_structureOccupancy[idx];
+    }
+
+    bool GameWorld::isStructurePathBlocked(int x, int y) const noexcept {
+        const int w = gridWidth();
+        if (x < 0 || y < 0 || x >= w || y >= gridHeight()) {
+            return true;
+        }
+
+        // Pathfinding uses the footprint inflated by a moving unit's radius. This
+        // keeps path centers from grazing through building/resource edges.
+        const auto idx = static_cast<std::size_t>(y) * w + x;
+        return idx < m_structurePathBlocking.size() && m_structurePathBlocking[idx];
+    }
+
+    bool GameWorld::isUnitCellOccupied(int x, int y) const noexcept {
+        const int w = gridWidth();
+        if (x < 0 || y < 0 || x >= w || y >= gridHeight()) {
             return true;
         }
 
@@ -394,6 +433,10 @@ namespace rts::core::world {
         }
 
         return false;
+    }
+
+    bool GameWorld::isCellOccupied(int x, int y) const noexcept {
+        return isStructureCellOccupied(x, y) || isUnitCellOccupied(x, y);
     }
 
     uint64_t GameWorld::collisionVersion() const noexcept {

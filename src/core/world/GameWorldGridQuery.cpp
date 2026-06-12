@@ -14,13 +14,15 @@ namespace rts::core::world {
     // 타일 충돌(벽/물 등) 같은 정적 막힘
     bool GameWorldGridQuery::isBlockedStatic(path::GridPos p) const {
         if (!inBounds(p)) return true;
-        return m_world.isTileBlocked(p.x, p.y);
+        return m_world.isTileBlocked(p.x, p.y) ||
+               m_world.isStructurePathBlocked(p.x, p.y);
     }
 
-    // 유닛/구조물 등 동적 막힘(선택)
+    // Moving units are dynamic blockers; buildings/resources are exposed through
+    // isBlockedStatic so every path search avoids their full footprint.
     bool GameWorldGridQuery::isBlockedDynamic(path::GridPos p) const {
         if (!inBounds(p)) return true;
-        return m_world.isCellOccupied(p.x, p.y);
+        return m_world.isUnitCellOccupied(p.x, p.y);
     }
 
     float GameWorldGridQuery::moveCost(path::GridPos p) const {

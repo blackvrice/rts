@@ -1,5 +1,13 @@
 # Development Log
 
+## 2026-06-13 - Building-Aware Pathfinder Clearance
+
+- Split `GameWorld` occupancy into exact structure cells, inflated structure path blockers, and live unit cells so pathfinding treats buildings/resources as static obstacles while units remain dynamic blockers.
+- Inflated the pathfinder structure mask by the moving-unit radius, preventing unit center paths from grazing through building/resource edges when map tile size is small.
+- Updated `GameWorldGridQuery` so `isBlockedStatic` includes the inflated structure mask and `isBlockedDynamic` only reports units.
+- Verification: built `RTS` with `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j 4`, then launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds. Runtime logs loaded `skirmish.json` as a 256x256 map with 4 buildings, 2 units, and 12 resources.
+- Follow-up: authored `footprintWidth/footprintHeight` still control exact build placement; tune them per building if art-specific walkable bounds should differ from collision clearance.
+
 ## 2026-06-13 - Unit Overlap Auto-Separation
 
 - Fixed stacked units getting stuck by allowing unit-unit overlap separation to apply over several ticks instead of requiring a single local-avoidance push to fully clear collision immediately.
