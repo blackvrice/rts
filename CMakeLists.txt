@@ -210,6 +210,8 @@ add_executable(RTS
         src/core/tech/TechTreeValidator.cpp
         include/core/tech/TechTreeValidator.hpp
         include/core/data/TechTree.hpp
+        src/core/replay/ReplayLog.cpp
+        include/core/replay/ReplayLog.hpp
         src/core/map/FogOfWar.cpp
         src/core/model/Projectile.cpp
         src/core/model/ResourceNode.cpp

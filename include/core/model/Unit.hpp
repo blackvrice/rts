@@ -69,6 +69,8 @@ namespace rts::core::model {
         void takeDamage(float amount, IGameElement *attacker) override;
 
         float getHp() const;
+        // Restores HP (clamped to [0, maxHp]); used by save/load.
+        void setHp(float hp) { m_hp = hp < 0.f ? 0.f : (hp > m_maxHp ? m_maxHp : hp); }
 
         float getMaxHp() const;
         float getAttackDamage() const;

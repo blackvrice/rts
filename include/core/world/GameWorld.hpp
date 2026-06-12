@@ -109,6 +109,7 @@ namespace rts::core::world {
         // Monotonic logic-tick index; advanced once per fixed simulation tick.
         sim::TickCount currentTick() const noexcept { return m_currentTick; }
         void advanceTick() noexcept { ++m_currentTick; }
+        void setCurrentTick(sim::TickCount tick) noexcept { m_currentTick = tick; }
 
         manager::PathManager& path();
         const manager::PathManager& path() const;

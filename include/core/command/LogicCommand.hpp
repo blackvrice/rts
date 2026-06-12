@@ -48,6 +48,19 @@ namespace rts::core::command {
     class RestartCommand final : public LogicCommand {
     };
 
+    // Quick-save / quick-load the current match to a fixed slot (F5 / F9).
+    class SaveGameCommand final : public LogicCommand {
+    };
+    class LoadGameCommand final : public LogicCommand {
+    };
+
+    // Replay: toggle recording (writes the log on stop), or restart + play back the
+    // saved replay (F6 / F7).
+    class ToggleRecordCommand final : public LogicCommand {
+    };
+    class PlayReplayCommand final : public LogicCommand {
+    };
+
     class ResumeGameCommand final : public LogicCommand {
     };
 

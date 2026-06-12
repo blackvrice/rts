@@ -303,6 +303,22 @@ namespace rts::core::manager {
                         // Toggle the deterministic debug overlay (tick + world hash).
                         m_showDebugOverlay = !m_showDebugOverlay;
                         break;
+                    case core::model::Key::F5:
+                        // Quick-save the current match.
+                        m_logicBus.push(std::make_unique<command::SaveGameCommand>());
+                        break;
+                    case core::model::Key::F9:
+                        // Quick-load the last quick-save.
+                        m_logicBus.push(std::make_unique<command::LoadGameCommand>());
+                        break;
+                    case core::model::Key::F6:
+                        // Toggle replay recording (writes the log on stop).
+                        m_logicBus.push(std::make_unique<command::ToggleRecordCommand>());
+                        break;
+                    case core::model::Key::F7:
+                        // Replay the saved command log from the start.
+                        m_logicBus.push(std::make_unique<command::PlayReplayCommand>());
+                        break;
                     case core::model::Key::Left:
                         m_camera.moveBy({-kCameraStep, 0.0f});
                         break;

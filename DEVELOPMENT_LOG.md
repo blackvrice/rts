@@ -25,6 +25,22 @@
 - Verification: reproduced the failure by launching `cmake-build-debug\RTS.exe` without the tmxlite build folder on `PATH`, confirmed the process exited with `-1073741515`, rebuilt `RTS`, verified `libtmxlite-d.dll` was copied next to `RTS.exe`, then launched `cmake-build-debug\RTS.exe` without manually extending `PATH` and confirmed it stayed running for 5 seconds.
 - Follow-up: none for the launch failure; future shared runtime DLL targets should be copied beside `RTS.exe` as part of post-build setup.
 
+## 2026-06-11 - Epic 7.2/7.4 Save·Load + Replay
+
+### Epic 7.2 Save / Load
+- **복원 세터**: Unit::setHp / Building::setHp / ResourceNode::setRemaining / GameWorld::setCurrentTick 추가.
+- **GameLogicManager::saveGame/loadGame**: JSON 스냅샷(tick, 팀별 자원, 유닛 type/team/pos/hp, 건물 type/team/pos/hp/completed/trainQueue, 자원 type/pos/remaining). 로드는 restartMatch 경로를 재사용해 월드를 비우고 엔티티 재생성 후 상태 복원. SaveGameCommand/LoadGameCommand + F5/F9.
+- 유닛 명령 큐와 Fog는 스냅샷 미포함(로드 후 Idle, fog는 다음 틱 재계산) — 후속.
+
+### Epic 7.4 Replay
+- **ReplayLog**(core/replay): {tick, command-json} 스트림 + 30틱 간격 worldHash 체크포인트, save/load. serializeLogicCommand/deserializeLogicCommand가 14종 플레이어 명령(Move/Attack/AttackMove/Patrol/Stop/Hold/Gather/Build/Train/Cancel/Select/ControlGroup×3) (역)직렬화.
+- **기록**: acceptPlayerCommand가 모든 플레이어 명령 핸들러 진입부를 게이트 — Record면 currentTick 스탬프로 기록, Play의 라이브 입력은 무시.
+- **재생**: tick 시작 시(월드 락 전) applyReplayCommands가 해당 틱 기록 명령을 m_router.dispatch로 재투입(핸들러가 각자 락 — 데드락 회피). 30틱마다 worldHash 비교로 divergence 검출, 스트림 소진 시 자동 종료. F6=기록 토글(중지 시 저장), F7=재생.
+- **결정성**: RNG 없음 + 고정 틱 + AI 타이머 기반이라 동일 초기상태+동일 명령열이면 재현 가능. 재생 속도 조절은 LogicThread 고정 틱이라 후속.
+
+### 검증
+- 빌드 성공(전 타깃 링크). save/load·replay·해시 일치는 수동 확인 필요. IDE 진단은 거짓 양성.
+
 ## 2026-06-11 - Epic 7.1/7.3 Tiled 맵 로딩 + World Hash
 
 ### Epic 7.3 World Hash

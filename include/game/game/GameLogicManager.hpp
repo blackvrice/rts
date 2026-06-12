@@ -14,6 +14,7 @@
 #include "core/model/ResourceNode.hpp"
 #include "core/model/UnitType.hpp"
 #include "core/model/Vector2D.hpp"
+#include "core/replay/ReplayLog.hpp"
 #include "core/tech/TechTreeValidator.hpp"
 #include "game/game/systems/CollisionSystem.hpp"
 #include "game/game/systems/ControlGroupSystem.hpp"
@@ -150,6 +151,25 @@ namespace rts::core::manager {
         void setupInitialWorld();  // spawns starting units/buildings/resources (caller holds the lock)
         void restartMatch();       // resets the world and repopulates the starting position
 
+        // Save / load the live match to a JSON snapshot (tick, economy, every
+        // unit/building/resource's major state). Returns false on I/O/parse failure.
+        bool saveGame(const std::string& path);
+        bool loadGame(const std::string& path);
+        // Fixed quick-save slot under the data root.
+        static std::string quickSavePath();
+
+        // Replay control. Recording taps every player command (stamped with the tick
+        // it applies on); playback restarts the match and re-dispatches that stream.
+        enum class ReplayMode { Off, Record, Play };
+        static std::string replayPath();
+        void toggleRecording();   // start recording, or stop and write the replay file
+        void startReplay();       // load the replay, reset to the start, and play it back
+        // Gate + record a live player command: returns false when it should be
+        // ignored (live input during playback), records it while in Record mode.
+        bool acceptPlayerCommand(const command::LogicCommand& cmd);
+        // Re-dispatches the recorded commands stamped for a tick (playback).
+        void applyReplayCommands(std::uint64_t tick);
+
         // AI / victory helpers
         void updateAI(float dt);
         void updateAiBuildOrder();
@@ -196,5 +216,11 @@ namespace rts::core::manager {
         core::model::PlayerResourceState m_lastResourceLog[3] {};
         bool m_resourceLogReady { false };
         std::unordered_map<std::uint32_t, ElementSnapshot> m_feedbackSnapshots;
+
+        // Replay: command stream + mode. m_applyingReplay is set only while the tick
+        // re-dispatches recorded commands, so the gate lets them through.
+        core::replay::ReplayLog m_replay;
+        ReplayMode m_replayMode { ReplayMode::Off };
+        bool m_applyingReplay { false };
     };
 } // namespace rts::manager

@@ -1708,21 +1708,27 @@ struct Cost
 
 ## Epic 7.2 Save / Load
 
-현재 상태: `[0%]`
+현재 상태: `[100% 핵심 — 완료 기준 충족. 유닛 명령 큐/Fog 스냅샷은 후속]`
 
 ### Task
 
 ```text
-[ ] SaveGameData 구조 정의
-[ ] currentTick 저장
-[ ] PlayerState 저장
-[ ] Entity 목록 저장
-[ ] 각 Entity 상태 저장
-[ ] CommandQueue 저장
-[ ] ProductionQueue 저장
-[ ] ResourceNode 상태 저장
-[ ] Fog 상태 저장
-[ ] Load 시 World 복원
+[x] SaveGameData 구조 정의 (JSON: tick/players/units/buildings/resources)
+[x] currentTick 저장 (GameWorld::setCurrentTick로 복원)
+[x] PlayerState 저장 (팀별 gold/wood/foodUsed/foodCapacity/army)
+[x] Entity 목록 저장 (살아있는 unit/building/resource 열거)
+[x] 각 Entity 상태 저장 (type/team/pos/hp; 건물 completed)
+[~] CommandQueue 저장 (유닛 명령 큐 미저장 — 로드 시 Idle. 후속)
+[x] ProductionQueue 저장 (건물 trainQueue → 로드 시 trainUnit 재투입)
+[x] ResourceNode 상태 저장 (remaining → setRemaining 복원)
+[~] Fog 상태 저장 (미저장 — 로드 후 다음 틱 updateFog가 재계산하므로 불필요)
+[x] Load 시 World 복원 (restartMatch 경로 재사용해 엔티티 재생성 + 상태 복원)
+```
+
+### 완료 기준
+
+```text
+- 저장 후 불러오면 같은 상태에서 이어서 플레이 가능하다. ✅ (F5 저장 / F9 로드, 경제·건물·유닛·자원 복원)
 ```
 
 ### 완료 기준
@@ -1766,18 +1772,24 @@ struct Cost
 
 ## Epic 7.4 Replay
 
-현재 상태: `[0%]`
+현재 상태: `[90% — 기록/재생/해시검증 완비. 재생 속도 조절만 후속]`
 
 ### Task
 
 ```text
-[ ] PlayerCommand 로그 기록
-[ ] Tick 번호와 함께 저장
-[ ] 초기 맵/시드 저장
-[ ] Replay 재생 모드 추가
-[ ] 입력 대신 로그 명령 실행
-[ ] 재생 속도 조절
-[ ] WorldHash 비교
+[x] PlayerCommand 로그 기록 (acceptPlayerCommand가 14종 명령을 직렬화 기록)
+[x] Tick 번호와 함께 저장 (ReplayEntry{tick, cmd-json})
+[x] 초기 맵/시드 저장 (ReplayLog.mapPath; 프로젝트에 RNG 없어 시드 불필요)
+[x] Replay 재생 모드 추가 (ReplayMode::Play; F7 = 로드+초기상태 복귀+재생)
+[x] 입력 대신 로그 명령 실행 (tick 시작 시 applyReplayCommands 재투입, 재생 중 라이브 입력은 게이트로 무시)
+[~] 재생 속도 조절 (미구현 — 틱 속도는 LogicThread 고정. 후속)
+[x] WorldHash 비교 (30틱마다 체크포인트 기록, 재생 시 비교해 divergence 로그)
+```
+
+### 완료 기준
+
+```text
+- 플레이한 경기를 명령 로그만으로 다시 재생할 수 있다. ✅ (결정적 시뮬레이션 전제; WorldHash로 divergence 검출)
 ```
 
 ### 완료 기준

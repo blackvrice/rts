@@ -45,7 +45,7 @@
       "attackCooldown": 1.0,
       "moveSpeed": 110.0,
       "armor": 0.0,
-      "sightRange": 224.0,
+      "sightRange": 384.0,
       "collisionRadius": 26.0,
       "buildTimeSeconds": 12.0,
       "weaponType": "normal",

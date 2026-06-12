@@ -22,6 +22,10 @@ namespace rts::core::model {
         int  resourceType() const override { return static_cast<int>(m_type); }
         int  totalAmount()  const noexcept { return m_totalAmount; }
         int  remaining()    const noexcept { return m_remaining; }
+        // Restores remaining amount (clamped to [0, total]); used by save/load.
+        void setRemaining(int amount) noexcept {
+            m_remaining = amount < 0 ? 0 : (amount > m_totalAmount ? m_totalAmount : amount);
+        }
         bool isDepleted()   const noexcept { return m_remaining <= 0; }
         ResourceType type() const noexcept { return m_type; }
         int gatherAmountPerTrip() const noexcept { return m_gatherAmount; }

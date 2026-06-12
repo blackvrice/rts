@@ -2,10 +2,14 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <limits>
 #include <memory>
 #include <vector>
+
+#include <nlohmann/json.hpp>
 
 #include <core/model/Unit.hpp>
 #include <core/model/UnitType.hpp>
@@ -68,6 +72,7 @@ namespace rts::core::manager {
         }
 
         m_router.on<command::SelectCommand>([this](const command::SelectCommand &cmd) {
+            if (!acceptPlayerCommand(cmd)) return;
             auto lock = m_world.acquireWriteLock();
             if (cmd.sameType()) {
                 const auto a = cmd.area();
@@ -89,35 +94,52 @@ namespace rts::core::manager {
             }
         });
 
+        // Quick-save / quick-load to a fixed slot (F5 / F9).
+        m_router.on<command::SaveGameCommand>([this](const command::SaveGameCommand &) {
+            saveGame(quickSavePath());
+        });
+        m_router.on<command::LoadGameCommand>([this](const command::LoadGameCommand &) {
+            loadGame(quickSavePath());
+        });
+
+        // Replay record/play (F6 / F7).
+        m_router.on<command::ToggleRecordCommand>([this](const command::ToggleRecordCommand &) {
+            toggleRecording();
+        });
+        m_router.on<command::PlayReplayCommand>([this](const command::PlayReplayCommand &) {
+            startReplay();
+        });
+
         m_router.on<command::MoveCommand>([this](const command::MoveCommand &cmd) {
-            handleMoveCommand(cmd);
+            if (acceptPlayerCommand(cmd)) handleMoveCommand(cmd);
         });
 
         m_router.on<command::AttackCommand>([this](const command::AttackCommand &cmd) {
-            handleAttackCommand(cmd);
+            if (acceptPlayerCommand(cmd)) handleAttackCommand(cmd);
         });
 
         m_router.on<command::AttackMoveCommand>([this](const command::AttackMoveCommand &cmd) {
-            handleAttackMoveCommand(cmd);
+            if (acceptPlayerCommand(cmd)) handleAttackMoveCommand(cmd);
         });
 
         m_router.on<command::GatherCommand>([this](const command::GatherCommand &cmd) {
-            handleGatherCommand(cmd);
+            if (acceptPlayerCommand(cmd)) handleGatherCommand(cmd);
         });
 
         m_router.on<command::TrainUnitCommand>([this](const command::TrainUnitCommand &cmd) {
-            handleTrainCommand(cmd);
+            if (acceptPlayerCommand(cmd)) handleTrainCommand(cmd);
         });
 
         m_router.on<command::CancelProductionCommand>([this](const command::CancelProductionCommand &cmd) {
-            handleCancelProduction(cmd);
+            if (acceptPlayerCommand(cmd)) handleCancelProduction(cmd);
         });
 
         m_router.on<command::BuildCommand>([this](const command::BuildCommand &cmd) {
-            handleBuildCommand(cmd);
+            if (acceptPlayerCommand(cmd)) handleBuildCommand(cmd);
         });
 
-        m_router.on<command::StopCommand>([this](const command::StopCommand &) {
+        m_router.on<command::StopCommand>([this](const command::StopCommand &cmd) {
+            if (!acceptPlayerCommand(cmd)) return;
             auto lock = m_world.acquireWriteLock();
             if (inputLocked()) return;
             m_movement.cancelQueuedPaths(m_selection.selected());
@@ -131,7 +153,8 @@ namespace rts::core::manager {
             }
         });
 
-        m_router.on<command::HoldPositionCommand>([this](const command::HoldPositionCommand &) {
+        m_router.on<command::HoldPositionCommand>([this](const command::HoldPositionCommand &cmd) {
+            if (!acceptPlayerCommand(cmd)) return;
             auto lock = m_world.acquireWriteLock();
             if (inputLocked()) return;
             m_movement.cancelQueuedPaths(m_selection.selected());
@@ -146,18 +169,21 @@ namespace rts::core::manager {
         });
 
         m_router.on<command::PatrolCommand>([this](const command::PatrolCommand &cmd) {
-            handlePatrolCommand(cmd);
+            if (acceptPlayerCommand(cmd)) handlePatrolCommand(cmd);
         });
 
-        m_router.on<command::ControlGroupAddCommand>([this](const auto &cmd) {
+        m_router.on<command::ControlGroupAddCommand>([this](const command::ControlGroupAddCommand &cmd) {
+            if (!acceptPlayerCommand(cmd)) return;
             m_controlGroups.add(cmd.groupId(), m_selection.selected());
         });
 
-        m_router.on<command::ControlGroupAssignCommand>([this](const auto &cmd) {
+        m_router.on<command::ControlGroupAssignCommand>([this](const command::ControlGroupAssignCommand &cmd) {
+            if (!acceptPlayerCommand(cmd)) return;
             m_controlGroups.assign(cmd.groupId(), m_selection.selected());
         });
 
-        m_router.on<command::ControlGroupSelectCommand>([this](const auto &cmd) {
+        m_router.on<command::ControlGroupSelectCommand>([this](const command::ControlGroupSelectCommand &cmd) {
+            if (!acceptPlayerCommand(cmd)) return;
             auto lock = m_world.acquireWriteLock();
             m_selection.replaceSelected(m_controlGroups.select(cmd.groupId()));
         });
@@ -168,6 +194,11 @@ namespace rts::core::manager {
     }
 
     void GameLogicManager::tick(float dt) {
+        // Playback: re-dispatch the recorded commands for this tick before the world
+        // lock (each handler takes its own lock), matching live-command timing.
+        if (m_replayMode == ReplayMode::Play) {
+            applyReplayCommands(static_cast<std::uint64_t>(m_world.currentTick()));
+        }
         auto lock = m_world.acquireWriteLock();
         m_world.advanceTick();
         world::updateRuntimeServices(m_world, dt);
@@ -190,6 +221,25 @@ namespace rts::core::manager {
         m_world.pruneDeadEntities();
         updateAI(dt);
         checkVictoryDefeat();
+
+        // Replay: record a periodic world-hash checkpoint while recording; compare
+        // it while playing (logging divergence), and stop when the stream is spent.
+        if (m_replayMode != ReplayMode::Off) {
+            const auto t = static_cast<std::uint64_t>(m_world.currentTick());
+            if (m_replayMode == ReplayMode::Record) {
+                if (t % 30 == 0) {
+                    m_replay.checkpoint(t, m_world.worldHash());
+                }
+            } else {  // Play
+                if (const auto h = m_replay.hashForTick(t); h && *h != m_world.worldHash()) {
+                    std::cerr << "[Replay] divergence at tick " << t << "\n";
+                }
+                if (t >= m_replay.lastTick()) {
+                    m_replayMode = ReplayMode::Off;
+                    std::cout << "[Replay] playback finished at tick " << t << "\n";
+                }
+            }
+        }
     }
 
     void GameLogicManager::selectElement(core::model::IGameElement &element) {
@@ -1230,6 +1280,218 @@ namespace rts::core::manager {
         world::resetRuntimeServices(m_world);
         setupInitialWorld();
         world::rebuildSpatialIndex(m_world);
+    }
+
+    std::string GameLogicManager::quickSavePath() {
+        return std::string(core::data::DataRoot) + "/saves/quicksave.json";
+    }
+
+    bool GameLogicManager::saveGame(const std::string& path) {
+        using json = nlohmann::json;
+        json doc;
+        {
+            auto lock = m_world.acquireReadLock();
+            doc["tick"] = static_cast<std::uint64_t>(m_world.currentTick());
+
+            json players = json::array();
+            for (const int team : { core::model::TeamId::Player, core::model::TeamId::Enemy }) {
+                const auto& r = m_world.playerResources(team);
+                players.push_back({
+                    { "team", team }, { "gold", r.gold }, { "wood", r.wood },
+                    { "foodUsed", r.foodUsed }, { "foodCapacity", r.foodCapacity }, { "army", r.army }
+                });
+            }
+            doc["players"] = players;
+
+            json units = json::array();
+            json buildings = json::array();
+            json resources = json::array();
+            for (const auto& el : m_world.getElements()) {
+                auto ge = std::dynamic_pointer_cast<core::model::IGameElement>(el);
+                if (!ge || ge->getAction() == core::model::ActionType::Dead) {
+                    continue;
+                }
+                const auto pos = ge->getPosition();
+                if (auto u = std::dynamic_pointer_cast<core::model::Unit>(el)) {
+                    units.push_back({
+                        { "type", static_cast<int>(u->unitType()) }, { "team", u->getTeamId() },
+                        { "x", pos.x }, { "y", pos.y }, { "hp", u->getHp() }
+                    });
+                } else if (auto b = std::dynamic_pointer_cast<core::model::Building>(el)) {
+                    json queue = json::array();
+                    for (int i = 0; i < b->trainQueueSize(); ++i) {
+                        queue.push_back(static_cast<int>(b->trainQueueAt(i)));
+                    }
+                    buildings.push_back({
+                        { "type", static_cast<int>(b->buildingType()) }, { "team", b->getTeamId() },
+                        { "x", pos.x }, { "y", pos.y }, { "hp", b->getHp() },
+                        { "completed", b->isComplete() }, { "queue", queue }
+                    });
+                } else if (auto rn = std::dynamic_pointer_cast<core::model::ResourceNode>(el)) {
+                    resources.push_back({
+                        { "type", static_cast<int>(rn->type()) },
+                        { "x", pos.x }, { "y", pos.y }, { "remaining", rn->remaining() }
+                    });
+                }
+            }
+            doc["units"] = units;
+            doc["buildings"] = buildings;
+            doc["resources"] = resources;
+        }
+
+        std::error_code ec;
+        std::filesystem::create_directories(std::filesystem::path(path).parent_path(), ec);
+        std::ofstream out(path);
+        if (!out) {
+            std::cerr << "[SaveGame] cannot write " << path << "\n";
+            return false;
+        }
+        out << doc.dump(2);
+        std::cout << "[SaveGame] saved to " << path << "\n";
+        return true;
+    }
+
+    bool GameLogicManager::loadGame(const std::string& path) {
+        using json = nlohmann::json;
+        std::ifstream in(path);
+        if (!in) {
+            std::cerr << "[LoadGame] cannot open " << path << "\n";
+            return false;
+        }
+        json doc;
+        try {
+            in >> doc;
+        } catch (const std::exception& e) {
+            std::cerr << "[LoadGame] parse error: " << e.what() << "\n";
+            return false;
+        }
+
+        auto lock = m_world.acquireWriteLock();
+        // Mirror restartMatch's teardown, then rebuild from the snapshot instead of
+        // the map's initial layout.
+        m_world.resetForNewMatch();
+        m_selection.clear();
+        m_movement.reset();
+        m_pendingSpawns.clear();
+        m_aiProduceTimer = 0.f;
+        m_aiGatherTimer = 0.f;
+        m_aiWaveTimer = 0.f;
+        m_aiDefenseTimer = 0.f;
+        m_aiState = AiBuildOrderState::Opening;
+        m_lastFeedbackAiState = AiBuildOrderState::Opening;
+        m_feedbackSnapshots.clear();
+        world::resetRuntimeServices(m_world);
+
+        for (const auto& p : doc.value("players", json::array())) {
+            core::model::PlayerResourceState r {};
+            r.gold = p.value("gold", r.gold);
+            r.wood = p.value("wood", r.wood);
+            r.foodUsed = p.value("foodUsed", 0);
+            r.foodCapacity = p.value("foodCapacity", 0);
+            r.army = p.value("army", 0);
+            m_world.setPlayerResources(p.value("team", core::model::TeamId::Neutral), r);
+        }
+
+        for (const auto& b : doc.value("buildings", json::array())) {
+            const auto type = static_cast<core::model::BuildingType>(b.value("type", 0));
+            const core::model::Vector2D pos { b.value("x", 0.0f), b.value("y", 0.0f) };
+            const int team = b.value("team", core::model::TeamId::Neutral);
+            auto building = std::make_shared<core::model::Building>(type, pos, team);
+            registerBuildingSpawn(*building);
+            building->setHp(b.value("hp", building->getMaxHp()));
+            if (!b.value("completed", true)) {
+                const auto data = core::data::buildingStaticDataFor(type);
+                building->beginConstruction(data.buildTimeSeconds, building->getHp());
+            }
+            m_world.addElement(building);
+            for (const auto& q : b.value("queue", json::array())) {
+                building->trainUnit(static_cast<::rts::UnitType>(q.get<int>()));
+            }
+        }
+
+        for (const auto& u : doc.value("units", json::array())) {
+            auto unit = std::make_shared<core::model::Unit>(
+                static_cast<::rts::UnitType>(u.value("type", 0)));
+            unit->setPosition({ u.value("x", 0.0f), u.value("y", 0.0f) });
+            unit->setTeamId(u.value("team", core::model::TeamId::Neutral));
+            unit->setHp(u.value("hp", unit->getMaxHp()));
+            m_world.addElement(unit);
+        }
+
+        for (const auto& r : doc.value("resources", json::array())) {
+            const auto data = core::data::resourceStaticDataFor(
+                static_cast<core::model::ResourceNode::ResourceType>(r.value("type", 0)));
+            const core::model::Vector2D pos { r.value("x", 0.0f), r.value("y", 0.0f) };
+            auto node = std::make_shared<core::model::ResourceNode>(
+                pos, data.resourceType, data.initialAmount,
+                data.gatherAmountPerTrip, data.gatherDurationSeconds, data.maxGatherers);
+            node->setRemaining(r.value("remaining", data.initialAmount));
+            m_world.addElement(node);
+        }
+
+        m_world.setCurrentTick(static_cast<core::sim::TickCount>(doc.value("tick", 0ull)));
+        world::rebuildSpatialIndex(m_world);
+        std::cout << "[LoadGame] loaded from " << path << "\n";
+        return true;
+    }
+
+    // =========================================================
+    // Replay
+    // =========================================================
+    std::string GameLogicManager::replayPath() {
+        return std::string(core::data::DataRoot) + "/saves/replay.json";
+    }
+
+    void GameLogicManager::toggleRecording() {
+        if (m_replayMode == ReplayMode::Record) {
+            m_replay.save(replayPath());
+            m_replayMode = ReplayMode::Off;
+            std::cout << "[Replay] recording stopped and saved\n";
+            return;
+        }
+        // Begin from a known initial state so the stream replays deterministically.
+        restartMatch();
+        m_replay.clear();
+        m_replay.setMapPath(std::string(core::data::DataRoot) + "/maps/skirmish.json");
+        m_replayMode = ReplayMode::Record;
+        std::cout << "[Replay] recording started\n";
+    }
+
+    void GameLogicManager::startReplay() {
+        if (!m_replay.load(replayPath())) {
+            return;
+        }
+        restartMatch();  // rewind to the initial state the replay was recorded from
+        m_replayMode = ReplayMode::Play;
+        std::cout << "[Replay] playback started (" << m_replay.lastTick() << " ticks)\n";
+    }
+
+    bool GameLogicManager::acceptPlayerCommand(const command::LogicCommand& c) {
+        if (m_replayMode == ReplayMode::Play && !m_applyingReplay) {
+            return false;  // live input is ignored while a replay plays
+        }
+        if (m_replayMode == ReplayMode::Record && !m_applyingReplay) {
+            if (auto j = core::replay::serializeLogicCommand(c)) {
+                m_replay.record(static_cast<std::uint64_t>(m_world.currentTick()), *j);
+            }
+        }
+        return true;
+    }
+
+    void GameLogicManager::applyReplayCommands(const std::uint64_t tick) {
+        const auto cmds = m_replay.commandsForTick(tick);
+        if (cmds.empty()) {
+            return;
+        }
+        // Dispatched outside the tick's world lock (each handler takes its own lock),
+        // matching how live commands are drained before tick().
+        m_applyingReplay = true;
+        for (const auto* e : cmds) {
+            if (auto cmd = core::replay::deserializeLogicCommand(e->cmd)) {
+                m_router.dispatch(*cmd);
+            }
+        }
+        m_applyingReplay = false;
     }
 
     // =========================================================

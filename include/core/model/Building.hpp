@@ -56,6 +56,8 @@ namespace rts::core::model {
         std::string displayName() const override;
         float getHp() const { return m_hp; }
         float getMaxHp() const { return m_maxHp; }
+        // Restores HP (clamped to [0, maxHp]); used by save/load.
+        void setHp(float hp) { m_hp = hp < 0.f ? 0.f : (hp > m_maxHp ? m_maxHp : hp); }
 
         // ===== Construction =====
         // Puts the building into an under-construction state: workers advance the
