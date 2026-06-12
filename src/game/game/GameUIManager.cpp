@@ -149,6 +149,32 @@ namespace rts::core::manager {
             return "";
         }
 
+        const char* commandUnitId(const ::rts::UnitType type) {
+            switch (type) {
+                case ::rts::UnitType::Marine:  return "marine";
+                case ::rts::UnitType::Warrior: return "warrior";
+                case ::rts::UnitType::Archer:  return "archer";
+                case ::rts::UnitType::Worker:  return "worker";
+            }
+            return "warrior";
+        }
+
+        const char* commandBuildingId(const core::model::BuildingType type) {
+            switch (type) {
+                case core::model::BuildingType::TownHall: return "town_hall";
+                case core::model::BuildingType::Barracks: return "barracks";
+            }
+            return "barracks";
+        }
+
+        std::string trainCommandIconKey(const ::rts::UnitType type) {
+            return std::string("command.train.") + commandUnitId(type);
+        }
+
+        std::string buildCommandIconKey(const core::model::BuildingType type) {
+            return std::string("command.build.") + commandBuildingId(type);
+        }
+
         void emitRuntimeEffect(core::render::RenderQueue& queue,
                                const core::world::ActiveEffect& effect) {
             const float duration = effect.duration > 0.0f ? effect.duration : 0.1f;
@@ -643,7 +669,8 @@ namespace rts::core::manager {
                             }
                             const bool affordable = res.canAfford(udata.cost());
                             selection.trainOptions.push_back(
-                                { static_cast<int>(ut), udata.displayName, !(reqMet && affordable) });
+                                { static_cast<int>(ut), udata.displayName, !(reqMet && affordable),
+                                  trainCommandIconKey(ut) });
                         }
                     }
                 } else if (auto resource = std::dynamic_pointer_cast<core::model::ResourceNode>(element)) {
@@ -683,7 +710,8 @@ namespace rts::core::manager {
                 }
                 const bool affordable = res.canAfford(data.cost());
                 selection.buildOptions.push_back(
-                    { static_cast<int>(bt), data.displayName, !(reqMet && affordable) });
+                    { static_cast<int>(bt), data.displayName, !(reqMet && affordable),
+                      buildCommandIconKey(bt) });
             }
         }
 

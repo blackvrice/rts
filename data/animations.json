@@ -1,5 +1,5 @@
 {
-  "_comment": "Sprite/animation clips. Add, remove, or edit entries here (plus the PNG) to change visuals without recompiling. Keys: unit.<set>.<team>.<action>, building.<type>.<team>, resource.gold.<stage 1-6>, resource.wood. texture paths are relative to the Tiny Swords asset root.",
+  "_comment": "Sprite/animation clips. Add, remove, or edit entries here (plus the PNG) to change visuals without recompiling. Keys: unit.<set>.<team>.<action>, building.<type>.<team>, resource.gold.<stage 1-6>, resource.wood, command.<action/type>, cursor.<state>. texture paths are relative to the Tiny Swords asset root.",
 
   "unitSpriteSets": {
     "warrior": "warrior",
@@ -76,6 +76,22 @@
     "resource.gold.5": { "texture": "Terrain/Resources/Gold/Gold Stones/Gold Stone 5_Highlight.png", "frameCount": 6, "fps": 8, "sourceW": 128, "sourceH": 128, "displayW": 64, "displayH": 64, "anchorX": 32, "anchorY": 48, "trim": false },
     "resource.gold.6": { "texture": "Terrain/Resources/Gold/Gold Stones/Gold Stone 6_Highlight.png", "frameCount": 6, "fps": 8, "sourceW": 128, "sourceH": 128, "displayW": 64, "displayH": 64, "anchorX": 32, "anchorY": 48, "trim": false },
     "resource.wood":   { "texture": "Terrain/Resources/Wood/Wood Resource/Wood Resource.png",         "frameCount": 1, "fps": 0,                                 "displayW": 64, "displayH": 64, "anchorX": 32, "anchorY": 48, "trim": false },
+
+    "command.default":          { "texture": "UI Elements/UI Elements/Icons/Icon_12.png", "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": false },
+    "command.move":             { "texture": "UI Elements/UI Elements/Icons/Icon_07.png", "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": false },
+    "command.stop":             { "texture": "UI Elements/UI Elements/Icons/Icon_09.png", "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": false },
+    "command.hold":             { "texture": "UI Elements/UI Elements/Icons/Icon_05.png", "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": false },
+    "command.gather":           { "texture": "UI Elements/UI Elements/Icons/Icon_01.png", "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": false },
+    "command.build":            { "texture": "UI Elements/UI Elements/Icons/Icon_06.png", "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": false },
+    "command.attack_move":      { "texture": "UI Elements/UI Elements/Icons/Icon_04.png", "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": false },
+    "command.patrol":           { "texture": "UI Elements/UI Elements/Icons/Icon_08.png", "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": false },
+    "command.cancel":           { "texture": "UI Elements/UI Elements/Icons/Icon_12.png", "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": false },
+    "command.train.worker":     { "texture": "UI Elements/UI Elements/Human Avatars/Avatars_01.png", "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": false },
+    "command.train.warrior":    { "texture": "UI Elements/UI Elements/Human Avatars/Avatars_02.png", "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": false },
+    "command.train.archer":     { "texture": "UI Elements/UI Elements/Human Avatars/Avatars_03.png", "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": false },
+    "command.train.marine":     { "texture": "UI Elements/UI Elements/Human Avatars/Avatars_04.png", "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": false },
+    "command.build.town_hall":  { "texture": "Buildings/Blue Buildings/Castle.png",   "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": true },
+    "command.build.barracks":   { "texture": "Buildings/Blue Buildings/Barracks.png", "frameCount": 1, "fps": 0, "displayW": 30, "displayH": 30, "anchorX": 15, "anchorY": 15, "trim": true },
 
     "cursor.default": { "texture": "UI Elements/UI Elements/Cursors/Cursor_01.png" },
     "cursor.attack":  { "texture": "UI Elements/UI Elements/Cursors/Cursor_02.png" },

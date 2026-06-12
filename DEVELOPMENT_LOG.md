@@ -1,5 +1,13 @@
 # Development Log
 
+## 2026-06-13 - Data-Driven Command HUD Icons
+
+- Added `iconKey` to HUD build/train options so command-card buttons can resolve their artwork from the sprite registry instead of using slot-order placeholder icons.
+- Registered `command.*` sprite keys in `data/animations.json` and the built-in `DataRegistry` fallback seed, covering Move, Stop, Hold, Gather, Build, Attack-Move, Patrol, Cancel, trainable units, and buildable structures.
+- Updated `GameUIManager` to emit type-specific train/build icon keys and `SfmlHudOverlay` to draw each button from the matching `SpriteClip`, with a `command.default` fallback for missing keys.
+- Verification: parsed `data/animations.json` with `python -m json.tool`; `-j 4` build first hit a MinGW GCC internal compiler error while compiling `UnitViewModel.cpp`, then `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j 1` completed successfully; a final `-j 4` build reported `ninja: no work to do`; launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
+- Follow-up: swap the `command.*` textures in `data/animations.json` if a dedicated command-icon art sheet is added later.
+
 ## 2026-06-13 - Building-Aware Pathfinder Clearance
 
 - Split `GameWorld` occupancy into exact structure cells, inflated structure path blockers, and live unit cells so pathfinding treats buildings/resources as static obstacles while units remain dynamic blockers.

@@ -92,6 +92,7 @@ namespace rts::core::render {
         int buildingTypeId { -1 };
         std::string label;
         bool locked { false };  // requirements unmet or unaffordable
+        std::string iconKey {};  // data/animations.json sprite key for the command HUD
     };
 
     // One trainable unit shown in a production building's command card.
@@ -99,6 +100,7 @@ namespace rts::core::render {
         int unitTypeId { -1 };
         std::string label;
         bool locked { false };  // requirements unmet or unaffordable
+        std::string iconKey {};  // data/animations.json sprite key for the command HUD
     };
 
     struct UpdateHudSelection {

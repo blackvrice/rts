@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <SFML/Graphics/Image.hpp>
@@ -21,6 +22,7 @@
 
 #include "core/command/UICommand.hpp"
 #include "core/command/UICommandBus.hpp"
+#include "core/data/DataRegistry.hpp"
 #include "core/render/RenderCommand.hpp"
 #include "imgui.h"
 #include "imgui_impl_opengl3.h"
@@ -69,7 +71,24 @@ namespace {
         bool locked { false };  // greyed out and non-interactive (prereq not met)
         Kind kind { Kind::Action };
         int payloadId { -1 };  // buildingTypeId (SelectBuild) or unitTypeId (SelectTrain)
+        std::string iconKey;  // data/animations.json key, e.g. command.move
     };
+
+    HudCommandButton commandButton(
+        std::string label,
+        const rts::core::command::GameplayInputAction action,
+        const char* hotkey,
+        std::string iconKey,
+        const HudCommandButton::Kind kind = HudCommandButton::Kind::Action
+    ) {
+        HudCommandButton button;
+        button.label = std::move(label);
+        button.action = action;
+        button.hotkey = hotkey;
+        button.kind = kind;
+        button.iconKey = std::move(iconKey);
+        return button;
+    }
 
     struct TrimCacheKey {
         const sf::Texture* texture;
@@ -223,6 +242,37 @@ namespace {
             };
         g_trimCache.emplace(key, trimmed);
         return trimmed;
+    }
+
+    SourceRect spriteClipSourceRect(
+        const sf::Texture& texture,
+        const rts::core::data::SpriteClip& clip
+    ) {
+        const auto textureSize = texture.getSize();
+        SourceRect src{
+            static_cast<float>(clip.sourceX),
+            static_cast<float>(clip.sourceY),
+            clip.sourceW > 0 ? static_cast<float>(clip.sourceW) : static_cast<float>(textureSize.x),
+            clip.sourceH > 0 ? static_cast<float>(clip.sourceH) : static_cast<float>(textureSize.y)
+        };
+        if (clip.trim) {
+            src = trimTransparentSourceRect(texture, src);
+        }
+        return src;
+    }
+
+    void drawSpriteClip(
+        ImDrawList& drawList,
+        const sf::Texture* texture,
+        const rts::core::data::SpriteClip& clip,
+        const ImVec2 min,
+        const ImVec2 max,
+        const ImU32 tint = IM_COL32_WHITE
+    ) {
+        if (!texture) {
+            return;
+        }
+        drawImageRect(drawList, texture, spriteClipSourceRect(*texture, clip), min, max, tint);
     }
 
     void drawTiledImageRect(
@@ -872,10 +922,12 @@ namespace rts::platform::sfml {
                         btn.locked = !selection.canProduce || opt.locked;
                         btn.kind = HudCommandButton::Kind::SelectTrain;
                         btn.payloadId = opt.unitTypeId;
+                        btn.iconKey = opt.iconKey;
                         commands.push_back(btn);
                     }
                 }
-                commands.push_back({"Cancel", GameplayInputAction::CancelProduction, "C"});
+                commands.push_back(commandButton(
+                    "Cancel", GameplayInputAction::CancelProduction, "C", "command.cancel"));
                 break;
             case HudSelectionKind::Worker:
                 if (m_buildMenuOpen) {
@@ -886,32 +938,34 @@ namespace rts::platform::sfml {
                         btn.locked = opt.locked;
                         btn.kind = HudCommandButton::Kind::SelectBuild;
                         btn.payloadId = opt.buildingTypeId;
+                        btn.iconKey = opt.iconKey;
                         commands.push_back(btn);
                     }
                     HudCommandButton cancel;
                     cancel.label = "Cancel";
                     cancel.hotkey = "Esc";
                     cancel.kind = HudCommandButton::Kind::CloseBuildMenu;
+                    cancel.iconKey = "command.cancel";
                     commands.push_back(cancel);
                 } else {
                     commands = {
-                        {"Move", GameplayInputAction::Move, "M"},
-                        {"Stop", GameplayInputAction::Stop, "S"},
-                        {"Hold", GameplayInputAction::HoldPosition, "H"},
-                        {"Gather", GameplayInputAction::Gather, "G"},
-                        {"Build", GameplayInputAction::Build, "B", false,
-                         HudCommandButton::Kind::OpenBuildMenu},
-                        {"A-Move", GameplayInputAction::AttackMove, "A"}
+                        commandButton("Move", GameplayInputAction::Move, "M", "command.move"),
+                        commandButton("Stop", GameplayInputAction::Stop, "S", "command.stop"),
+                        commandButton("Hold", GameplayInputAction::HoldPosition, "H", "command.hold"),
+                        commandButton("Gather", GameplayInputAction::Gather, "G", "command.gather"),
+                        commandButton("Build", GameplayInputAction::Build, "B", "command.build",
+                                      HudCommandButton::Kind::OpenBuildMenu),
+                        commandButton("A-Move", GameplayInputAction::AttackMove, "A", "command.attack_move")
                     };
                 }
                 break;
             case HudSelectionKind::CombatUnit:
                 commands = {
-                    {"Move", GameplayInputAction::Move, "M"},
-                    {"Stop", GameplayInputAction::Stop, "S"},
-                    {"Hold", GameplayInputAction::HoldPosition, "H"},
-                    {"A-Move", GameplayInputAction::AttackMove, "A"},
-                    {"Patrol", GameplayInputAction::Patrol, "P"}
+                    commandButton("Move", GameplayInputAction::Move, "M", "command.move"),
+                    commandButton("Stop", GameplayInputAction::Stop, "S", "command.stop"),
+                    commandButton("Hold", GameplayInputAction::HoldPosition, "H", "command.hold"),
+                    commandButton("A-Move", GameplayInputAction::AttackMove, "A", "command.attack_move"),
+                    commandButton("Patrol", GameplayInputAction::Patrol, "P", "command.patrol")
                 };
                 break;
             case HudSelectionKind::Resource:
@@ -944,9 +998,21 @@ namespace rts::platform::sfml {
                 ? IM_COL32(120, 130, 134, 200)
                 : (hovered ? IM_COL32(255, 255, 255, 255) : IM_COL32(225, 235, 240, 245));
             drawImage(drawList, active ? buttonPressed : buttonRegular, pos, {pos.x + cellW, pos.y + cellH}, buttonTint);
-            if (const sf::Texture* icon = texture("UI Elements/UI Elements/Icons/Icon_0" + std::to_string((i % 9) + 1) + ".png")) {
+            const std::string iconKey = command.iconKey.empty() ? "command.default" : command.iconKey;
+            const auto* clip = core::data::DataRegistry::global().sprite(iconKey);
+            if (!clip && iconKey != "command.default") {
+                clip = core::data::DataRegistry::global().sprite("command.default");
+            }
+            if (clip) {
+                const sf::Texture* icon = texture(clip->texture);
                 const ImVec2 iconMin{pos.x + cellW * 0.5f - 15.0f, pos.y + 10.0f};
-                drawImage(drawList, icon, iconMin, {iconMin.x + 30.0f, iconMin.y + 30.0f}, command.locked ? IM_COL32(140, 148, 150, 200) : IM_COL32_WHITE);
+                drawSpriteClip(
+                    drawList,
+                    icon,
+                    *clip,
+                    iconMin,
+                    {iconMin.x + 30.0f, iconMin.y + 30.0f},
+                    command.locked ? IM_COL32(140, 148, 150, 200) : IM_COL32_WHITE);
             }
 
             const ImU32 labelColor = command.locked ? kTextDim : kTextMain;

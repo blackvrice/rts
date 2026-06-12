@@ -211,6 +211,30 @@ namespace rts::core::data {
             .displayW = 64.f, .displayH = 64.f, .anchorX = 32.f, .anchorY = 48.f,
             .trim = false
         };
+
+        auto commandClip = [](std::string texture, const bool trim = false) {
+            return SpriteClip {
+                .texture = std::move(texture), .frameCount = 1, .fps = 0.f,
+                .sourceX = 0, .sourceY = 0, .sourceW = 0, .sourceH = 0,
+                .displayW = 30.f, .displayH = 30.f, .anchorX = 15.f, .anchorY = 15.f,
+                .trim = trim
+            };
+        };
+        m_sprites["command.default"] = commandClip("UI Elements/UI Elements/Icons/Icon_12.png");
+        m_sprites["command.move"] = commandClip("UI Elements/UI Elements/Icons/Icon_07.png");
+        m_sprites["command.stop"] = commandClip("UI Elements/UI Elements/Icons/Icon_09.png");
+        m_sprites["command.hold"] = commandClip("UI Elements/UI Elements/Icons/Icon_05.png");
+        m_sprites["command.gather"] = commandClip("UI Elements/UI Elements/Icons/Icon_01.png");
+        m_sprites["command.build"] = commandClip("UI Elements/UI Elements/Icons/Icon_06.png");
+        m_sprites["command.attack_move"] = commandClip("UI Elements/UI Elements/Icons/Icon_04.png");
+        m_sprites["command.patrol"] = commandClip("UI Elements/UI Elements/Icons/Icon_08.png");
+        m_sprites["command.cancel"] = commandClip("UI Elements/UI Elements/Icons/Icon_12.png");
+        m_sprites["command.train.worker"] = commandClip("UI Elements/UI Elements/Human Avatars/Avatars_01.png");
+        m_sprites["command.train.warrior"] = commandClip("UI Elements/UI Elements/Human Avatars/Avatars_02.png");
+        m_sprites["command.train.archer"] = commandClip("UI Elements/UI Elements/Human Avatars/Avatars_03.png");
+        m_sprites["command.train.marine"] = commandClip("UI Elements/UI Elements/Human Avatars/Avatars_04.png");
+        m_sprites["command.build.town_hall"] = commandClip("Buildings/Blue Buildings/Castle.png", true);
+        m_sprites["command.build.barracks"] = commandClip("Buildings/Blue Buildings/Barracks.png", true);
     }
 
     bool DataRegistry::loadFromDirectory(const std::string& dir) {
