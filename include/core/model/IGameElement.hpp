@@ -96,7 +96,8 @@ namespace rts::core::model {
         // GameWorld가 주입하는 원거리 발사 콜백 (origin, target, damage, weapon, team).
         // 원거리 유닛이 발사 시점에 호출; 그 외 요소는 기본 no-op.
         using ProjectileSpawner = std::function<void(
-            const Vector2D&, IGameElement*, float, data::WeaponType, int, data::SplashRadii)>;
+            const Vector2D&, IGameElement*, float, data::WeaponType, int, data::SplashRadii,
+            const std::string&)>;
         virtual void setProjectileSpawner(ProjectileSpawner) {}
 
     protected:

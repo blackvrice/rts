@@ -1,5 +1,6 @@
 #pragma once
 #include <functional>
+#include <string>
 #include "core/data/CombatTypes.hpp"
 #include "core/model/Vector2D.hpp"
 
@@ -17,17 +18,20 @@ namespace rts::core::model {
 
         Projectile(Vector2D origin, IGameElement* target, float damage,
                    int ownerTeamId, float speed, data::WeaponType weaponType,
-                   data::SplashRadii splash = {}, SplashApplier applySplash = {});
+                   data::SplashRadii splash = {}, SplashApplier applySplash = {},
+                   std::string texturePath = {});
 
         void reset(Vector2D origin, IGameElement* target, float damage,
                    int ownerTeamId, float speed, data::WeaponType weaponType,
-                   data::SplashRadii splash = {}, SplashApplier applySplash = {});
+                   data::SplashRadii splash = {}, SplashApplier applySplash = {},
+                   std::string texturePath = {});
         void tick(float dt);
 
         bool     expired()   const noexcept { return m_expired; }
         Vector2D position()  const noexcept { return m_position; }
         float    angleDeg()  const noexcept { return m_angleDeg; }
         int      ownerTeamId() const noexcept { return m_ownerTeamId; }
+        const std::string& texturePath() const noexcept { return m_texturePath; }
 
     private:
         Vector2D      m_position;
@@ -39,6 +43,7 @@ namespace rts::core::model {
         data::WeaponType m_weaponType;
         data::SplashRadii m_splash;
         SplashApplier m_applySplash;
+        std::string   m_texturePath;
         float         m_angleDeg { 0.f };
         bool          m_expired  { false };
     };

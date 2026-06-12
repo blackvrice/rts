@@ -1,5 +1,13 @@
 # Development Log
 
+## 2026-06-13 - Archer Arrow Projectile Sprite
+
+- Extended projectile spawning so ranged attacks can carry an optional Tiny Swords texture path from the firing unit to the pooled `Projectile` model.
+- Updated Archer ranged attacks to use the team-colored `Units/<team> Units/Archer/Arrow.png` sprite while other ranged units keep the existing circular fallback projectile.
+- Updated `ProjectileViewModel` to draw textured projectiles as rotated `DrawSprite` commands using the projectile's flight angle, preserving the previous bolt rendering when no texture is provided.
+- Verification: built `RTS` with `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j 4`, then launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
+- Follow-up: add authored projectile sprites for other ranged unit types if they become distinct from Archer.
+
 ## 2026-06-13 - Archer And Lancer Sprite Sets
 
 - Added JSON sprite clips for Blue/Red Archer idle, move, attack, and hold states using the dedicated Archer sprite sheets.

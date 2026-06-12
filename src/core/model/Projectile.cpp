@@ -1,5 +1,6 @@
 #include "core/model/Projectile.hpp"
 #include <cmath>
+#include <utility>
 #include "core/model/IGameElement.hpp"
 
 namespace rts::core::model {
@@ -7,15 +8,17 @@ namespace rts::core::model {
 
     Projectile::Projectile(Vector2D origin, IGameElement* target, float damage,
                             int ownerTeamId, float speed, data::WeaponType weaponType,
-                            data::SplashRadii splash, SplashApplier applySplash)
+                            data::SplashRadii splash, SplashApplier applySplash,
+                            std::string texturePath)
         : m_position(origin) {
         reset(origin, target, damage, ownerTeamId, speed, weaponType,
-              splash, std::move(applySplash));
+              splash, std::move(applySplash), std::move(texturePath));
     }
 
     void Projectile::reset(Vector2D origin, IGameElement* target, float damage,
                            int ownerTeamId, float speed, data::WeaponType weaponType,
-                           data::SplashRadii splash, SplashApplier applySplash) {
+                           data::SplashRadii splash, SplashApplier applySplash,
+                           std::string texturePath) {
         m_position = origin;
         m_target = target;
         m_lastKnownTargetPos = target ? target->getPosition() : origin;
@@ -25,6 +28,7 @@ namespace rts::core::model {
         m_weaponType = weaponType;
         m_splash = splash;
         m_applySplash = std::move(applySplash);
+        m_texturePath = std::move(texturePath);
         m_expired = false;
         const float dx = m_lastKnownTargetPos.x - m_position.x;
         const float dy = m_lastKnownTargetPos.y - m_position.y;

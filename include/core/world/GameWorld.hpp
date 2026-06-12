@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <mutex>
 #include <shared_mutex>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -73,7 +74,7 @@ namespace rts::core::world {
         void spawnProjectile(const std::shared_ptr<model::Projectile>& projectile);
         void spawnProjectile(model::Vector2D origin, model::IGameElement* target,
                              float damage, data::WeaponType weapon, int ownerTeam,
-                             data::SplashRadii splash);
+                             data::SplashRadii splash, const std::string& texturePath = {});
         const std::vector<std::shared_ptr<model::Projectile>>& projectiles() const;
         void updateProjectiles(float dt);
 

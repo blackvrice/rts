@@ -204,6 +204,14 @@ namespace rts::core::model {
         return attackRange >= kRangedAttackThreshold;
     }
 
+    std::string Unit::projectileTexturePath() const {
+        if (m_unitType != ::rts::UnitType::Archer) {
+            return {};
+        }
+        const char* teamFolder = m_teamId == TeamId::Enemy ? "Red" : "Blue";
+        return std::string("Units/") + teamFolder + " Units/Archer/Arrow.png";
+    }
+
     bool Unit::canAttackTarget(const IGameElement* target) const {
         if (!target || target == this) return false;
         if (target->getAction() == ActionType::Dead) return false;
@@ -501,7 +509,9 @@ namespace rts::core::model {
                     // FirePoint: ranged units launch a projectile (damage applied on
                     // arrival); melee units land the hit immediately.
                     if (isRanged() && m_fireProjectile) {
-                        m_fireProjectile(m_position, target, attackDamage, m_weaponType, m_teamId, m_splash);
+                        m_fireProjectile(
+                            m_position, target, attackDamage, m_weaponType, m_teamId, m_splash,
+                            projectileTexturePath());
                     } else {
                         target->takeDamage(
                             attackDamage * core::data::damageMultiplier(m_weaponType, target->armorType()),

@@ -57,8 +57,8 @@ namespace rts::core::world {
             gameElement->setProjectileSpawner(
                 [this](const model::Vector2D& origin, model::IGameElement* target,
                        float damage, data::WeaponType weapon, int team,
-                       data::SplashRadii splash) {
-                    spawnProjectile(origin, target, damage, weapon, team, splash);
+                       data::SplashRadii splash, const std::string& texturePath) {
+                    spawnProjectile(origin, target, damage, weapon, team, splash, texturePath);
                 });
         }
 
@@ -84,7 +84,7 @@ namespace rts::core::world {
 
     void GameWorld::spawnProjectile(model::Vector2D origin, model::IGameElement* target,
                                     float damage, data::WeaponType weapon, int ownerTeam,
-                                    data::SplashRadii splash) {
+                                    data::SplashRadii splash, const std::string& texturePath) {
         constexpr float kProjectileSpeed = 520.0f;
         model::Projectile::SplashApplier applySplash;
         if (splash.any()) {
@@ -100,11 +100,11 @@ namespace rts::core::world {
             projectile = std::move(m_projectilePool.back());
             m_projectilePool.pop_back();
             projectile->reset(origin, target, damage, ownerTeam, kProjectileSpeed,
-                              weapon, splash, std::move(applySplash));
+                              weapon, splash, std::move(applySplash), texturePath);
         } else {
             projectile = std::make_shared<model::Projectile>(
                 origin, target, damage, ownerTeam, kProjectileSpeed, weapon,
-                splash, std::move(applySplash));
+                splash, std::move(applySplash), texturePath);
         }
 
         m_projectiles.push_back(projectile);

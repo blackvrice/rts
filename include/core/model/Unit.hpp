@@ -194,6 +194,8 @@ namespace rts::core::model {
         IGameElement* attackTarget() const;
         // Ranged attackers fire a projectile at the fire point; melee hit instantly.
         bool isRanged() const noexcept;
+        // Optional Tiny Swords projectile art for this unit's ranged attack.
+        std::string projectileTexturePath() const;
 
         std::deque<path::GridPos> m_gridPath; // 다음 노드부터 pop_front
         std::deque<UnitOrder> m_orderQueue;
