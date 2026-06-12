@@ -13,6 +13,8 @@ namespace rts::core::data {
     struct BuildingStaticData {
         ::rts::core::model::BuildingType buildingType { ::rts::core::model::BuildingType::Barracks };
         std::string displayName { "Building" };
+        // HUD selection portrait (Tiny Swords-relative path); empty = generic fallback.
+        std::string portrait {};
         float maxHp { 800.0f };
         // Footprint measured in grid tiles (square placement region).
         int footprintWidth { 3 };
@@ -45,6 +47,7 @@ namespace rts::core::data {
         return BuildingStaticData {
             .buildingType = ::rts::core::model::BuildingType::TownHall,
             .displayName = "Town Hall",
+            .portrait = "Buildings/Blue Buildings/Castle.png",
             .maxHp = 1500.0f,
             .footprintWidth = 4,
             .footprintHeight = 4,
@@ -62,6 +65,7 @@ namespace rts::core::data {
         return BuildingStaticData {
             .buildingType = ::rts::core::model::BuildingType::Barracks,
             .displayName = "Barracks",
+            .portrait = "Buildings/Blue Buildings/House1.png",
             .maxHp = 800.0f,
             .footprintWidth = 3,
             .footprintHeight = 3,

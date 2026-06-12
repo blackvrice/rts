@@ -190,6 +190,44 @@ namespace rts::core::command {
         bool m_right;
     };
 
+    // Chosen from a worker's build submenu: arm placement of this building type.
+    class BuildMenuSelectCommand final : public UICommand {
+    public:
+        explicit BuildMenuSelectCommand(int buildingTypeId)
+            : m_buildingTypeId(buildingTypeId) {}
+
+        int buildingTypeId() const noexcept { return m_buildingTypeId; }
+
+    private:
+        int m_buildingTypeId;
+    };
+
+    // Clicking a portrait in the multi-selection list selects that single entity.
+    class SelectEntityUICommand final : public UICommand {
+    public:
+        SelectEntityUICommand(std::uint32_t index, std::uint32_t generation)
+            : m_index(index), m_generation(generation) {}
+
+        std::uint32_t index() const noexcept { return m_index; }
+        std::uint32_t generation() const noexcept { return m_generation; }
+
+    private:
+        std::uint32_t m_index;
+        std::uint32_t m_generation;
+    };
+
+    // Chosen from a production building's command card: train this unit type.
+    class TrainMenuSelectCommand final : public UICommand {
+    public:
+        explicit TrainMenuSelectCommand(int unitTypeId)
+            : m_unitTypeId(unitTypeId) {}
+
+        int unitTypeId() const noexcept { return m_unitTypeId; }
+
+    private:
+        int m_unitTypeId;
+    };
+
     class ChangeUILogicSourceCommand final : public UICommand {
     public:
         explicit ChangeUILogicSourceCommand(

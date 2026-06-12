@@ -5,6 +5,7 @@
 #pragma once
 
 #include <core/Manager/IUIManager.hpp>
+#include "core/model/Building.hpp"  // BuildingType (member by value)
 #include "core/model/Vector2D.hpp"
 
 #include <chrono>
@@ -70,6 +71,9 @@ namespace rts::core::manager {
         core::world::GameWorld& m_world;
         CameraManager& m_camera;
         WorldOrderMode m_worldOrderMode { WorldOrderMode::Attack };
+        // Building type armed for placement (chosen from the worker build submenu);
+        // defaulted in the constructor (header only forward-declares BuildingType).
+        core::model::BuildingType m_pendingBuildType {};
         bool m_shift { false };
         bool m_ctrl { false };
         // Select-all-of-type request for the next release (ctrl held or double-click).

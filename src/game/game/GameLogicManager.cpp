@@ -94,6 +94,17 @@ namespace rts::core::manager {
             }
         });
 
+        // Select a single entity by handle (multi-selection portrait click).
+        m_router.on<command::SelectEntityCommand>([this](const command::SelectEntityCommand &cmd) {
+            auto lock = m_world.acquireWriteLock();
+            const core::ecs::EntityId id{ cmd.index(), cmd.generation() };
+            if (auto element = m_world.resolve(id)) {
+                SelectionSystem::SelectedList one;
+                one.push_back(element);
+                m_selection.replaceSelected(std::move(one));
+            }
+        });
+
         // Quick-save / quick-load to a fixed slot (F5 / F9).
         m_router.on<command::SaveGameCommand>([this](const command::SaveGameCommand &) {
             saveGame(quickSavePath());

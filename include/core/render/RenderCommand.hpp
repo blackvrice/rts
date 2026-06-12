@@ -78,6 +78,27 @@ namespace rts::core::render {
     struct HudPortrait {
         HudSelectionKind kind { HudSelectionKind::None };
         float hp01 { 1.0f };  // current/max health, 0..1 (drives the portrait HP tint/bar)
+        int unitTypeId { -1 };      // unit avatar (units only; -1 otherwise)
+        int buildingTypeId { -1 };  // building art (buildings only; -1 otherwise)
+        int team { 0 };             // owning team (selects the building art's colour)
+        std::string iconPath {};    // data-driven portrait path (from JSON); preferred when set
+        // EntityId of the represented element, so clicking the portrait re-selects it.
+        std::uint32_t entityIndex { 0 };
+        std::uint32_t entityGeneration { 0 };
+    };
+
+    // One constructible building shown in a worker's build submenu.
+    struct HudBuildOption {
+        int buildingTypeId { -1 };
+        std::string label;
+        bool locked { false };  // requirements unmet or unaffordable
+    };
+
+    // One trainable unit shown in a production building's command card.
+    struct HudTrainOption {
+        int unitTypeId { -1 };
+        std::string label;
+        bool locked { false };  // requirements unmet or unaffordable
     };
 
     struct UpdateHudSelection {
@@ -103,6 +124,10 @@ namespace rts::core::render {
         int trainQueueCount { 0 };
         // Portraits for every selected unit (capped); portraits.size()<=selectedCount.
         std::vector<HudPortrait> portraits {};
+        // Constructible buildings for a worker's build submenu.
+        std::vector<HudBuildOption> buildOptions {};
+        // Trainable units for a selected production building.
+        std::vector<HudTrainOption> trainOptions {};
     };
 
     struct UpdateHudCursor {

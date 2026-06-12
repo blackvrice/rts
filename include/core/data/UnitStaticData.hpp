@@ -11,6 +11,8 @@ namespace rts::core::data {
     struct UnitStaticData {
         ::rts::UnitType unitType { ::rts::UnitType::Warrior };
         std::string displayName { "Unit" };
+        // HUD selection portrait (Tiny Swords-relative path); empty = generic fallback.
+        std::string portrait {};
         float maxHp { 100.0f };
         float attackDamage { 10.0f };
         float attackRange { 80.0f };
@@ -40,6 +42,7 @@ namespace rts::core::data {
         return UnitStaticData {
             .unitType = ::rts::UnitType::Warrior,
             .displayName = "Warrior",
+            .portrait = "UI Elements/UI Elements/Human Avatars/Avatars_02.png",
             .maxHp = 120.0f,
             .attackDamage = 12.0f,
             .attackRange = 80.0f,
@@ -61,6 +64,7 @@ namespace rts::core::data {
         return UnitStaticData {
             .unitType = ::rts::UnitType::Archer,
             .displayName = "Archer",
+            .portrait = "UI Elements/UI Elements/Human Avatars/Avatars_03.png",
             .maxHp = 80.0f,
             .attackDamage = 9.0f,
             .attackRange = 180.0f,
@@ -82,6 +86,7 @@ namespace rts::core::data {
         return UnitStaticData {
             .unitType = ::rts::UnitType::Worker,
             .displayName = "Worker",
+            .portrait = "UI Elements/UI Elements/Human Avatars/Avatars_01.png",
             .maxHp = 70.0f,
             .attackDamage = 4.0f,
             .attackRange = 48.0f,
@@ -103,6 +108,7 @@ namespace rts::core::data {
         auto data = archerUnitStaticData();
         data.unitType = ::rts::UnitType::Marine;
         data.displayName = "Marine";
+        data.portrait = "UI Elements/UI Elements/Human Avatars/Avatars_04.png";
         data.attackDamage = 8.0f;
         data.attackRange = 150.0f;
         data.buildTimeSeconds = 8.0f;

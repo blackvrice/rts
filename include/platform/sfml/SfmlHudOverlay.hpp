@@ -22,6 +22,7 @@ namespace rts::core::command {
 namespace rts::core::render {
     struct UpdateHudSelection;
     struct UpdateMinimap;
+    struct HudPortrait;
 }
 
 namespace rts::platform::sfml {
@@ -44,6 +45,9 @@ namespace rts::platform::sfml {
         void shutdown();
         void syncMouseButtons();
         const sf::Texture* texture(const std::string& relativePath);
+        // Picks the selection portrait image: a Human Avatar for units, the building
+        // art for buildings, nullptr otherwise (caller draws a fallback).
+        const sf::Texture* portraitTexture(const core::render::HudPortrait& portrait);
 
         static void applyStyle();
         void drawHud(
@@ -57,5 +61,6 @@ namespace rts::platform::sfml {
         std::unordered_map<std::string, std::unique_ptr<sf::Texture>> m_textures;
         core::command::UICommandBus& m_uiBus;
         std::string m_lastCommand = "Move";
+        bool m_buildMenuOpen = false;  // worker build submenu is showing structures
     };
 }

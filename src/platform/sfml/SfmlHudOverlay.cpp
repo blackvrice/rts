@@ -60,10 +60,15 @@ namespace {
     };
 
     struct HudCommandButton {
-        const char* label;
-        rts::core::command::GameplayInputAction action;
-        const char* hotkey;  // shown in the button corner; matches starCraftHotkeyAction
+        // What a click does: fire a gameplay action, open/close the worker build
+        // submenu, arm a specific building, or train a specific unit.
+        enum class Kind { Action, OpenBuildMenu, SelectBuild, CloseBuildMenu, SelectTrain };
+        std::string label;
+        rts::core::command::GameplayInputAction action {};
+        const char* hotkey { "" };  // shown in the button corner; matches starCraftHotkeyAction
         bool locked { false };  // greyed out and non-interactive (prereq not met)
+        Kind kind { Kind::Action };
+        int payloadId { -1 };  // buildingTypeId (SelectBuild) or unitTypeId (SelectTrain)
     };
 
     struct TrimCacheKey {
@@ -473,32 +478,6 @@ namespace {
         }
     }
 
-    // Grid of small portraits (one per selected unit) with an HP tint bar each.
-    void drawSelectionPortraits(ImDrawList& drawList, const ImVec2 min, const ImVec2 max,
-                                const std::vector<rts::core::render::HudPortrait>& portraits) {
-        const int count = static_cast<int>(portraits.size());
-        if (count == 0) return;
-        const int cols = count <= 6 ? 3 : (count <= 12 ? 4 : 6);
-        const float gap = 4.0f;
-        const float cellW = (max.x - min.x - gap * (cols - 1)) / static_cast<float>(cols);
-        const float cellH = std::min(cellW, 34.0f);
-        for (int i = 0; i < count; ++i) {
-            const int col = i % cols;
-            const int row = i / cols;
-            const ImVec2 cellMin{min.x + col * (cellW + gap), min.y + row * (cellH + gap)};
-            if (cellMin.y + cellH > max.y) break;  // clip overflow rows
-            const ImVec2 cellMax{cellMin.x + cellW, cellMin.y + cellH};
-            drawList.AddRectFilled(cellMin, cellMax, kPanelDark, 2.0f);
-            drawList.AddRect(cellMin, cellMax, portraitKindColor(portraits[i].kind), 2.0f, 0, 1.5f);
-            // HP tint bar along the bottom of each portrait.
-            const float barH = 4.0f;
-            const float ratio = portraits[i].hp01 < 0.0f ? 0.0f : (portraits[i].hp01 > 1.0f ? 1.0f : portraits[i].hp01);
-            drawList.AddRectFilled({cellMin.x + 2.0f, cellMax.y - barH - 2.0f},
-                                   {cellMin.x + 2.0f + (cellW - 4.0f) * ratio, cellMax.y - 2.0f},
-                                   hpBarColor(ratio));
-        }
-    }
-
     void drawStatusBar(ImDrawList& drawList, const ImVec2 min, const ImVec2 max, const float ratio, const ImU32 color, const char* label, const sf::Texture* base, const sf::Texture* fill) {
         if (base) {
             drawImage(drawList, base, min, max);
@@ -629,6 +608,28 @@ namespace rts::platform::sfml {
         return result;
     }
 
+    const sf::Texture* SfmlHudOverlay::portraitTexture(const core::render::HudPortrait& p) {
+        // Prefer the data-driven portrait configured in units.json / buildings.json.
+        if (!p.iconPath.empty()) {
+            if (const sf::Texture* tex = texture(p.iconPath)) {
+                return tex;
+            }
+        }
+        if (p.unitTypeId >= 0) {
+            // One of the 25 Human Avatars, picked deterministically per unit type.
+            const int idx = (p.unitTypeId % 25) + 1;
+            const std::string num = (idx < 10 ? "0" : "") + std::to_string(idx);
+            return texture("UI Elements/UI Elements/Human Avatars/Avatars_" + num + ".png");
+        }
+        if (p.buildingTypeId >= 0) {
+            const char* color = (p.team == 2) ? "Red" : "Blue";  // TeamId::Enemy == 2
+            // BuildingType: 0 = TownHall (Castle), others use a House.
+            const char* file = (p.buildingTypeId == 0) ? "Castle.png" : "House1.png";
+            return texture(std::string("Buildings/") + color + " Buildings/" + file);
+        }
+        return nullptr;
+    }
+
     void SfmlHudOverlay::applyStyle() {
         ImGuiStyle& style = ImGui::GetStyle();
         style.WindowRounding = 0.0f;
@@ -744,15 +745,51 @@ namespace rts::platform::sfml {
         const ImVec2 portraitMin{statusMin.x + 18.0f, statusMin.y + 44.0f};
         const ImVec2 portraitMax{portraitMin.x + 132.0f, statusMax.y - 18.0f};
         // HUD ADJUST: selection portrait and unit text positions start here.
-        const bool multiSelect = selection.portraits.size() > 1;
+        const bool multiSelect = selection.selectedCount > 1;
         if (multiSelect) {
-            // Multi-selection: a grid of small portraits, each with an HP tint bar,
-            // replaces the single large portrait.
-            drawSelectionPortraits(drawList, portraitMin,
-                                   {statusMax.x - 18.0f, statusMax.y - 18.0f},
-                                   selection.portraits);
+            // Multi-selection: a StarCraft-style grid of unit portraits (icon + HP bar).
+            // Clicking one selects just that unit.
+            const ImVec2 gridMin = portraitMin;
+            const ImVec2 gridMax{statusMax.x - 18.0f, statusMax.y - 18.0f};
+            const int count = static_cast<int>(selection.portraits.size());
+            const int cols = count <= 6 ? 3 : (count <= 12 ? 4 : 6);
+            const float gap = 4.0f;
+            const float cellW = (gridMax.x - gridMin.x - gap * (cols - 1)) / static_cast<float>(cols);
+            const float cellH = std::min(cellW, 34.0f);
+            for (int i = 0; i < count; ++i) {
+                const auto& p = selection.portraits[i];
+                const int col = i % cols;
+                const int row = i / cols;
+                const ImVec2 cMin{gridMin.x + col * (cellW + gap), gridMin.y + row * (cellH + gap)};
+                if (cMin.y + cellH > gridMax.y) break;  // clip overflow rows
+                const ImVec2 cMax{cMin.x + cellW, cMin.y + cellH};
+                ImGui::SetCursorScreenPos(cMin);
+                const std::string pid = "##portrait_" + std::to_string(i);
+                const bool clicked = ImGui::InvisibleButton(pid.c_str(), {cellW, cellH});
+                const bool hovered = ImGui::IsItemHovered();
+
+                drawList.AddRectFilled(cMin, cMax, kPanelDark, 2.0f);
+                if (const sf::Texture* icon = portraitTexture(p)) {
+                    drawImage(drawList, icon, {cMin.x + 3.0f, cMin.y + 3.0f},
+                              {cMax.x - 3.0f, cMax.y - 8.0f});
+                }
+                drawList.AddRect(cMin, cMax,
+                                 hovered ? IM_COL32(255, 255, 255, 255) : portraitKindColor(p.kind),
+                                 2.0f, 0, hovered ? 2.0f : 1.5f);
+                const float ratio = std::clamp(p.hp01, 0.0f, 1.0f);
+                drawList.AddRectFilled({cMin.x + 2.0f, cMax.y - 6.0f},
+                                       {cMin.x + 2.0f + (cellW - 4.0f) * ratio, cMax.y - 2.0f},
+                                       hpBarColor(ratio));
+                if (clicked) {
+                    m_uiBus.push(std::make_unique<core::command::SelectEntityUICommand>(
+                        p.entityIndex, p.entityGeneration));
+                }
+            }
         } else {
-            drawPortrait(drawList, portraitMin, portraitMax, avatar);
+            // Single selection: unit avatar / building art for the large portrait.
+            const sf::Texture* primaryArt = selection.portraits.empty()
+                ? avatar : portraitTexture(selection.portraits.front());
+            drawPortrait(drawList, portraitMin, portraitMax, primaryArt);
             // Single selection: an HP bar under the portrait.
             if (selection.hasPrimaryUnit && selection.maxHp > 0.0f) {
                 const float ratio = std::clamp(selection.hp / selection.maxHp, 0.0f, 1.0f);
@@ -761,54 +798,56 @@ namespace rts::platform::sfml {
             }
         }
 
-        const ImVec2 infoMin{portraitMax.x + 24.0f, statusMin.y + 48.0f};
-        const std::string selectedCount = "Selected: " + std::to_string(selection.selectedCount) +
-            (selection.selectedCount == 1 ? " unit" : " units");
-        const std::string action = "Action: " + selection.action;
-        const std::string hp = selection.hasPrimaryUnit
-            ? "HP " + formatRounded(selection.hp) + " / " + formatRounded(selection.maxHp)
-            : "HP -";
-        const std::string position = selection.hasPrimaryUnit
-            ? "Position " + formatPosition(selection.position)
-            : "Position -";
-        const std::string command = "Last command: " + m_lastCommand;
+        if (!multiSelect) {
+            const ImVec2 infoMin{portraitMax.x + 24.0f, statusMin.y + 48.0f};
+            const std::string selectedCount = "Selected: " + std::to_string(selection.selectedCount) +
+                (selection.selectedCount == 1 ? " unit" : " units");
+            const std::string action = "Action: " + selection.action;
+            const std::string hp = selection.hasPrimaryUnit
+                ? "HP " + formatRounded(selection.hp) + " / " + formatRounded(selection.maxHp)
+                : "HP -";
+            const std::string position = selection.hasPrimaryUnit
+                ? "Position " + formatPosition(selection.position)
+                : "Position -";
+            const std::string command = "Last command: " + m_lastCommand;
 
-        drawList.AddText(infoMin, kTextMain, selection.primaryName.c_str());
-        drawList.AddText({infoMin.x, infoMin.y + 28.0f}, kTextDim, selectedCount.c_str());
-        drawList.AddText({infoMin.x, infoMin.y + 56.0f}, kTextDim, action.c_str());
+            drawList.AddText(infoMin, kTextMain, selection.primaryName.c_str());
+            drawList.AddText({infoMin.x, infoMin.y + 28.0f}, kTextDim, selectedCount.c_str());
+            drawList.AddText({infoMin.x, infoMin.y + 56.0f}, kTextDim, action.c_str());
 
-        // Combat stats with attack/armor icons (Icon_04 = attack, Icon_05 = armor).
-        const float statsY = infoMin.y + 84.0f;
-        if (selection.hasCombatStats) {
-            const sf::Texture* atkIcon = texture("UI Elements/UI Elements/Icons/Icon_04.png");
-            const sf::Texture* armIcon = texture("UI Elements/UI Elements/Icons/Icon_05.png");
-            const std::string atk = formatRounded(selection.attackDamage);
-            const std::string arm = formatRounded(selection.armor);
-            const std::string rng = "Rng " + formatRounded(selection.attackRange);
-            drawStatIcon(drawList, {infoMin.x, statsY}, atkIcon, kWarning);
-            drawList.AddText({infoMin.x + 24.0f, statsY + 2.0f}, kTextMain, atk.c_str());
-            drawStatIcon(drawList, {infoMin.x + 78.0f, statsY}, armIcon, kMineral);
-            drawList.AddText({infoMin.x + 102.0f, statsY + 2.0f}, kTextMain, arm.c_str());
-            drawList.AddText({infoMin.x + 156.0f, statsY + 2.0f}, kTextDim, rng.c_str());
-        } else {
-            drawList.AddText({infoMin.x, statsY}, kTextDim, "Stats -");
-        }
+            // Combat stats with attack/armor icons (Icon_04 = attack, Icon_05 = armor).
+            const float statsY = infoMin.y + 84.0f;
+            if (selection.hasCombatStats) {
+                const sf::Texture* atkIcon = texture("UI Elements/UI Elements/Icons/Icon_04.png");
+                const sf::Texture* armIcon = texture("UI Elements/UI Elements/Icons/Icon_05.png");
+                const std::string atk = formatRounded(selection.attackDamage);
+                const std::string arm = formatRounded(selection.armor);
+                const std::string rng = "Rng " + formatRounded(selection.attackRange);
+                drawStatIcon(drawList, {infoMin.x, statsY}, atkIcon, kWarning);
+                drawList.AddText({infoMin.x + 24.0f, statsY + 2.0f}, kTextMain, atk.c_str());
+                drawStatIcon(drawList, {infoMin.x + 78.0f, statsY}, armIcon, kMineral);
+                drawList.AddText({infoMin.x + 102.0f, statsY + 2.0f}, kTextMain, arm.c_str());
+                drawList.AddText({infoMin.x + 156.0f, statsY + 2.0f}, kTextDim, rng.c_str());
+            } else {
+                drawList.AddText({infoMin.x, statsY}, kTextDim, "Stats -");
+            }
 
-        drawList.AddText({infoMin.x, infoMin.y + 116.0f}, selection.hasPrimaryUnit ? kTextMain : kTextDim, hp.c_str());
-        drawList.AddText({infoMin.x, infoMin.y + 148.0f}, kTextMain, position.c_str());
-        drawList.AddText({infoMin.x, infoMin.y + 180.0f}, kWarning, command.c_str());
+            drawList.AddText({infoMin.x, infoMin.y + 116.0f}, selection.hasPrimaryUnit ? kTextMain : kTextDim, hp.c_str());
+            drawList.AddText({infoMin.x, infoMin.y + 148.0f}, kTextMain, position.c_str());
+            drawList.AddText({infoMin.x, infoMin.y + 180.0f}, kWarning, command.c_str());
 
-        // Building progress overlays: construction first, otherwise training progress.
-        if (selection.kind == core::render::HudSelectionKind::Building) {
-            const ImVec2 barPos{infoMin.x, infoMin.y + 208.0f};
-            const ImVec2 barSize{220.0f, 12.0f};
-            if (selection.underConstruction) {
-                drawLabeledProgress(drawList, barPos, barSize, "Building",
-                                    selection.buildProgress01, kGas);
-            } else if (selection.trainQueueCount > 0) {
-                const std::string lbl = "Training x" + std::to_string(selection.trainQueueCount);
-                drawLabeledProgress(drawList, barPos, barSize, lbl.c_str(),
-                                    selection.trainProgress01, kWarning);
+            // Building progress overlays: construction first, otherwise training progress.
+            if (selection.kind == core::render::HudSelectionKind::Building) {
+                const ImVec2 barPos{infoMin.x, infoMin.y + 208.0f};
+                const ImVec2 barSize{220.0f, 12.0f};
+                if (selection.underConstruction) {
+                    drawLabeledProgress(drawList, barPos, barSize, "Building",
+                                        selection.buildProgress01, kGas);
+                } else if (selection.trainQueueCount > 0) {
+                    const std::string lbl = "Training x" + std::to_string(selection.trainQueueCount);
+                    drawLabeledProgress(drawList, barPos, barSize, lbl.c_str(),
+                                        selection.trainProgress01, kWarning);
+                }
             }
         }
 
@@ -816,27 +855,55 @@ namespace rts::platform::sfml {
         // while a worker offers Build/Gather and combat units offer Attack/Patrol.
         using core::command::GameplayInputAction;
         using core::render::HudSelectionKind;
+        // The build submenu only applies to a worker selection.
+        if (selection.kind != HudSelectionKind::Worker) {
+            m_buildMenuOpen = false;
+        }
         std::vector<HudCommandButton> commands;
         switch (selection.kind) {
             case HudSelectionKind::Building:
-                // A producing building always shows Train; it is locked (greyed) when
-                // the building is not ready (incomplete / tech) or the player cannot
-                // afford the unit.
+                // A producing building shows one button per trainable unit; each is
+                // locked (greyed) while the building is not ready (incomplete/tech) or
+                // the unit is unaffordable / prerequisite-locked.
                 if (selection.producesUnits) {
-                    const bool trainLocked = !selection.canProduce || !selection.trainAffordable;
-                    commands.push_back({"Train", GameplayInputAction::TrainUnit, "T", trainLocked});
+                    for (const auto& opt : selection.trainOptions) {
+                        HudCommandButton btn;
+                        btn.label = opt.label;
+                        btn.locked = !selection.canProduce || opt.locked;
+                        btn.kind = HudCommandButton::Kind::SelectTrain;
+                        btn.payloadId = opt.unitTypeId;
+                        commands.push_back(btn);
+                    }
                 }
                 commands.push_back({"Cancel", GameplayInputAction::CancelProduction, "C"});
                 break;
             case HudSelectionKind::Worker:
-                commands = {
-                    {"Move", GameplayInputAction::Move, "M"},
-                    {"Stop", GameplayInputAction::Stop, "S"},
-                    {"Hold", GameplayInputAction::HoldPosition, "H"},
-                    {"Gather", GameplayInputAction::Gather, "G"},
-                    {"Build", GameplayInputAction::Build, "B"},
-                    {"A-Move", GameplayInputAction::AttackMove, "A"}
-                };
+                if (m_buildMenuOpen) {
+                    // Build submenu: one button per constructible structure + Cancel.
+                    for (const auto& opt : selection.buildOptions) {
+                        HudCommandButton btn;
+                        btn.label = opt.label;
+                        btn.locked = opt.locked;
+                        btn.kind = HudCommandButton::Kind::SelectBuild;
+                        btn.payloadId = opt.buildingTypeId;
+                        commands.push_back(btn);
+                    }
+                    HudCommandButton cancel;
+                    cancel.label = "Cancel";
+                    cancel.hotkey = "Esc";
+                    cancel.kind = HudCommandButton::Kind::CloseBuildMenu;
+                    commands.push_back(cancel);
+                } else {
+                    commands = {
+                        {"Move", GameplayInputAction::Move, "M"},
+                        {"Stop", GameplayInputAction::Stop, "S"},
+                        {"Hold", GameplayInputAction::HoldPosition, "H"},
+                        {"Gather", GameplayInputAction::Gather, "G"},
+                        {"Build", GameplayInputAction::Build, "B", false,
+                         HudCommandButton::Kind::OpenBuildMenu},
+                        {"A-Move", GameplayInputAction::AttackMove, "A"}
+                    };
+                }
                 break;
             case HudSelectionKind::CombatUnit:
                 commands = {
@@ -867,7 +934,7 @@ namespace rts::platform::sfml {
             };
             ImGui::SetCursorScreenPos(pos);
             const HudCommandButton& command = commands[i];
-            const std::string id = std::string("##command_") + command.label;
+            const std::string id = "##command_" + std::to_string(i);
             // Locked buttons render but swallow no input (the click is ignored below).
             const bool clicked = ImGui::InvisibleButton(id.c_str(), {cellW, cellH}) && !command.locked;
             const bool active = ImGui::IsItemActive() && !command.locked;
@@ -883,15 +950,32 @@ namespace rts::platform::sfml {
             }
 
             const ImU32 labelColor = command.locked ? kTextDim : kTextMain;
-            const ImVec2 textSize = ImGui::CalcTextSize(command.label);
-            drawList.AddText({pos.x + (cellW - textSize.x) * 0.5f, pos.y + cellH - textSize.y - 10.0f}, labelColor, command.label);
+            const ImVec2 textSize = ImGui::CalcTextSize(command.label.c_str());
+            drawList.AddText({pos.x + (cellW - textSize.x) * 0.5f, pos.y + cellH - textSize.y - 10.0f}, labelColor, command.label.c_str());
             // Hotkey hint in the top-left corner so the shortcut is discoverable.
             drawList.AddText({pos.x + 6.0f, pos.y + 4.0f}, command.locked ? kTextDim : kWarning, command.hotkey);
 
             if (clicked) {
                 m_lastCommand = command.label;
-                // The UI loop consumes this next frame and translates it into a LogicCommand.
-                m_uiBus.push(std::make_unique<core::command::GameplayInputCommand>(command.action));
+                switch (command.kind) {
+                    case HudCommandButton::Kind::Action:
+                        // Consumed next frame and translated into a LogicCommand.
+                        m_uiBus.push(std::make_unique<core::command::GameplayInputCommand>(command.action));
+                        break;
+                    case HudCommandButton::Kind::OpenBuildMenu:
+                        m_buildMenuOpen = true;
+                        break;
+                    case HudCommandButton::Kind::SelectBuild:
+                        m_uiBus.push(std::make_unique<core::command::BuildMenuSelectCommand>(command.payloadId));
+                        m_buildMenuOpen = false;
+                        break;
+                    case HudCommandButton::Kind::CloseBuildMenu:
+                        m_buildMenuOpen = false;
+                        break;
+                    case HudCommandButton::Kind::SelectTrain:
+                        m_uiBus.push(std::make_unique<core::command::TrainMenuSelectCommand>(command.payloadId));
+                        break;
+                }
             }
         }
 

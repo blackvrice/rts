@@ -199,6 +199,7 @@ namespace rts::core::manager {
                                  core::render::RenderQueue &render_queue, world::GameWorld& world,
                                  CameraManager& camera) : m_world(world), m_camera(camera), IUIManager(
         router, logicBus, render_queue) {
+        m_pendingBuildType = core::model::BuildingType::Barracks;
 
         router.on<command::MouseLeftPressedCommand>(
             [this](const command::MouseLeftPressedCommand &cmd) {
@@ -260,6 +261,32 @@ namespace rts::core::manager {
                     const auto& vp = m_camera.viewportSize();
                     m_camera.setPosition({ world.x - vp.x * 0.5f, world.y - vp.y * 0.5f });
                 }
+            }
+        );
+
+        router.on<command::BuildMenuSelectCommand>(
+            [this](const command::BuildMenuSelectCommand &cmd) {
+                if (m_world.gameResult() != core::world::GameResult::InProgress) return;
+                // Arm placement of the building chosen from the worker build submenu.
+                m_pendingBuildType = static_cast<core::model::BuildingType>(cmd.buildingTypeId());
+                m_worldOrderMode = WorldOrderMode::Build;
+            }
+        );
+
+        router.on<command::TrainMenuSelectCommand>(
+            [this](const command::TrainMenuSelectCommand &cmd) {
+                if (m_world.gameResult() != core::world::GameResult::InProgress) return;
+                // Train the unit chosen from the production building's list (current
+                // selection resolves the building; the logic validates cost/tech).
+                m_logicBus.push(std::make_unique<command::TrainUnitCommand>(-1, cmd.unitTypeId()));
+            }
+        );
+
+        router.on<command::SelectEntityUICommand>(
+            [this](const command::SelectEntityUICommand &cmd) {
+                // Clicking a portrait in the multi-selection list selects only that unit.
+                m_logicBus.push(std::make_unique<command::SelectEntityCommand>(
+                    cmd.index(), cmd.generation()));
             }
         );
 
@@ -427,9 +454,9 @@ namespace rts::core::manager {
                 m_logicBus.push(std::make_unique<command::GatherCommand>(worldPos));
                 break;
             case WorldOrderMode::Build:
-                // Place the worker's default structure (Barracks) at the cursor.
+                // Place the building the player armed from the build submenu.
                 m_logicBus.push(std::make_unique<command::BuildCommand>(
-                    static_cast<int>(core::model::BuildingType::Barracks), worldPos));
+                    static_cast<int>(m_pendingBuildType), worldPos));
                 break;
         }
 
@@ -539,14 +566,21 @@ namespace rts::core::manager {
             // Classify every selected element so the multi-selection portrait strip
             // can show one entry per unit (capped to keep the render command small).
             core::render::HudPortrait portrait;
+            portrait.entityIndex = gameElement->entityId().index;
+            portrait.entityGeneration = gameElement->entityId().generation;
+            portrait.team = gameElement->getTeamId();
             if (auto unit = std::dynamic_pointer_cast<core::model::Unit>(element)) {
                 portrait.kind = unit->isWorker()
                     ? core::render::HudSelectionKind::Worker
                     : core::render::HudSelectionKind::CombatUnit;
+                portrait.unitTypeId = static_cast<int>(unit->unitType());
+                portrait.iconPath = core::data::unitStaticDataFor(unit->unitType()).portrait;
                 const float maxHp = unit->getMaxHp();
                 portrait.hp01 = maxHp > 0.0f ? unit->getHp() / maxHp : 0.0f;
             } else if (auto building = std::dynamic_pointer_cast<core::model::Building>(element)) {
                 portrait.kind = core::render::HudSelectionKind::Building;
+                portrait.buildingTypeId = static_cast<int>(building->buildingType());
+                portrait.iconPath = core::data::buildingStaticDataFor(building->buildingType()).portrait;
                 const float maxHp = building->getMaxHp();
                 portrait.hp01 = maxHp > 0.0f ? building->getHp() / maxHp : 0.0f;
             } else if (std::dynamic_pointer_cast<core::model::ResourceNode>(element)) {
@@ -584,12 +618,33 @@ namespace rts::core::manager {
                     selection.buildProgress01 = building->buildProgress01();
                     selection.trainProgress01 = building->trainProgress();
                     selection.trainQueueCount = building->trainQueueSize();
-                    // Resource-affordability lock for the Train button (Epic 6.4).
+                    // Production list: one entry per producible unit, locked when its
+                    // prerequisites are unmet or it is unaffordable (Epic 6.4 / 5.4).
                     if (typeProduces) {
-                        const auto defaultUnit = bdata.produces.front();
-                        const auto cost = core::data::unitStaticDataFor(defaultUnit).cost();
+                        const int bteam = building->getTeamId();
+                        const auto& res = m_world.playerResources(bteam);
+                        const auto hasCompletedBuilding = [&](core::model::BuildingType bt) {
+                            for (const auto& el : m_world.getElements()) {
+                                auto b2 = std::dynamic_pointer_cast<core::model::Building>(el);
+                                if (b2 && b2->getTeamId() == bteam && b2->buildingType() == bt &&
+                                    b2->isComplete() && b2->getAction() != core::model::ActionType::Dead) {
+                                    return true;
+                                }
+                            }
+                            return false;
+                        };
                         selection.trainAffordable =
-                            m_world.playerResources(building->getTeamId()).canAfford(cost);
+                            res.canAfford(core::data::unitStaticDataFor(bdata.produces.front()).cost());
+                        for (const auto ut : bdata.produces) {
+                            const auto& udata = core::data::unitStaticDataFor(ut);
+                            bool reqMet = true;
+                            for (const auto req : udata.requirement.requiredBuildings) {
+                                if (!hasCompletedBuilding(req)) { reqMet = false; break; }
+                            }
+                            const bool affordable = res.canAfford(udata.cost());
+                            selection.trainOptions.push_back(
+                                { static_cast<int>(ut), udata.displayName, !(reqMet && affordable) });
+                        }
                     }
                 } else if (auto resource = std::dynamic_pointer_cast<core::model::ResourceNode>(element)) {
                     selection.hp = resource->remaining();
@@ -598,6 +653,37 @@ namespace rts::core::manager {
                 }
 
                 selection.position = gameElement->getPosition();
+            }
+        }
+
+        // Worker build submenu options: every building type with a lock flag for
+        // unmet prerequisites or unaffordable cost (mirrors the build-command gates).
+        if (selection.kind == core::render::HudSelectionKind::Worker) {
+            const int team = core::model::TeamId::Player;
+            const auto& res = m_world.playerResources(team);
+            const auto hasCompleted = [&](core::model::BuildingType bt) {
+                for (const auto& el : m_world.getElements()) {
+                    auto b = std::dynamic_pointer_cast<core::model::Building>(el);
+                    if (b && b->getTeamId() == team && b->buildingType() == bt &&
+                        b->isComplete() && b->getAction() != core::model::ActionType::Dead) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+            const core::model::BuildingType buildable[] = {
+                core::model::BuildingType::TownHall,
+                core::model::BuildingType::Barracks
+            };
+            for (const auto bt : buildable) {
+                const auto& data = core::data::buildingStaticDataFor(bt);
+                bool reqMet = true;
+                for (const auto req : data.requirements) {
+                    if (!hasCompleted(req)) { reqMet = false; break; }
+                }
+                const bool affordable = res.canAfford(data.cost());
+                selection.buildOptions.push_back(
+                    { static_cast<int>(bt), data.displayName, !(reqMet && affordable) });
             }
         }
 
@@ -610,7 +696,7 @@ namespace rts::core::manager {
         // Build placement preview: a green (placeable) / red (blocked) footprint
         // ghost tracks the cursor while build mode is armed (Epic 0.5.2).
         if (m_worldOrderMode == WorldOrderMode::Build && m_hasMousePos) {
-            const auto data = core::data::buildingStaticDataFor(core::model::BuildingType::Barracks);
+            const auto data = core::data::buildingStaticDataFor(m_pendingBuildType);
             const auto& tf = m_world.gridTransform();
             const core::model::Vector2D worldPos = m_camera.screenToWorld(m_mousePos);
             const auto centerCell = tf.worldToGrid(worldPos);

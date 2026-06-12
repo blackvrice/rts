@@ -593,7 +593,9 @@ namespace rts::platform::sfml {
         }
 
         m_hud->render(*sfWindow, resources, selection, minimap);
-        drawSelectedHudSprite(*sfWindow, selectedHudUnit);
+        if (selection.selectedCount == 1) {
+            drawSelectedHudSprite(*sfWindow, selectedHudUnit);
+        }
         drawMouseCursor(*sfWindow, cursorKey);
     }
 

@@ -104,6 +104,20 @@ namespace rts::core::command {
     class ClearSelectionCommand final : public LogicCommand {
     };
 
+    // Selects exactly one entity by handle (clicking a multi-selection portrait).
+    class SelectEntityCommand final : public LogicCommand {
+    public:
+        SelectEntityCommand(std::uint32_t index, std::uint32_t generation)
+            : m_index(index), m_generation(generation) {}
+
+        std::uint32_t index() const noexcept { return m_index; }
+        std::uint32_t generation() const noexcept { return m_generation; }
+
+    private:
+        std::uint32_t m_index;
+        std::uint32_t m_generation;
+    };
+
     // =========================================================
     // Unit Orders
     // =========================================================

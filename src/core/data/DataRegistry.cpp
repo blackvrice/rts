@@ -235,6 +235,7 @@ namespace rts::core::data {
                 UnitStaticData d = m_units[*type];
                 d.unitType = *type;
                 d.displayName   = e.value("displayName", d.displayName);
+                d.portrait      = e.value("portrait", d.portrait);
                 d.maxHp         = e.value("maxHp", d.maxHp);
                 d.attackDamage  = e.value("attackDamage", d.attackDamage);
                 d.attackRange   = e.value("attackRange", d.attackRange);
@@ -289,6 +290,7 @@ namespace rts::core::data {
                 BuildingStaticData d = m_buildings[*type];
                 d.buildingType    = *type;
                 d.displayName     = e.value("displayName", d.displayName);
+                d.portrait        = e.value("portrait", d.portrait);
                 d.maxHp           = e.value("maxHp", d.maxHp);
                 d.footprintWidth  = e.value("footprintWidth", d.footprintWidth);
                 d.footprintHeight = e.value("footprintHeight", d.footprintHeight);

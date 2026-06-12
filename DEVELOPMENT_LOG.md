@@ -1,5 +1,12 @@
 # Development Log
 
+## 2026-06-12 - Multi-Selection HUD Detail Suppression
+
+- Fixed the selection HUD so the single-selection detail area is only drawn for zero or one selected element; multi-selection now keeps the StarCraft-style portrait grid without also showing the primary unit name, stats, HP, position, or building progress text.
+- Updated the SFML render pass so the animated large selected-unit HUD sprite is only overlaid when exactly one element is selected.
+- Verification: built `RTS` with `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j 4`, then launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
+- Follow-up: none.
+
 ## 2026-06-12 - Pawn Worker Situation Sprites
 
 - Registered every Blue/Red Pawn idle, run, carried-resource, tool, and interaction sprite variant from the Tiny Swords Pawn folders in `data/animations.json` and the fallback `DataRegistry` seed data.
