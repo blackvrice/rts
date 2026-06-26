@@ -72,6 +72,155 @@
 
 ---
 
+# 2.2 2026-06-26 소스 분석 기반 다음 개발 계획
+
+검증 기준: `2026-06-26` 현재 작업트리의 `include/`, `src/`, `data/`, `docs/` 실제 소스.
+현재 작업트리는 기존 미커밋 변경이 많은 상태이므로, 아래 계획은 "현재 파일 내용" 기준이며 커밋 경계 정리는 별도 선행 작업으로 본다.
+
+실행 확인:
+
+```text
+- 빌드: C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j 4
+  - 결과: ninja: no work to do
+- 실행: cmake-build-debug\RTS.exe 5초 smoke run
+  - 결과: 5초 동안 유지됨
+```
+
+## 핵심 진단
+
+```text
+완료로 볼 수 있는 것:
+- 작은 RTS 한 판의 기본 루프는 이미 동작한다.
+- 로비 -> 리플레이 목록 -> 게임 재생, 리플레이 중 입력 잠금, 종료 프레임 freeze가 구현되어 있다.
+- HUD 명령 카드, 생산 리스트, 빌드 메뉴, 다중 선택 초상화, 데이터 기반 아이콘이 구현되어 있다.
+- 건물 footprint 기반 충돌/패스파인딩, 유닛 겹침 분리, 타일 기반 sightRange가 구현되어 있다.
+
+지금 부족한 것:
+- 자동화 테스트/QA 하네스가 거의 없다. 현재 안정성은 대부분 빌드 + 짧은 실행 + 수동 확인에 의존한다.
+- Save/Load는 스냅샷 범위가 얕다. 유닛 명령 큐, rally point, 건설 진행도, 생산 진행도, gather/build 타겟, AI 타이머, 투사체 상태가 완전 복원되지 않는다.
+- Replay는 mapPath를 저장하지만 실제 시작 월드는 `tiled_skirmish.tmx` 경로에 강하게 묶여 있다. 리플레이 메타데이터와 재생 UX도 부족하다.
+- WorldHash는 위치/HP/action/team 중심이라 생산 큐, 명령 큐, 투사체, rally, 진행도 같은 결정론 상태를 충분히 덮지 못한다.
+- Fixed 기반 결정론은 이동 커널 일부에만 들어갔다. 공격 사거리, 추격, 투사체, 충돌 push, local avoidance는 여전히 float와 삽입 순서 tie-break에 기대고 있다.
+- RallyPoint는 실제 로직은 있으나 월드 마커 UI가 없다. InvalidCommand, repair/build resolver, 미완성 아군 건물 우클릭 처리도 아직 정책/UX가 빈다.
+- 맵/시나리오 파이프라인은 Tiled import가 가능하지만 시작 맵 선택, start marker 활용, 대형 맵 충돌 경계/성능 검증이 부족하다.
+```
+
+## 우선순위 개발 순서
+
+### Sprint 0. 작업트리와 기준선 정리
+
+```text
+목표:
+- 현재 staged/unstaged 변경을 기능 단위로 확인하고, 다음 개발이 섞이지 않게 기준선을 만든다.
+
+작업:
+- git status를 기준으로 현재 변경을 "리플레이/로비", "HUD/아이콘", "충돌/회피", "데이터 튜닝", "문서"로 분류한다.
+- 각 묶음이 빌드/5초 smoke run을 통과하는지 확인한다.
+- 기존 미커밋 작업을 사용자 의도에 맞게 커밋/푸시하거나, 최소한 다음 작업에서 건드리지 않을 파일 목록을 확정한다.
+
+완료 기준:
+- 다음 코드 작업이 기존 변경과 섞이지 않는다.
+- DEVELOPMENT_LOG.md 또는 관련 문서에 기준선이 남아 있다.
+```
+
+### Sprint 1. 자동 QA 하네스 구축
+
+```text
+목표:
+- "빌드는 되는데 플레이 중 깨짐"을 줄이기 위한 최소 자동 검증을 만든다.
+
+작업:
+- CTest 또는 별도 headless smoke executable을 추가한다.
+- DataRegistry JSON 로드, Tiled map load, TechTreeValidator, Fixed math, Save/Load roundtrip, Replay hash 비교를 자동 검사한다.
+- 현재 수동 QA 항목(선택/이동/채집/건설/생산/전투/승패/FoW/미니맵/리플레이)을 체크리스트 문서로 만든다.
+
+완료 기준:
+- `cmake --build ... --target RTS` 이후 자동 검증 명령 하나로 핵심 회귀를 잡을 수 있다.
+- 실패 시 어느 시스템이 깨졌는지 로그가 남는다.
+```
+
+### Sprint 2. Save/Replay 정확도 보강
+
+```text
+목표:
+- 저장/불러오기와 리플레이가 "보이는 상태"가 아니라 시뮬레이션 상태를 충분히 복원하도록 만든다.
+
+작업:
+- UnitOrder queue, 현재 action 세부 상태, gather/build target EntityId, carrying resource, rally point를 저장/복원한다.
+- 건설 진행도와 생산 front-item 진행도를 저장/복원한다.
+- ReplayLog의 mapPath를 실제 `setupInitialWorld` 입력으로 사용하고, 리플레이 파일에 result/duration/map metadata를 추가한다.
+- Replay 재생 속도(일시정지, 1x/2x/4x 또는 tick step)를 UI/LogicThread 정책으로 설계한다.
+
+완료 기준:
+- Save -> Load 후 WorldHash가 의미 있게 유지되거나, 차이가 나는 필드가 명시적으로 설명된다.
+- 다른 맵에서 기록한 리플레이가 해당 맵으로 재생된다.
+```
+
+### Sprint 3. 결정론/WorldHash 확장
+
+```text
+목표:
+- 향후 lockstep 멀티플레이어를 염두에 두고 재현성과 divergence 검출 범위를 넓힌다.
+
+작업:
+- local avoidance와 formation tie-break를 world insertion order 대신 EntityId 정렬로 바꾼다.
+- 공격 사거리/추격 판정, projectile 이동/도착 판정, collision push 일부를 Fixed 기반으로 점진 전환한다.
+- WorldHash에 production queue, unit order queue, projectile state, rally point, build/train progress를 포함한다.
+- hash checkpoint 실패 시 expected/actual뿐 아니라 의심 state 카테고리를 출력한다.
+
+완료 기준:
+- 같은 입력 로그에서 hash divergence가 더 촘촘하게 잡힌다.
+- 겹침 분리와 대형 부대 이동이 반복 실행마다 같은 결과를 낸다.
+```
+
+### Sprint 4. RTS UX와 정책 마감
+
+```text
+목표:
+- 이미 구현된 시스템을 플레이어가 읽고 조작하기 쉽게 만든다.
+
+작업:
+- RallyPoint 월드 마커와 선택 건물 HUD 표시를 추가한다.
+- InvalidCommand 공통 피드백(사운드, 커서, 짧은 HUD hint)을 만든다.
+- 우클릭 resolver를 보강한다: 미완성 아군 건물은 build/repair, 완성 아군 건물은 rally/repair 정책으로 분리한다.
+- 모든 건물 파괴 패배 fallback을 TownHall 패배 조건과 함께 정책화한다.
+- 건설 가능 지형 태그와 아군 건물 근처 건설 조건을 데이터/맵 레이어에서 지원할지 결정한다.
+
+완료 기준:
+- 플레이어가 실패 명령의 이유를 즉시 알 수 있다.
+- 생산 건물 rally와 worker repair/build가 직관적으로 동작한다.
+```
+
+### Sprint 5. 콘텐츠/성능 Polish
+
+```text
+목표:
+- 포트폴리오용 수직 슬라이스를 보기 좋고 안정적인 데모로 마감한다.
+
+작업:
+- 30초 데모 GIF/스크린샷을 README에 추가한다.
+- synthesized tone을 실제 Tiny Swords 또는 별도 사운드 에셋으로 교체할지 결정한다.
+- 큰 맵 기준 Fog of War dirty tracking/mask cache가 필요한지 프로파일링한다.
+- 밸런스 QA: 초반 자원, AI wave 타이밍, 건물/유닛 체력, 생산 시간, 이동 속도를 한 판 흐름 기준으로 조정한다.
+- map selector 또는 lobby scenario 선택을 추가한다.
+
+완료 기준:
+- 새 사용자가 README만 보고 빌드/실행/한 판 플레이를 재현할 수 있다.
+- 데모 한 판이 지나치게 길거나 막히지 않고 승패까지 자연스럽게 이어진다.
+```
+
+## 가장 먼저 착수할 티켓
+
+```text
+1. 현재 미커밋 작업트리 정리와 기준선 커밋 여부 결정
+2. CTest/headless smoke 검증 골격 추가
+3. Save/Load 스냅샷 확장: rally point + train/build progress + UnitOrder queue
+4. ReplayLog mapPath 실제 적용
+5. RallyPoint 월드 마커 UI
+```
+
+---
+
 # 3. Phase 0. Vertical Slice
 
 ## 목표
