@@ -1,5 +1,14 @@
 # Development Log
 
+## 2026-06-26 - Sprint 0 Worktree Baseline
+
+- Started Sprint 0 from a clean tracked worktree: `git status --short --branch` reported `master...origin/master` with no modified, staged, or untracked source files.
+- Confirmed the current baseline commit is `9c4b805 docs: add current development plan audit`, already pushed to `origin/master`.
+- Reviewed ignored local artifacts before further work: `.idea/workspace.xml` is ignored by `.idea/.gitignore`, `cmake-build-debug/*` by `cmake-build-debug/.gitignore`, and `.claude/settings.local.json` by the user's global Git ignore. `git ls-files --others --exclude-standard` reported `0`, so there are no untracked source files waiting to classify.
+- Sprint 0 conclusion: there is no dirty feature work to split before Sprint 1. The next safe task is to add the automated QA/headless smoke-test skeleton from the 2026-06-26 development-plan audit.
+- Verification: inspected branch, remotes, ignored/untracked state, and recent commits; built `RTS` with the CLion-bundled CMake path (`ninja: no work to do`), then launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
+- Follow-up: keep future Sprint 1 changes staged narrowly, starting with test harness files and the matching CMake wiring.
+
 ## 2026-06-13 - Ignore Live Player Input During Replay Playback
 
 - Problem: during replay the viewer could still move units. Two causes: (1) live input leaked through UI paths not covered by `acceptPlayerCommand` (selection, portrait clicks, mode arming); (2) more importantly, when a short recorded stream ended, playback set `mode=Off` and cleared the lock, so the match silently became a **live, controllable game** a few seconds in.
