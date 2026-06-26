@@ -1,5 +1,15 @@
 # Development Log
 
+## 2026-06-26 - Sprint 1 Headless Smoke Harness
+
+- Started Sprint 1 from the 2026-06-26 source-analysis plan by adding a CTest-backed `rts_headless_smoke` executable.
+- The smoke test exercises graphics-free runtime contracts: `DataRegistry` JSON loading, native JSON and TMX map loading, `TechTreeValidator` prerequisite checks, `ReplayLog` command/checkpoint round-trip, and deterministic `Fixed` movement math.
+- Added `docs/QA_CHECKLIST.md` for the manual pass that still requires the full SFML app: selection, orders, gathering, building, production, combat, win/loss, fog, minimap, save/load, and replay playback.
+- Updated `SOURCE_STRUCTURE.md` so future agents can find the new `tests/` folder, CTest target, and manual QA document.
+- Wired `BUILD_TESTING` through `CMakeLists.txt`, keeping the main `RTS` executable unchanged and copying the required tmxlite/MinGW runtime DLLs for the test target when needed on Windows.
+- Verification: configured with `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe -S . -B cmake-build-debug`; built `rts_headless_smoke`; ran `ctest --test-dir cmake-build-debug --output-on-failure` (`1/1` passed); built `RTS` (`ninja: no work to do`); launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
+- Follow-up: expand the headless harness toward full world/session smoke coverage once `GameLogicManager` or `GameWorld` has a narrow test construction path that does not require the SFML app stack.
+
 ## 2026-06-26 - Sprint 0 Worktree Baseline
 
 - Started Sprint 0 from a clean tracked worktree: `git status --short --branch` reported `master...origin/master` with no modified, staged, or untracked source files.

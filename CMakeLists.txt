@@ -4,6 +4,8 @@ project(RTS)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+include(CTest)
+
 if(CMAKE_GENERATOR MATCHES "Ninja")
         # GCC 16 UCRT debug builds can fail with temp-file/ICE errors under high CLion -j values.
         set_property(GLOBAL PROPERTY JOB_POOLS rts_compile_pool=4)
@@ -253,6 +255,29 @@ target_link_libraries(RTS PRIVATE
         imgui
 )
 
+if(BUILD_TESTING)
+        add_executable(rts_headless_smoke
+                tests/rts_headless_smoke.cpp
+                src/core/data/DataRegistry.cpp
+                src/core/map/MapLoader.cpp
+                src/core/replay/ReplayLog.cpp
+                src/core/sim/Fixed.cpp
+                src/core/tech/TechTreeValidator.cpp
+        )
+
+        target_include_directories(rts_headless_smoke PRIVATE
+                include
+                "${CMAKE_BINARY_DIR}/generated"
+                external/json
+        )
+
+        target_link_libraries(rts_headless_smoke PRIVATE
+                tmxlite
+        )
+
+        add_test(NAME rts_headless_smoke COMMAND rts_headless_smoke)
+endif()
+
 if(MINGW)
         get_filename_component(RTS_COMPILER_RUNTIME_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
 
@@ -276,6 +301,13 @@ if(WIN32 AND RTS_TMXLITE_TYPE STREQUAL "SHARED_LIBRARY")
                 $<TARGET_FILE:tmxlite>
                 $<TARGET_FILE_DIR:RTS>
         )
+        if(TARGET rts_headless_smoke)
+                add_custom_command(TARGET rts_headless_smoke POST_BUILD
+                        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                        $<TARGET_FILE:tmxlite>
+                        $<TARGET_FILE_DIR:rts_headless_smoke>
+                )
+        endif()
 endif()
 
 if(MINGW)
@@ -286,6 +318,13 @@ if(MINGW)
                                 "${RTS_MINGW_RUNTIME_DIR}/${RTS_RUNTIME_DLL}"
                                 $<TARGET_FILE_DIR:RTS>
                         )
+                        if(TARGET rts_headless_smoke)
+                                add_custom_command(TARGET rts_headless_smoke POST_BUILD
+                                        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                                        "${RTS_MINGW_RUNTIME_DIR}/${RTS_RUNTIME_DLL}"
+                                        $<TARGET_FILE_DIR:rts_headless_smoke>
+                                )
+                        endif()
                 endif()
         endforeach()
 endif()

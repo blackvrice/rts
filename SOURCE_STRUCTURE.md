@@ -4,7 +4,7 @@ This document is a quick orientation map for future AI agents working in this re
 
 ## Build And Entry Points
 
-- `CMakeLists.txt` defines the `RTS` executable target and the source list used by the build.
+- `CMakeLists.txt` defines the `RTS` executable target, the optional `rts_headless_smoke` CTest target, and the source lists used by the build.
 - `src/main.cpp` is the application entry point.
 - The project currently targets C++23 in CMake and links SFML 3, SFML Audio, OpenGL, tmxlite, and ImGui.
 - `include/platform/sfml/SfmlAssetPaths.hpp.in` is configured into the build directory so SFML platform code can locate packaged assets.
@@ -13,6 +13,7 @@ This document is a quick orientation map for future AI agents working in this re
 ```powershell
 & "C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe" -S . -B cmake-build-debug
 & "C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe" --build cmake-build-debug --target RTS -- -j 4
+& "C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\ctest.exe" --test-dir cmake-build-debug --output-on-failure
 ```
 
 ## Top-Level Layout
@@ -22,6 +23,8 @@ This document is a quick orientation map for future AI agents working in this re
 - `external/tmxlite/` is the tmxlite dependency used for map loading. Treat it as third-party code unless the task explicitly targets it.
 - `external/json/` vendors the nlohmann/json single header (`nlohmann/json.hpp`) used by the DataRegistry. Third-party code.
 - `data/` holds runtime JSON design data (`units.json`, `buildings.json`, `resources.json`, `animations.json`) loaded by `DataRegistry`, plus `data/maps/*.json` scenario maps loaded by `core/map/MapLoader`; edit these to retune stats, change sprites/animations, or lay out the starting map without recompiling.
+- `tests/` contains headless test executables. `tests/rts_headless_smoke.cpp` is wired through CTest and checks graphics-free runtime contracts such as data loading, map loading, tech-tree prerequisites, replay log round-trip, and fixed math.
+- `docs/` contains human-facing project notes such as architecture orientation and the manual QA checklist.
 - `Tiny Swords (Free Pack)/` contains art assets used by the game.
 - `cmake-build-debug/` is a local build output folder and should not be treated as source.
 
