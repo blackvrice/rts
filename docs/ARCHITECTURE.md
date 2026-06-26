@@ -179,9 +179,9 @@ loop:
 세이브: GameWorld 스냅샷(맵·틱·경제·엔티티 순서·런타임 상태) ─▶ JSON
 리플레이: 파일의 mapPath로 리셋 → 매 틱 기록 명령 재투입 → worldHash 비교
 ```
-- **WorldHash** — FNV-1a 64bit. tick + 팀 경제 + (EntityId 정렬) 엔티티의 타입/정수화 위치/HP/액션/팀을 해시. 렌더/UI 제외. **같은 상태 = 같은 해시.**
+- **WorldHash** — FNV-1a 64bit. tick + 팀 경제 + (EntityId 정렬) 엔티티의 타입/정수화 위치/HP/액션/팀 + 유닛 주문/타겟/채집/공격 진행 + 건물 생산/건설/rally + 투사체 상태를 해시. 렌더/UI 제외. **같은 상태 = 같은 해시.**
 - **Save/Load** — v2 스냅샷은 `entities` 배열로 월드 삽입 순서를 보존하고, 저장 시점의 EntityId를 `saveId`로 남긴 뒤 로드 중 새 EntityId로 remap한다. 유닛 명령 큐/현재 액션/공격·채집·건설 타겟/운반 자원, 건물 rally/건설 진행/생산 front 진행, AI 타이머를 함께 저장한다.
-- **Replay** — `acceptPlayerCommand` 게이트가 기록(Record)·라이브 입력 차단(Play)을 담당. ReplayLog는 map/result/duration metadata를 저장하며, 재생 시작 시 파일의 mapPath로 월드를 재구성한다. 재생 중 30틱마다 해시를 비교해 divergence를 로깅.
+- **Replay** — `acceptPlayerCommand` 게이트가 기록(Record)·라이브 입력 차단(Play)을 담당. ReplayLog는 map/result/duration metadata를 저장하며, 재생 시작 시 파일의 mapPath로 월드를 재구성한다. 재생 중 30틱마다 해시를 비교하고 expected/actual hash와 의심 상태 범주를 로깅.
 - 결정론 전제: 고정 dt, RNG 없음(AI는 타이머 기반), 부동소수 정수화(해시), 안정적 엔티티 순회.
 
 > `core/replay/ReplayLog.cpp`, `GameWorld::worldHash` / `saveGame` / `loadGame`

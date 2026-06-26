@@ -222,6 +222,26 @@ namespace rts::core::world {
         const auto mixF = [&mix](const float f) {
             mix(static_cast<std::uint64_t>(std::llround(f)));
         };
+        const auto mixSigned = [&mix](const int v) {
+            mix(static_cast<std::uint64_t>(static_cast<std::int64_t>(v)));
+        };
+        const auto mixBool = [&mix](const bool v) {
+            mix(v ? 1ull : 0ull);
+        };
+        const auto mixEntityId = [&mix](const ecs::EntityId id) {
+            mix((static_cast<std::uint64_t>(id.index) << 32) ^ id.generation);
+        };
+        const auto mixVec = [&mixF](const model::Vector2D& v) {
+            mixF(v.x);
+            mixF(v.y);
+        };
+        const auto mixOrder = [&](const model::UnitOrder& order) {
+            mixSigned(static_cast<int>(order.type));
+            mixEntityId(order.targetEntityId);
+            mixVec(order.targetPosition);
+            mixSigned(order.abilityId);
+            mixSigned(order.buildingTypeId);
+        };
 
         mix(static_cast<std::uint64_t>(m_currentTick));
 
@@ -245,24 +265,108 @@ namespace rts::core::world {
             }
         }
         std::sort(ents.begin(), ents.end(), [](const auto* a, const auto* b) {
-            return a->entityId().index < b->entityId().index;
+            if (a->entityId().index != b->entityId().index) {
+                return a->entityId().index < b->entityId().index;
+            }
+            return a->entityId().generation < b->entityId().generation;
         });
 
         for (auto* ge : ents) {
             const auto id = ge->entityId();
-            mix((static_cast<std::uint64_t>(id.index) << 32) ^ id.generation);
+            mixEntityId(id);
             std::uint64_t tag = 0;
             float hp = 0.0f;
-            if (const auto* u = dynamic_cast<const model::Unit*>(ge)) { tag = 1; hp = u->getHp(); }
-            else if (const auto* b = dynamic_cast<const model::Building*>(ge)) { tag = 2; hp = b->getHp(); }
-            else if (const auto* rn = dynamic_cast<const model::ResourceNode*>(ge)) { tag = 3; hp = static_cast<float>(rn->remaining()); }
+            const auto* unit = dynamic_cast<const model::Unit*>(ge);
+            const auto* building = dynamic_cast<const model::Building*>(ge);
+            const auto* resource = dynamic_cast<const model::ResourceNode*>(ge);
+            if (unit) { tag = 1; hp = unit->getHp(); }
+            else if (building) { tag = 2; hp = building->getHp(); }
+            else if (resource) { tag = 3; hp = static_cast<float>(resource->remaining()); }
             mix(tag);
             const auto p = ge->getPosition();
-            mixF(p.x);
-            mixF(p.y);
+            mixVec(p);
             mixF(hp);
-            mix(static_cast<std::uint64_t>(static_cast<int>(ge->getAction())));
-            mix(static_cast<std::uint64_t>(static_cast<std::int64_t>(ge->getTeamId())));
+            mixSigned(static_cast<int>(ge->getAction()));
+            mixSigned(ge->getTeamId());
+
+            if (unit) {
+                const auto state = unit->runtimeState();
+                mixSigned(static_cast<int>(unit->unitType()));
+                mixSigned(static_cast<int>(state.action));
+                mixSigned(static_cast<int>(state.animationAction));
+                mixVec(state.moveTarget);
+                mixVec(state.finalTargetWorld);
+                mixVec(state.attackMoveTarget);
+                mixVec(state.patrolStart);
+                mixVec(state.patrolEnd);
+                mixVec(state.patrolDestination);
+                mixEntityId(state.attackTargetId);
+                mixEntityId(state.buildTargetId);
+                mixBool(state.attackMoveActive);
+                mixBool(state.patrolActive);
+                mixBool(state.patrolHeadingToEnd);
+                mixBool(state.attackRetargetRequested);
+                mix(static_cast<std::uint64_t>(state.orderQueue.size()));
+                for (const auto& order : state.orderQueue) {
+                    mixOrder(order);
+                }
+                mixSigned(static_cast<int>(state.carryingType));
+                mixSigned(state.carryingAmount);
+                mixSigned(state.maxCarryAmount);
+                mixF(state.gatherProgressSeconds);
+                mixSigned(static_cast<int>(state.gatherPhase));
+                mixBool(state.deliveryReady);
+                mixEntityId(state.targetResourceId);
+                mixEntityId(state.targetDropOffId);
+                mixSigned(static_cast<int>(state.attackPhase));
+                mixF(state.attackTimer);
+            } else if (building) {
+                const auto state = building->runtimeState();
+                mixSigned(static_cast<int>(building->buildingType()));
+                mixBool(state.completed);
+                mix(static_cast<std::uint64_t>(state.trainQueue.size()));
+                for (const auto type : state.trainQueue) {
+                    mixSigned(static_cast<int>(type));
+                }
+                mixF(state.trainTimer);
+                mixVec(state.rallyPoint);
+                mixBool(state.hasRallyPoint);
+                mixF(state.buildTime);
+                mixF(state.buildProgress);
+            } else if (resource) {
+                mixSigned(static_cast<int>(resource->type()));
+                mixSigned(resource->totalAmount());
+                mixSigned(resource->remaining());
+                mixSigned(resource->gatherAmountPerTrip());
+                mixF(resource->gatherDurationSeconds());
+                mixSigned(resource->maxGatherers());
+                mixSigned(resource->reservedGathererCount());
+            }
+        }
+
+        // Projectile order is spawn order, which is part of the deterministic
+        // simulation stream. Include in-flight shots so replay checks catch ranged
+        // fire-point, travel, and impact divergence before HP changes land.
+        std::vector<const model::Projectile*> activeProjectiles;
+        activeProjectiles.reserve(m_projectiles.size());
+        for (const auto& projectile : m_projectiles) {
+            if (projectile && !projectile->expired()) {
+                activeProjectiles.push_back(projectile.get());
+            }
+        }
+        mix(static_cast<std::uint64_t>(activeProjectiles.size()));
+        for (const auto* projectile : activeProjectiles) {
+            mixVec(projectile->position());
+            mixVec(projectile->lastKnownTargetPosition());
+            mixF(projectile->damage());
+            mixF(projectile->speed());
+            mixSigned(projectile->ownerTeamId());
+            mixSigned(static_cast<int>(projectile->weaponType()));
+            const auto splash = projectile->splash();
+            mixF(splash.inner);
+            mixF(splash.mid);
+            mixF(splash.outer);
+            mixEntityId(projectile->target() ? projectile->target()->entityId() : ecs::InvalidEntityId);
         }
         return h;
     }

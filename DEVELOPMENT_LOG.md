@@ -1,5 +1,15 @@
 # Development Log
 
+## 2026-06-26 - Sprint 3 WorldHash Coverage Expansion
+
+- Started Sprint 3 by widening `GameWorld::worldHash()` to cover more deterministic simulation state instead of only visible entity position/HP/action.
+- WorldHash now includes unit runtime state from the Sprint 2 snapshot API: animation action, move/final/attack-move/patrol targets, attack/build/gather target `EntityId`s, queued orders, gather carrying/progress/phase, delivery readiness, attack phase/timer, and behavior flags.
+- Building hash coverage now includes building type, rally point, construction progress, production queue, and front-item train timer. Resources include type, total/remaining amount, gather parameters, and reserved gatherer count.
+- In-flight projectiles now participate in the hash via position, last known target position, damage, speed, owner team, weapon type, splash radii, and live target `EntityId`.
+- Replay divergence logs now print expected/actual hash values and point future debugging at economy, entity state, unit orders/targets, production/build progress, rally points, or projectiles.
+- Verification: built `RTS` with the CLion-bundled CMake path using `--target RTS -- -j 1`; ran `ctest --test-dir cmake-build-debug --output-on-failure` (`1/1` passed); launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
+- Follow-up: continue Sprint 3 with deterministic movement/combat internals, especially Fixed-based projectile travel/arrival and collision-push tie-breaking by stable `EntityId`.
+
 ## 2026-06-26 - Sprint 2 Save/Replay State Fidelity
 
 - Started Sprint 2 by expanding save/load from a shallow visible-state snapshot to a simulation-state snapshot.

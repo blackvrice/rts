@@ -443,8 +443,16 @@ namespace rts::core::manager {
                     m_replay.checkpoint(t, m_world.worldHash());
                 }
             } else {  // Play
-                if (const auto h = m_replay.hashForTick(t); h && *h != m_world.worldHash()) {
-                    std::cerr << "[Replay] divergence at tick " << t << "\n";
+                if (const auto h = m_replay.hashForTick(t)) {
+                    const auto actual = m_world.worldHash();
+                    if (*h != actual) {
+                        std::cerr << "[Replay] divergence at tick " << t
+                                  << ": expected " << *h
+                                  << ", actual " << actual
+                                  << " (check economy, entity HP/action/position, "
+                                     "unit orders/targets, production/build progress, "
+                                     "rally points, or projectiles)\n";
+                    }
                 }
                 if (t >= m_replay.lastTick() && !m_simFrozen) {
                     // Freeze on the final frame and keep input locked (mode stays Play,

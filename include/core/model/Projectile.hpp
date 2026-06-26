@@ -29,9 +29,14 @@ namespace rts::core::model {
 
         bool     expired()   const noexcept { return m_expired; }
         Vector2D position()  const noexcept { return m_position; }
+        Vector2D lastKnownTargetPosition() const noexcept { return m_lastKnownTargetPos; }
         float    angleDeg()  const noexcept { return m_angleDeg; }
+        float    damage() const noexcept { return m_damage; }
+        float    speed() const noexcept { return m_speed; }
         int      ownerTeamId() const noexcept { return m_ownerTeamId; }
+        const IGameElement* target() const noexcept { return m_target; }
         data::WeaponType weaponType() const noexcept { return m_weaponType; }
+        data::SplashRadii splash() const noexcept { return m_splash; }
         const std::string& texturePath() const noexcept { return m_texturePath; }
 
     private:
