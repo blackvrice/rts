@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include "core/manager/ILogicManager.hpp"
@@ -148,7 +149,7 @@ namespace rts::core::manager {
         void logResourceChange(int teamId, const core::model::PlayerResourceState& current);
 
         // Match lifecycle
-        void setupInitialWorld();  // spawns starting units/buildings/resources (caller holds the lock)
+        void setupInitialWorld(const std::string& mapPath);  // spawns map data (caller holds the lock)
         void restartMatch();       // resets the world and repopulates the starting position
 
         // Save / load the live match to a JSON snapshot (tick, economy, every
@@ -157,6 +158,7 @@ namespace rts::core::manager {
         bool loadGame(const std::string& path);
         // Fixed quick-save slot under the data root.
         static std::string quickSavePath();
+        static std::string defaultMapPath();
 
         // Replay control. Recording taps every player command (stamped with the tick
         // it applies on); playback restarts the match and re-dispatches that stream.
@@ -227,6 +229,7 @@ namespace rts::core::manager {
         // Replay: command stream + mode. m_applyingReplay is set only while the tick
         // re-dispatches recorded commands, so the gate lets them through.
         core::replay::ReplayLog m_replay;
+        std::string m_currentMapPath;
         ReplayMode m_replayMode { ReplayMode::Off };
         bool m_applyingReplay { false };
         bool m_replaySaved { false };  // guards one auto-save per recorded match

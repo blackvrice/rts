@@ -4,6 +4,7 @@
 #include <optional>
 #include <string>
 #include <memory>
+#include <vector>
 #include "IGameElement.hpp"
 #include "UnitType.hpp"
 
@@ -22,6 +23,16 @@ namespace rts::core::model {
         using UnitSpawnFn = std::function<void(UnitType, const Vector2D& anchor,
                                                const Vector2D& rally, bool hasRally, int team)>;
         static constexpr int kMaxTrainQueue = 5;
+
+        struct RuntimeState {
+            std::vector<UnitType> trainQueue;
+            float trainTimer { 0.0f };
+            Vector2D rallyPoint {};
+            bool hasRallyPoint { false };
+            bool completed { true };
+            float buildTime { 0.0f };
+            float buildProgress { 0.0f };
+        };
 
         Building(BuildingType type, Vector2D pos, int teamId);
 
@@ -80,6 +91,8 @@ namespace rts::core::model {
         void setRallyPoint(const Vector2D& point);
         Vector2D rallyPoint() const noexcept { return m_rallyPoint; }
         bool hasRallyPoint() const noexcept { return m_hasRallyPoint; }
+        RuntimeState runtimeState() const;
+        void restoreRuntimeState(const RuntimeState& state);
 
     private:
         // Training time for the front-of-queue unit, from its static data.

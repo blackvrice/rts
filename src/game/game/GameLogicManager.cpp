@@ -8,6 +8,8 @@
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "core/app/SessionContext.hpp"
@@ -60,6 +62,181 @@ namespace {
                targetTeamId != rts::core::model::TeamId::Neutral &&
                attackerTeamId != targetTeamId;
     }
+
+    std::uint64_t entityKey(const rts::core::ecs::EntityId id) {
+        return (static_cast<std::uint64_t>(id.index) << 32) | id.generation;
+    }
+
+    nlohmann::json entityRef(const rts::core::ecs::EntityId id) {
+        return nlohmann::json { { "index", id.index }, { "generation", id.generation } };
+    }
+
+    rts::core::ecs::EntityId entityIdFromJson(const nlohmann::json& j) {
+        return rts::core::ecs::EntityId {
+            j.value("index", rts::core::ecs::InvalidEntityId.index),
+            j.value("generation", rts::core::ecs::InvalidEntityId.generation)
+        };
+    }
+
+    rts::core::ecs::EntityId remapEntityId(
+        const rts::core::ecs::EntityId oldId,
+        const std::unordered_map<std::uint64_t, rts::core::ecs::EntityId>& remap) {
+        if (!rts::core::ecs::isValid(oldId)) {
+            return rts::core::ecs::InvalidEntityId;
+        }
+        if (const auto it = remap.find(entityKey(oldId)); it != remap.end()) {
+            return it->second;
+        }
+        return rts::core::ecs::InvalidEntityId;
+    }
+
+    nlohmann::json vecJson(const rts::core::model::Vector2D& v) {
+        return nlohmann::json { { "x", v.x }, { "y", v.y } };
+    }
+
+    rts::core::model::Vector2D vecFromJson(const nlohmann::json& j) {
+        return { j.value("x", 0.0f), j.value("y", 0.0f) };
+    }
+
+    nlohmann::json orderJson(const rts::core::model::UnitOrder& order) {
+        return nlohmann::json {
+            { "type", static_cast<int>(order.type) },
+            { "targetEntityId", entityRef(order.targetEntityId) },
+            { "targetPosition", vecJson(order.targetPosition) },
+            { "abilityId", order.abilityId },
+            { "buildingTypeId", order.buildingTypeId }
+        };
+    }
+
+    rts::core::model::UnitOrder orderFromJson(
+        const nlohmann::json& j,
+        const std::unordered_map<std::uint64_t, rts::core::ecs::EntityId>& remap) {
+        rts::core::model::UnitOrder order {};
+        order.type = static_cast<rts::core::model::OrderType>(j.value("type", 0));
+        order.targetEntityId = remapEntityId(entityIdFromJson(j.value("targetEntityId", nlohmann::json::object())), remap);
+        order.targetPosition = vecFromJson(j.value("targetPosition", nlohmann::json::object()));
+        order.abilityId = j.value("abilityId", -1);
+        order.buildingTypeId = j.value("buildingTypeId", -1);
+        return order;
+    }
+
+    nlohmann::json unitRuntimeJson(const rts::core::model::Unit::RuntimeState& state) {
+        nlohmann::json queue = nlohmann::json::array();
+        for (const auto& order : state.orderQueue) {
+            queue.push_back(orderJson(order));
+        }
+
+        return nlohmann::json {
+            { "action", static_cast<int>(state.action) },
+            { "animationAction", static_cast<int>(state.animationAction) },
+            { "moveTarget", vecJson(state.moveTarget) },
+            { "finalTargetWorld", vecJson(state.finalTargetWorld) },
+            { "attackMoveTarget", vecJson(state.attackMoveTarget) },
+            { "patrolStart", vecJson(state.patrolStart) },
+            { "patrolEnd", vecJson(state.patrolEnd) },
+            { "patrolDestination", vecJson(state.patrolDestination) },
+            { "attackTargetId", entityRef(state.attackTargetId) },
+            { "buildTargetId", entityRef(state.buildTargetId) },
+            { "attackMoveActive", state.attackMoveActive },
+            { "patrolActive", state.patrolActive },
+            { "patrolHeadingToEnd", state.patrolHeadingToEnd },
+            { "attackRetargetRequested", state.attackRetargetRequested },
+            { "orderQueue", queue },
+            { "carryingType", static_cast<int>(state.carryingType) },
+            { "carryingAmount", state.carryingAmount },
+            { "maxCarryAmount", state.maxCarryAmount },
+            { "gatherProgressSeconds", state.gatherProgressSeconds },
+            { "gatherPhase", static_cast<int>(state.gatherPhase) },
+            { "deliveryReady", state.deliveryReady },
+            { "targetResourceId", entityRef(state.targetResourceId) },
+            { "targetDropOffId", entityRef(state.targetDropOffId) },
+            { "attackPhase", static_cast<int>(state.attackPhase) },
+            { "attackTimer", state.attackTimer }
+        };
+    }
+
+    rts::core::model::Unit::RuntimeState unitRuntimeFromJson(
+        const nlohmann::json& j,
+        const std::unordered_map<std::uint64_t, rts::core::ecs::EntityId>& remap) {
+        rts::core::model::Unit::RuntimeState state {};
+        state.action = static_cast<rts::core::model::ActionType>(j.value("action", 0));
+        state.animationAction = static_cast<rts::core::model::ActionType>(j.value("animationAction", 0));
+        state.moveTarget = vecFromJson(j.value("moveTarget", nlohmann::json::object()));
+        state.finalTargetWorld = vecFromJson(j.value("finalTargetWorld", nlohmann::json::object()));
+        state.attackMoveTarget = vecFromJson(j.value("attackMoveTarget", nlohmann::json::object()));
+        state.patrolStart = vecFromJson(j.value("patrolStart", nlohmann::json::object()));
+        state.patrolEnd = vecFromJson(j.value("patrolEnd", nlohmann::json::object()));
+        state.patrolDestination = vecFromJson(j.value("patrolDestination", nlohmann::json::object()));
+        state.attackTargetId = remapEntityId(entityIdFromJson(j.value("attackTargetId", nlohmann::json::object())), remap);
+        state.buildTargetId = remapEntityId(entityIdFromJson(j.value("buildTargetId", nlohmann::json::object())), remap);
+        state.attackMoveActive = j.value("attackMoveActive", false);
+        state.patrolActive = j.value("patrolActive", false);
+        state.patrolHeadingToEnd = j.value("patrolHeadingToEnd", true);
+        state.attackRetargetRequested = j.value("attackRetargetRequested", false);
+        for (const auto& order : j.value("orderQueue", nlohmann::json::array())) {
+            state.orderQueue.push_back(orderFromJson(order, remap));
+        }
+        state.carryingType = static_cast<rts::core::model::ResourceNode::ResourceType>(j.value("carryingType", 0));
+        state.carryingAmount = j.value("carryingAmount", 0);
+        state.maxCarryAmount = j.value("maxCarryAmount", 10);
+        state.gatherProgressSeconds = j.value("gatherProgressSeconds", 0.0f);
+        state.gatherPhase = static_cast<rts::core::model::Unit::GatherPhase>(j.value("gatherPhase", 0));
+        state.deliveryReady = j.value("deliveryReady", false);
+        state.targetResourceId = remapEntityId(entityIdFromJson(j.value("targetResourceId", nlohmann::json::object())), remap);
+        state.targetDropOffId = remapEntityId(entityIdFromJson(j.value("targetDropOffId", nlohmann::json::object())), remap);
+        state.attackPhase = static_cast<rts::core::model::Unit::AttackPhase>(j.value("attackPhase", 0));
+        state.attackTimer = j.value("attackTimer", 0.0f);
+        return state;
+    }
+
+    nlohmann::json buildingRuntimeJson(const rts::core::model::Building::RuntimeState& state) {
+        nlohmann::json queue = nlohmann::json::array();
+        for (const auto type : state.trainQueue) {
+            queue.push_back(static_cast<int>(type));
+        }
+        return nlohmann::json {
+            { "queue", queue },
+            { "trainTimer", state.trainTimer },
+            { "rallyPoint", vecJson(state.rallyPoint) },
+            { "hasRallyPoint", state.hasRallyPoint },
+            { "completed", state.completed },
+            { "buildTime", state.buildTime },
+            { "buildProgress", state.buildProgress }
+        };
+    }
+
+    rts::core::model::Building::RuntimeState buildingRuntimeFromJson(const nlohmann::json& j) {
+        rts::core::model::Building::RuntimeState state {};
+        for (const auto& type : j.value("queue", nlohmann::json::array())) {
+            state.trainQueue.push_back(static_cast<rts::UnitType>(type.get<int>()));
+        }
+        state.trainTimer = j.value("trainTimer", 0.0f);
+        state.rallyPoint = vecFromJson(j.value("rallyPoint", nlohmann::json::object()));
+        state.hasRallyPoint = j.value("hasRallyPoint", false);
+        state.completed = j.value("completed", true);
+        state.buildTime = j.value("buildTime", 0.0f);
+        state.buildProgress = j.value("buildProgress", 0.0f);
+        return state;
+    }
+
+    void applyMapTerrain(
+        rts::core::world::GameWorld& world,
+        const rts::core::map::MapData& map) {
+        world.initTileMap(map.width, map.height, map.tileSize);
+        for (const auto& tile : map.blockedTiles) {
+            world.setTileBlocked(tile.x, tile.y, true);
+        }
+    }
+
+    const char* resultName(const rts::core::world::GameResult result) {
+        using rts::core::world::GameResult;
+        switch (result) {
+            case GameResult::Victory: return "victory";
+            case GameResult::Defeat: return "defeat";
+            case GameResult::InProgress: return "in_progress";
+        }
+        return "unknown";
+    }
 }
 
 namespace rts::core::manager {
@@ -72,7 +249,7 @@ namespace rts::core::manager {
         // restart can rebuild the same starting position.
         {
             auto lock = m_world.acquireWriteLock();
-            setupInitialWorld();
+            setupInitialWorld(defaultMapPath());
         }
 
         // If the lobby asked us to play back a specific replay, load it now;
@@ -1255,17 +1432,13 @@ namespace rts::core::manager {
     // =========================================================
     // Match lifecycle
     // =========================================================
-    void GameLogicManager::setupInitialWorld() {
-        // Scenario comes from the Tiled map data/maps/tiled_skirmish.tmx (loadMap
-        // routes .tmx through tmxlite; falls back to a built-in default on failure),
-        // so the starting layout is editable in Tiled without recompiling.
-        const auto map = core::map::loadMap(
-            std::string(core::data::DataRoot) + "/maps/tiled_skirmish.tmx");
+    void GameLogicManager::setupInitialWorld(const std::string& mapPath) {
+        // Scenario maps are runtime data. Keeping the selected path here lets replay
+        // playback rebuild the same initial world instead of always using default.
+        m_currentMapPath = mapPath.empty() ? defaultMapPath() : mapPath;
+        const auto map = core::map::loadMap(m_currentMapPath);
 
-        m_world.initTileMap(map.width, map.height, map.tileSize);
-        for (const auto& tile : map.blockedTiles) {
-            m_world.setTileBlocked(tile.x, tile.y, true);
-        }
+        applyMapTerrain(m_world, map);
 
         const auto makeResources = [](int gold, int wood) {
             core::model::PlayerResourceState r {};
@@ -1316,8 +1489,9 @@ namespace rts::core::manager {
         m_aiState = AiBuildOrderState::Opening;
         m_lastFeedbackAiState = AiBuildOrderState::Opening;
         m_feedbackSnapshots.clear();
+        m_simFrozen = false;
         world::resetRuntimeServices(m_world);
-        setupInitialWorld();
+        setupInitialWorld(m_currentMapPath.empty() ? defaultMapPath() : m_currentMapPath);
         world::rebuildSpatialIndex(m_world);
     }
 
@@ -1325,12 +1499,27 @@ namespace rts::core::manager {
         return std::string(core::data::DataRoot) + "/saves/quicksave.json";
     }
 
+    std::string GameLogicManager::defaultMapPath() {
+        return std::string(core::data::DataRoot) + "/maps/tiled_skirmish.tmx";
+    }
+
     bool GameLogicManager::saveGame(const std::string& path) {
         using json = nlohmann::json;
         json doc;
         {
             auto lock = m_world.acquireReadLock();
+            doc["version"] = 2;
+            doc["map"] = m_currentMapPath.empty() ? defaultMapPath() : m_currentMapPath;
             doc["tick"] = static_cast<std::uint64_t>(m_world.currentTick());
+            doc["worldHash"] = m_world.worldHash();
+            doc["gameResult"] = static_cast<int>(m_world.gameResult());
+            doc["ai"] = {
+                { "state", static_cast<int>(m_aiState) },
+                { "produceTimer", m_aiProduceTimer },
+                { "gatherTimer", m_aiGatherTimer },
+                { "waveTimer", m_aiWaveTimer },
+                { "defenseTimer", m_aiDefenseTimer }
+            };
 
             json players = json::array();
             for (const int team : { core::model::TeamId::Player, core::model::TeamId::Enemy }) {
@@ -1342,40 +1531,42 @@ namespace rts::core::manager {
             }
             doc["players"] = players;
 
-            json units = json::array();
-            json buildings = json::array();
-            json resources = json::array();
+            json entities = json::array();
             for (const auto& el : m_world.getElements()) {
                 auto ge = std::dynamic_pointer_cast<core::model::IGameElement>(el);
                 if (!ge || ge->getAction() == core::model::ActionType::Dead) {
                     continue;
                 }
                 const auto pos = ge->getPosition();
+                json entity {
+                    { "saveId", entityRef(ge->entityId()) },
+                    { "position", vecJson(pos) },
+                    { "team", ge->getTeamId() }
+                };
                 if (auto u = std::dynamic_pointer_cast<core::model::Unit>(el)) {
-                    units.push_back({
-                        { "type", static_cast<int>(u->unitType()) }, { "team", u->getTeamId() },
-                        { "x", pos.x }, { "y", pos.y }, { "hp", u->getHp() }
-                    });
+                    entity["kind"] = "unit";
+                    entity["type"] = static_cast<int>(u->unitType());
+                    entity["hp"] = u->getHp();
+                    entity["runtime"] = unitRuntimeJson(u->runtimeState());
                 } else if (auto b = std::dynamic_pointer_cast<core::model::Building>(el)) {
-                    json queue = json::array();
-                    for (int i = 0; i < b->trainQueueSize(); ++i) {
-                        queue.push_back(static_cast<int>(b->trainQueueAt(i)));
-                    }
-                    buildings.push_back({
-                        { "type", static_cast<int>(b->buildingType()) }, { "team", b->getTeamId() },
-                        { "x", pos.x }, { "y", pos.y }, { "hp", b->getHp() },
-                        { "completed", b->isComplete() }, { "queue", queue }
-                    });
+                    entity["kind"] = "building";
+                    entity["type"] = static_cast<int>(b->buildingType());
+                    entity["hp"] = b->getHp();
+                    entity["runtime"] = buildingRuntimeJson(b->runtimeState());
                 } else if (auto rn = std::dynamic_pointer_cast<core::model::ResourceNode>(el)) {
-                    resources.push_back({
-                        { "type", static_cast<int>(rn->type()) },
-                        { "x", pos.x }, { "y", pos.y }, { "remaining", rn->remaining() }
-                    });
+                    entity["kind"] = "resource";
+                    entity["type"] = static_cast<int>(rn->type());
+                    entity["totalAmount"] = rn->totalAmount();
+                    entity["remaining"] = rn->remaining();
+                    entity["gatherAmount"] = rn->gatherAmountPerTrip();
+                    entity["gatherDurationSeconds"] = rn->gatherDurationSeconds();
+                    entity["maxGatherers"] = rn->maxGatherers();
+                } else {
+                    continue;
                 }
+                entities.push_back(std::move(entity));
             }
-            doc["units"] = units;
-            doc["buildings"] = buildings;
-            doc["resources"] = resources;
+            doc["entities"] = entities;
         }
 
         std::error_code ec;
@@ -1419,7 +1610,12 @@ namespace rts::core::manager {
         m_aiState = AiBuildOrderState::Opening;
         m_lastFeedbackAiState = AiBuildOrderState::Opening;
         m_feedbackSnapshots.clear();
+        m_simFrozen = false;
         world::resetRuntimeServices(m_world);
+
+        m_currentMapPath = doc.value("map", m_currentMapPath.empty() ? defaultMapPath() : m_currentMapPath);
+        const auto map = core::map::loadMap(m_currentMapPath);
+        applyMapTerrain(m_world, map);
 
         for (const auto& p : doc.value("players", json::array())) {
             core::model::PlayerResourceState r {};
@@ -1431,45 +1627,128 @@ namespace rts::core::manager {
             m_world.setPlayerResources(p.value("team", core::model::TeamId::Neutral), r);
         }
 
-        for (const auto& b : doc.value("buildings", json::array())) {
-            const auto type = static_cast<core::model::BuildingType>(b.value("type", 0));
-            const core::model::Vector2D pos { b.value("x", 0.0f), b.value("y", 0.0f) };
-            const int team = b.value("team", core::model::TeamId::Neutral);
-            auto building = std::make_shared<core::model::Building>(type, pos, team);
-            registerBuildingSpawn(*building);
-            building->setHp(b.value("hp", building->getMaxHp()));
-            if (!b.value("completed", true)) {
-                const auto data = core::data::buildingStaticDataFor(type);
-                building->beginConstruction(data.buildTimeSeconds, building->getHp());
+        std::unordered_map<std::uint64_t, core::ecs::EntityId> entityRemap;
+        std::vector<std::pair<std::shared_ptr<core::model::Unit>, json>> pendingUnitRuntime;
+        std::vector<std::pair<std::shared_ptr<core::model::Building>, json>> pendingBuildingRuntime;
+
+        if (doc.contains("entities")) {
+            for (const auto& e : doc.value("entities", json::array())) {
+                const std::string kind = e.value("kind", std::string {});
+                const auto oldId = entityIdFromJson(e.value("saveId", json::object()));
+                const auto pos = vecFromJson(e.value("position", json::object()));
+                const int team = e.value("team", core::model::TeamId::Neutral);
+
+                std::shared_ptr<core::model::IGameElement> created;
+                if (kind == "building") {
+                    const auto type = static_cast<core::model::BuildingType>(e.value("type", 0));
+                    auto building = std::make_shared<core::model::Building>(type, pos, team);
+                    registerBuildingSpawn(*building);
+                    building->setHp(e.value("hp", building->getMaxHp()));
+                    created = building;
+                    pendingBuildingRuntime.emplace_back(building, e.value("runtime", json::object()));
+                } else if (kind == "unit") {
+                    auto unit = std::make_shared<core::model::Unit>(
+                        static_cast<::rts::UnitType>(e.value("type", 0)));
+                    unit->setPosition(pos);
+                    unit->setTeamId(team);
+                    unit->setHp(e.value("hp", unit->getMaxHp()));
+                    created = unit;
+                    pendingUnitRuntime.emplace_back(unit, e.value("runtime", json::object()));
+                } else if (kind == "resource") {
+                    const auto type = static_cast<core::model::ResourceNode::ResourceType>(e.value("type", 0));
+                    const auto data = core::data::resourceStaticDataFor(type);
+                    auto node = std::make_shared<core::model::ResourceNode>(
+                        pos,
+                        type,
+                        e.value("totalAmount", data.initialAmount),
+                        e.value("gatherAmount", data.gatherAmountPerTrip),
+                        e.value("gatherDurationSeconds", data.gatherDurationSeconds),
+                        e.value("maxGatherers", data.maxGatherers));
+                    node->setRemaining(e.value("remaining", data.initialAmount));
+                    created = node;
+                }
+
+                if (created) {
+                    m_world.addElement(created);
+                    if (core::ecs::isValid(oldId)) {
+                        entityRemap[entityKey(oldId)] = created->entityId();
+                    }
+                }
             }
-            m_world.addElement(building);
-            for (const auto& q : b.value("queue", json::array())) {
-                building->trainUnit(static_cast<::rts::UnitType>(q.get<int>()));
+
+            for (const auto& [building, runtime] : pendingBuildingRuntime) {
+                building->restoreRuntimeState(buildingRuntimeFromJson(runtime));
+            }
+            for (const auto& [unit, runtime] : pendingUnitRuntime) {
+                unit->restoreRuntimeState(unitRuntimeFromJson(runtime, entityRemap));
+            }
+        } else {
+            for (const auto& b : doc.value("buildings", json::array())) {
+                const auto type = static_cast<core::model::BuildingType>(b.value("type", 0));
+                const core::model::Vector2D pos { b.value("x", 0.0f), b.value("y", 0.0f) };
+                const int team = b.value("team", core::model::TeamId::Neutral);
+                auto building = std::make_shared<core::model::Building>(type, pos, team);
+                registerBuildingSpawn(*building);
+                building->setHp(b.value("hp", building->getMaxHp()));
+                if (!b.value("completed", true)) {
+                    const auto data = core::data::buildingStaticDataFor(type);
+                    building->beginConstruction(data.buildTimeSeconds, building->getHp());
+                }
+                m_world.addElement(building);
+                for (const auto& q : b.value("queue", json::array())) {
+                    building->trainUnit(static_cast<::rts::UnitType>(q.get<int>()));
+                }
+            }
+
+            for (const auto& u : doc.value("units", json::array())) {
+                auto unit = std::make_shared<core::model::Unit>(
+                    static_cast<::rts::UnitType>(u.value("type", 0)));
+                unit->setPosition({ u.value("x", 0.0f), u.value("y", 0.0f) });
+                unit->setTeamId(u.value("team", core::model::TeamId::Neutral));
+                unit->setHp(u.value("hp", unit->getMaxHp()));
+                m_world.addElement(unit);
+            }
+
+            for (const auto& r : doc.value("resources", json::array())) {
+                const auto data = core::data::resourceStaticDataFor(
+                    static_cast<core::model::ResourceNode::ResourceType>(r.value("type", 0)));
+                const core::model::Vector2D pos { r.value("x", 0.0f), r.value("y", 0.0f) };
+                auto node = std::make_shared<core::model::ResourceNode>(
+                    pos, data.resourceType, data.initialAmount,
+                    data.gatherAmountPerTrip, data.gatherDurationSeconds, data.maxGatherers);
+                node->setRemaining(r.value("remaining", data.initialAmount));
+                m_world.addElement(node);
             }
         }
 
-        for (const auto& u : doc.value("units", json::array())) {
-            auto unit = std::make_shared<core::model::Unit>(
-                static_cast<::rts::UnitType>(u.value("type", 0)));
-            unit->setPosition({ u.value("x", 0.0f), u.value("y", 0.0f) });
-            unit->setTeamId(u.value("team", core::model::TeamId::Neutral));
-            unit->setHp(u.value("hp", unit->getMaxHp()));
-            m_world.addElement(unit);
+        if (const auto ai = doc.value("ai", json::object()); !ai.empty()) {
+            m_aiState = static_cast<AiBuildOrderState>(ai.value("state", 0));
+            m_aiProduceTimer = ai.value("produceTimer", 0.0f);
+            m_aiGatherTimer = ai.value("gatherTimer", 0.0f);
+            m_aiWaveTimer = ai.value("waveTimer", 0.0f);
+            m_aiDefenseTimer = ai.value("defenseTimer", 0.0f);
+            m_lastFeedbackAiState = m_aiState;
         }
 
-        for (const auto& r : doc.value("resources", json::array())) {
-            const auto data = core::data::resourceStaticDataFor(
-                static_cast<core::model::ResourceNode::ResourceType>(r.value("type", 0)));
-            const core::model::Vector2D pos { r.value("x", 0.0f), r.value("y", 0.0f) };
-            auto node = std::make_shared<core::model::ResourceNode>(
-                pos, data.resourceType, data.initialAmount,
-                data.gatherAmountPerTrip, data.gatherDurationSeconds, data.maxGatherers);
-            node->setRemaining(r.value("remaining", data.initialAmount));
-            m_world.addElement(node);
-        }
-
+        m_world.setGameResult(static_cast<core::world::GameResult>(
+            doc.value("gameResult", static_cast<int>(core::world::GameResult::InProgress))));
         m_world.setCurrentTick(static_cast<core::sim::TickCount>(doc.value("tick", 0ull)));
         world::rebuildSpatialIndex(m_world);
+        recomputeSupply();
+        m_world.updateFog();
+
+        if (doc.contains("worldHash")) {
+            const auto expected = doc.value("worldHash", 0ull);
+            const auto actual = m_world.worldHash();
+            if (expected == actual) {
+                std::cout << "[LoadGame] world hash matched " << actual << "\n";
+            } else {
+                std::cerr << "[LoadGame] world hash changed after load: saved "
+                          << expected << ", loaded " << actual
+                          << " (check EntityId gaps, transient pathing, or unsaved sim fields)\n";
+            }
+        }
+
         std::cout << "[LoadGame] loaded from " << path << "\n";
         return true;
     }
@@ -1483,6 +1762,8 @@ namespace rts::core::manager {
 
     void GameLogicManager::toggleRecording() {
         if (m_replayMode == ReplayMode::Record) {
+            m_replay.setMetadata(resultName(m_world.gameResult()),
+                                 static_cast<std::uint64_t>(m_world.currentTick()));
             m_replay.save(replayPath());
             m_replayMode = ReplayMode::Off;
             std::cout << "[Replay] recording stopped and saved\n";
@@ -1497,35 +1778,48 @@ namespace rts::core::manager {
     void GameLogicManager::beginRecording() {
         // Caller has already set up the starting world; capture the stream from tick 0.
         m_replay.clear();
-        m_replay.setMapPath(std::string(core::data::DataRoot) + "/maps/tiled_skirmish.tmx");
+        m_replay.setMapPath(m_currentMapPath.empty() ? defaultMapPath() : m_currentMapPath);
+        m_replay.setMetadata("in_progress", 0);
         m_replayMode = ReplayMode::Record;
         m_replaySaved = false;
+        m_simFrozen = false;
         m_world.setReplayActive(false);  // live match: player input applies
     }
 
     void GameLogicManager::startReplay() {
-        restartMatch();  // rewind to the initial state the replay was recorded from
-        if (!m_replay.load(replayPath())) {
+        core::replay::ReplayLog loaded;
+        if (!loaded.load(replayPath())) {
             return;
         }
+        m_replay = std::move(loaded);
+        m_currentMapPath = m_replay.mapPath().empty() ? defaultMapPath() : m_replay.mapPath();
+        restartMatch();  // rewind to the initial state the replay was recorded from
         m_replayMode = ReplayMode::Play;
         m_replaySaved = true;  // a replayed match is never re-saved
+        m_simFrozen = false;
         m_world.setReplayActive(true);  // viewer-only: ignore live player input
-        std::cout << "[Replay] playback started (" << m_replay.lastTick() << " ticks)\n";
+        std::cout << "[Replay] playback started on " << m_currentMapPath
+                  << " (" << m_replay.lastTick() << " ticks)\n";
     }
 
     void GameLogicManager::startReplayFrom(const std::string& path) {
-        // The world was just set up by the constructor, so no restart is needed.
-        if (!m_replay.load(path)) {
+        core::replay::ReplayLog loaded;
+        if (!loaded.load(path)) {
             std::cout << "[Replay] failed to load " << path << " (recording instead)\n";
             beginRecording();
             return;
         }
+        m_replay = std::move(loaded);
+        m_currentMapPath = m_replay.mapPath().empty() ? defaultMapPath() : m_replay.mapPath();
+        restartMatch();  // replay files own their map path
         m_replayMode = ReplayMode::Play;
         m_replaySaved = true;  // a replayed match is never re-saved
+        m_simFrozen = false;
         m_world.setReplayActive(true);  // viewer-only: ignore live player input
         std::cout << "[Replay] playback started from " << path
-                  << " (" << m_replay.lastTick() << " ticks)\n";
+                  << " on " << m_currentMapPath
+                  << " (" << m_replay.lastTick() << " ticks, result "
+                  << m_replay.result() << ")\n";
     }
 
     void GameLogicManager::saveReplayToAppData() {
@@ -1533,6 +1827,8 @@ namespace rts::core::manager {
             return;
         }
         m_replaySaved = true;
+        m_replay.setMetadata(resultName(m_world.gameResult()),
+                             static_cast<std::uint64_t>(m_world.currentTick()));
         std::time_t now = std::time(nullptr);
         char stamp[32] {};
         std::strftime(stamp, sizeof(stamp), "%Y%m%d_%H%M%S", std::localtime(&now));

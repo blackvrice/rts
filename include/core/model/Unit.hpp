@@ -51,6 +51,50 @@ namespace rts::core::model {
             int amount { 0 };
         };
 
+        enum class GatherPhase {
+            None,
+            MoveToResource,
+            Gathering,
+            MoveToDropOff,
+            DropResource,
+            NeedNewResource,
+            NeedNewDropOff
+        };
+
+        enum class AttackPhase {
+            Ready,
+            PreCast,
+            Cooldown
+        };
+
+        struct RuntimeState {
+            ActionType action { ActionType::Idle };
+            ActionType animationAction { ActionType::Idle };
+            Vector2D moveTarget {};
+            Vector2D finalTargetWorld {};
+            Vector2D attackMoveTarget {};
+            Vector2D patrolStart {};
+            Vector2D patrolEnd {};
+            Vector2D patrolDestination {};
+            ecs::EntityId attackTargetId { ecs::InvalidEntityId };
+            ecs::EntityId buildTargetId { ecs::InvalidEntityId };
+            bool attackMoveActive { false };
+            bool patrolActive { false };
+            bool patrolHeadingToEnd { true };
+            bool attackRetargetRequested { false };
+            std::vector<UnitOrder> orderQueue;
+            ResourceNode::ResourceType carryingType {};
+            int carryingAmount { 0 };
+            int maxCarryAmount { 10 };
+            float gatherProgressSeconds { 0.0f };
+            GatherPhase gatherPhase { GatherPhase::None };
+            bool deliveryReady { false };
+            ecs::EntityId targetResourceId { ecs::InvalidEntityId };
+            ecs::EntityId targetDropOffId { ecs::InvalidEntityId };
+            AttackPhase attackPhase { AttackPhase::Ready };
+            float attackTimer { 0.0f };
+        };
+
         ActionType getAction() const override;
         ActionType getAnimationAction() const;
         // Data-driven render key such as "move.wood" or "gather.pickaxe";
@@ -153,18 +197,10 @@ namespace rts::core::model {
         void clearOrderQueue();
         bool hasQueuedOrders() const noexcept;
         std::optional<UnitOrder> popNextOrder();
+        RuntimeState runtimeState() const;
+        void restoreRuntimeState(const RuntimeState& state);
 
     private:
-        enum class GatherPhase {
-            None,
-            MoveToResource,
-            Gathering,
-            MoveToDropOff,
-            DropResource,
-            NeedNewResource,
-            NeedNewDropOff
-        };
-
         struct WorkerGatherState {
             ecs::EntityId targetResourceId { ecs::InvalidEntityId };
             ecs::EntityId targetDropOffId { ecs::InvalidEntityId };
@@ -232,8 +268,6 @@ namespace rts::core::model {
         // Attack swing phases (Epic 4.3): Ready -> PreCast (wind-up) -> [FirePoint:
         // damage lands] -> Cooldown (recovery) -> Ready. A move/stop during PreCast
         // cancels the swing; after the fire point the hit is already committed.
-        enum class AttackPhase { Ready, PreCast, Cooldown };
-
         float attackRange = 64.f;
         float attackCooldown = 0.8f;
         float attackTimer = 0.f;        // counts down the current attack phase

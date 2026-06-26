@@ -23,6 +23,9 @@ namespace rts::core::replay {
         void clear();
         void setMapPath(const std::string& path) { m_mapPath = path; }
         const std::string& mapPath() const noexcept { return m_mapPath; }
+        void setMetadata(std::string result, std::uint64_t durationTicks);
+        const std::string& result() const noexcept { return m_result; }
+        std::uint64_t durationTicks() const noexcept { return m_durationTicks; }
 
         void record(std::uint64_t tick, nlohmann::json cmd);
         void checkpoint(std::uint64_t tick, std::uint64_t hash);
@@ -40,9 +43,11 @@ namespace rts::core::replay {
 
     private:
         std::string m_mapPath;
+        std::string m_result { "in_progress" };
         std::vector<ReplayEntry> m_entries;
         std::vector<std::pair<std::uint64_t, std::uint64_t>> m_checkpoints;
         std::uint64_t m_lastTick { 0 };
+        std::uint64_t m_durationTicks { 0 };
     };
 
     // Command <-> JSON for the recordable player-order commands. serialize returns

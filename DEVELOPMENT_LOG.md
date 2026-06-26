@@ -1,5 +1,16 @@
 # Development Log
 
+## 2026-06-26 - Sprint 2 Save/Replay State Fidelity
+
+- Started Sprint 2 by expanding save/load from a shallow visible-state snapshot to a simulation-state snapshot.
+- Added model-level runtime-state APIs for `Unit` and `Building`. Saves now preserve unit order queues, current action/animation action, attack/gather/build target `EntityId`s, carried resources, gather progress, attack phase/timer, building rally points, construction progress, production queues, and front-item train progress.
+- Changed save files to v2 `entities` snapshots: each live entity stores its saved `EntityId`, type, position, team, HP, and runtime state. Load rebuilds the map terrain, recreates entities in saved order, remaps saved `EntityId`s to the newly allocated handles, then restores relationship-bearing runtime state.
+- Save/load now stores the active map path, game result, AI timers/state, and saved `worldHash`; load logs whether the restored hash matched or which broad transient/unsaved categories should be checked if it differs.
+- Updated replay handling so `ReplayLog` carries map/result/duration metadata. Replay playback now loads the replay first, restarts the match with the replay file's `mapPath`, then applies the recorded command stream.
+- Updated `docs/ARCHITECTURE.md` and the headless smoke test to cover the new ReplayLog metadata behavior.
+- Verification: built `RTS` with the CLion-bundled CMake path using `--target RTS -- -j 1` after a transient parallel GCC header error; built `rts_headless_smoke`; ran `ctest --test-dir cmake-build-debug --output-on-failure` (`1/1` passed); launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
+- Follow-up: add interactive/manual QA around F5/F9 mid-gather, mid-build, mid-production, and replay-from-non-default-map; implement replay speed controls (pause/1x/2x/4x or tick step) as the remaining Sprint 2 design item.
+
 ## 2026-06-26 - Sprint 1 Headless Smoke Harness
 
 - Started Sprint 1 from the 2026-06-26 source-analysis plan by adding a CTest-backed `rts_headless_smoke` executable.

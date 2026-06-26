@@ -1,7 +1,9 @@
 #include "core/replay/ReplayLog.hpp"
 
+#include <algorithm>
 #include <fstream>
 #include <iostream>
+#include <utility>
 
 namespace rts::core::replay {
     namespace cmd = ::rts::core::command;
@@ -12,6 +14,16 @@ namespace rts::core::replay {
         m_checkpoints.clear();
         m_lastTick = 0;
         m_mapPath.clear();
+        m_result = "in_progress";
+        m_durationTicks = 0;
+    }
+
+    void ReplayLog::setMetadata(std::string result, const std::uint64_t durationTicks) {
+        m_result = std::move(result);
+        m_durationTicks = durationTicks;
+        if (durationTicks > m_lastTick) {
+            m_lastTick = durationTicks;
+        }
     }
 
     void ReplayLog::record(const std::uint64_t tick, json command) {
@@ -43,6 +55,11 @@ namespace rts::core::replay {
         json doc;
         doc["map"] = m_mapPath;
         doc["lastTick"] = m_lastTick;
+        doc["metadata"] = {
+            { "map", m_mapPath },
+            { "result", m_result },
+            { "durationTicks", m_durationTicks > 0 ? m_durationTicks : m_lastTick }
+        };
         json cmds = json::array();
         for (const auto& e : m_entries) {
             cmds.push_back({ { "tick", e.tick }, { "cmd", e.cmd } });
@@ -79,12 +96,19 @@ namespace rts::core::replay {
         }
         clear();
         m_mapPath = doc.value("map", std::string{});
+        if (const auto meta = doc.value("metadata", json::object()); !meta.empty()) {
+            m_mapPath = meta.value("map", m_mapPath);
+            m_result = meta.value("result", m_result);
+            m_durationTicks = meta.value("durationTicks", 0ull);
+        }
         for (const auto& e : doc.value("commands", json::array())) {
             record(e.value("tick", 0ull), e.value("cmd", json::object()));
         }
         for (const auto& c : doc.value("checkpoints", json::array())) {
             checkpoint(c.value("tick", 0ull), c.value("hash", 0ull));
         }
+        m_lastTick = std::max(m_lastTick, doc.value("lastTick", 0ull));
+        m_lastTick = std::max(m_lastTick, m_durationTicks);
         std::cout << "[Replay] loaded " << path << " (" << m_entries.size() << " commands)\n";
         return true;
     }

@@ -125,6 +125,38 @@ namespace rts::core::model {
         return m_trainTimer / trainTime;
     }
 
+    Building::RuntimeState Building::runtimeState() const {
+        return RuntimeState {
+            .trainQueue = std::vector<UnitType>(m_trainQueue.begin(), m_trainQueue.end()),
+            .trainTimer = m_trainTimer,
+            .rallyPoint = m_rallyPoint,
+            .hasRallyPoint = m_hasRallyPoint,
+            .completed = m_completed,
+            .buildTime = m_buildTime,
+            .buildProgress = m_buildProgress
+        };
+    }
+
+    void Building::restoreRuntimeState(const RuntimeState& state) {
+        m_trainQueue = std::deque<UnitType>(state.trainQueue.begin(), state.trainQueue.end());
+        m_trainTimer = std::max(0.0f, state.trainTimer);
+        m_rallyPoint = state.rallyPoint;
+        m_hasRallyPoint = state.hasRallyPoint;
+        m_completed = state.completed;
+        m_buildTime = std::max(0.0f, state.buildTime);
+        m_buildProgress = std::max(0.0f, state.buildProgress);
+        if (!m_completed && m_buildTime <= 0.0f) {
+            m_buildTime = 1.0f;
+        }
+        if (!m_completed && m_buildProgress > m_buildTime) {
+            m_buildProgress = m_buildTime;
+        }
+        if (!m_completed) {
+            m_trainQueue.clear();
+            m_trainTimer = 0.0f;
+        }
+    }
+
     void Building::tick(float dt) {
         // Construction progress is driven by workers (advanceConstruction), not the
         // building's own tick. An incomplete building cannot train.

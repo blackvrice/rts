@@ -831,6 +831,75 @@ namespace rts::core::model {
         return order;
     }
 
+    Unit::RuntimeState Unit::runtimeState() const {
+        return RuntimeState {
+            .action = m_action,
+            .animationAction = m_animationAction,
+            .moveTarget = m_moveTarget,
+            .finalTargetWorld = m_finalTargetWorld,
+            .attackMoveTarget = m_attackMoveTarget,
+            .patrolStart = m_patrolStart,
+            .patrolEnd = m_patrolEnd,
+            .patrolDestination = m_patrolDestination,
+            .attackTargetId = m_attackTargetId,
+            .buildTargetId = m_buildTargetId,
+            .attackMoveActive = m_attackMoveActive,
+            .patrolActive = m_patrolActive,
+            .patrolHeadingToEnd = m_patrolHeadingToEnd,
+            .attackRetargetRequested = m_attackRetargetRequested,
+            .orderQueue = std::vector<UnitOrder>(m_orderQueue.begin(), m_orderQueue.end()),
+            .carryingType = m_gatherState.carryingType,
+            .carryingAmount = m_gatherState.carryingAmount,
+            .maxCarryAmount = m_gatherState.maxCarryAmount,
+            .gatherProgressSeconds = m_gatherState.gatherProgressSeconds,
+            .gatherPhase = m_gatherState.phase,
+            .deliveryReady = m_gatherState.deliveryReady,
+            .targetResourceId = m_gatherState.targetResourceId,
+            .targetDropOffId = m_gatherState.targetDropOffId,
+            .attackPhase = m_attackPhase,
+            .attackTimer = attackTimer
+        };
+    }
+
+    void Unit::restoreRuntimeState(const RuntimeState& state) {
+        m_action = state.action;
+        m_animationAction = state.animationAction;
+        m_moveTarget = state.moveTarget;
+        m_finalTargetWorld = state.finalTargetWorld;
+        m_attackMoveTarget = state.attackMoveTarget;
+        m_patrolStart = state.patrolStart;
+        m_patrolEnd = state.patrolEnd;
+        m_patrolDestination = state.patrolDestination;
+        m_attackTargetId = state.attackTargetId;
+        m_buildTargetId = state.buildTargetId;
+        m_attackMoveActive = state.attackMoveActive;
+        m_patrolActive = state.patrolActive;
+        m_patrolHeadingToEnd = state.patrolHeadingToEnd;
+        m_attackRetargetRequested = state.attackRetargetRequested;
+        m_orderQueue = std::deque<UnitOrder>(state.orderQueue.begin(), state.orderQueue.end());
+        m_gatherState = WorkerGatherState {
+            .targetResourceId = state.targetResourceId,
+            .targetDropOffId = state.targetDropOffId,
+            .carryingType = state.carryingType,
+            .carryingAmount = state.carryingAmount,
+            .maxCarryAmount = state.maxCarryAmount,
+            .gatherProgressSeconds = state.gatherProgressSeconds,
+            .phase = state.gatherPhase,
+            .deliveryReady = state.deliveryReady
+        };
+        m_attackPhase = state.attackPhase;
+        attackTimer = state.attackTimer;
+        m_gridPath.clear();
+
+        if (m_action == ActionType::Gather &&
+            (m_gatherState.phase == GatherPhase::MoveToResource ||
+             m_gatherState.phase == GatherPhase::Gathering)) {
+            if (auto* resource = resolveResource(m_gatherState.targetResourceId)) {
+                resource->reserveGatherSlot(*this);
+            }
+        }
+    }
+
 
     void Unit::stop() {
         if (m_action == ActionType::Dead) return;

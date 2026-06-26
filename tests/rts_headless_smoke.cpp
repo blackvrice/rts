@@ -112,6 +112,7 @@ namespace {
             log.record(3, *serialized);
         }
         log.checkpoint(30, 0xC0FFEEull);
+        log.setMetadata("victory", 30);
 
         const auto path = std::filesystem::temp_directory_path() / "rts_headless_replay.json";
         expect(log.save(path.string()), "ReplayLog saves to temp file");
@@ -120,6 +121,8 @@ namespace {
         expect(loaded.load(path.string()), "ReplayLog loads from temp file");
         expect(loaded.mapPath() == dataPath("maps/skirmish.json"), "ReplayLog preserves map path");
         expect(loaded.lastTick() == 30, "ReplayLog preserves last tick from checkpoint");
+        expect(loaded.result() == "victory", "ReplayLog preserves result metadata");
+        expect(loaded.durationTicks() == 30, "ReplayLog preserves duration metadata");
         expect(loaded.hashForTick(30).value_or(0) == 0xC0FFEEull,
                "ReplayLog preserves hash checkpoint");
 
