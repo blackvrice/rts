@@ -1,5 +1,41 @@
 # Development Log
 
+## 2026-06-13 - Ignore Live Player Input During Replay Playback
+
+- Problem: during replay the viewer could still move units. Two causes: (1) live input leaked through UI paths not covered by `acceptPlayerCommand` (selection, portrait clicks, mode arming); (2) more importantly, when a short recorded stream ended, playback set `mode=Off` and cleared the lock, so the match silently became a **live, controllable game** a few seconds in.
+- Added a thread-safe `GameWorld::isReplayActive()` / `setReplayActive()` flag (read by the UI thread like `gameResult()`). `GameLogicManager` sets it true in `startReplay()` / `startReplayFrom()` and clears it in `beginRecording()`.
+- `GameUIManager` now ignores gameplay input while `isReplayActive()`: left-press/release selection, right-click and minimap world orders (`issueWorldOrderAtWorld`), build/train menu selects, multi-select portrait clicks, and `handleGameplayInput` all early-return. In `KeyPressedCommand` only camera panning (arrows), the F3 debug overlay, and ESC (quit to lobby) are honored during playback.
+- When the recorded stream ends, the simulation now **freezes on its final frame** instead of going live: a new `m_simFrozen` flag makes `tick()` return early (no advance/AI), `mode` stays `Play` and `replayActive` stays true, so input remains locked until the viewer presses ESC to return to the lobby.
+- Verification: built `RTS` (clean link). Ran the replay via a temporary auto-load hook (since removed): log shows `playback finished at tick 90 (frozen)` and — unlike before — no further AI `[Resource]` activity, confirming the sim is frozen and no longer playable.
+- Follow-up: none.
+
+## 2026-06-13 - Fix Use-After-Free On Game -> Lobby -> Game(Replay)
+
+- Root cause: `CommandRouterBase::on<T>` appends handlers and `dispatch` invokes all of them, but `SceneManager::changeScene` only cleared the `UICommandRouter`, never the `LogicCommandRouter`. A game scene's logic handlers (capturing a raw `this`) survived into the next scene; after returning to the lobby destroyed the manager, the next match's replay dispatch invoked the stale handler -> access violation (0xC0000005). The replay path reproduced it reliably because it auto-dispatches recorded commands immediately on playback.
+- Fix: `changeScene` now clears the `LogicCommandRouter` too and re-registers the two persistent handlers it owns indirectly — `SceneManager`'s `SceneChangeCommand` (extracted to `registerSceneChangeHandler()`) and `LogicThread`'s `ChangeLogicManagerCommand` (extracted to `LogicThread::registerRouterHandlers()`).
+- Made the swap thread-safe: `LogicThread` now wraps its per-iteration command-drain + tick in a `m_tickMutex`, and `SceneManager::changeScene` holds `LogicThread::acquireSwapLock()` for the whole swap, so clearing/rebuilding the router and tearing down the outgoing scope (which destroys the old manager and its scoped `GameWorld`) cannot race a dispatch or tick.
+- `SceneManager` now takes a `LogicThread&` (wired through the DI factory in `GameApp`).
+- Verification: built `RTS`; ran a scripted game -> lobby -> game(replay) reproduction (temporary `RTS_AUTO_REPLAY` hook, since removed) — before the fix this crashed with 0xC0000005, after the fix the replay plays to completion and the process keeps running. Confirmed the direct lobby -> game replay path also still plays back cleanly.
+- Follow-up: none.
+
+## 2026-06-13 - Exit To Lobby And AppData Replay Browser
+
+- Added `QuitToLobbyCommand`: pressing ESC in-game now cancels an armed order (build placement, etc.) on the first press, and from the default mode leaves the match. `GameLogicManager` handles it by saving the recorded replay and pushing `SceneChangeCommand("lobby")`.
+- Made every live match record automatically: `GameLogicManager` begins recording from tick 0 on construction (and on restart), unless the lobby queued a specific replay to play back via `SessionContext`. On victory/defeat or on quit-to-lobby the replay is auto-saved once (`m_replaySaved` guard) to `%LOCALAPPDATA%/RTS/replays/replay_<timestamp>.json`.
+- Added `SessionContext` (process-wide cross-scene handoff) for the replay-to-play path and the AppData replays directory (created on demand, falls back to `%APPDATA%` then `./replays`).
+- Added a REPLAYS view to the lobby: the button rescans the AppData replay folder (`*.json`, newest first) and lists each file as a clickable row; selecting one stores it in `SessionContext` and switches to the Game scene, which loads and plays it back instead of starting a fresh match. A BACK button returns to the menu.
+- Reordered `startReplay()` to restart the match before loading the log so the recorder reset never wipes the loaded stream; replayed matches set `m_replaySaved` so they are never re-saved.
+- Verification: built `RTS` with `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS` (clean link; one earlier failure was an intermittent GCC ICE in an unrelated TU that cleared on rebuild).
+- Follow-up: replay rows show the timestamped filename only; could surface match result/duration metadata later.
+
+## 2026-06-13 - Tile-Based Sight Range Data
+
+- Changed unit/building `sightRange` data semantics from world pixels to map tile counts, so a value like `8.0` scales to `8 * tileSize` world units on the active map.
+- Updated fog reveal radius calculation to convert tile-authored sight values through the current `GridTransform::tileSize` instead of requiring JSON authors to hand-enter pixel values.
+- Converted current JSON sight values to tile counts: units use 8/9/8/9 tiles and buildings use 20/15 tiles.
+- Verification: parsed `data/units.json` and `data/buildings.json` with `python -m json.tool`; built `RTS` with `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe --build cmake-build-debug --target RTS -- -j 4`, then launched `cmake-build-debug\RTS.exe` and confirmed it stayed running for 5 seconds.
+- Follow-up: none.
+
 ## 2026-06-13 - Resource HUD Sprite Icons
 
 - Replaced the top resource HUD placeholder UI icons with Tiny Swords resource art resolved from `data/animations.json`.

@@ -12,5 +12,7 @@ namespace rts::core::manager {
 
     }
 
+    void LobbyLogicManager::tick(float) {
 
+    }
 }

@@ -12,7 +12,6 @@ namespace rts::core::scene {
         LobbyScene(const std::shared_ptr<manager::IUIManager> &uiManager, const std::shared_ptr<manager::ILogicManager> &logicManager);
         void update() override;
         void render() override;
-    private:
-
+        void tick(float dt) override;
     };
 }

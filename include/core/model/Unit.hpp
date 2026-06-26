@@ -240,7 +240,7 @@ namespace rts::core::model {
         AttackPhase m_attackPhase = AttackPhase::Ready;
         float attackDamage = 10.f;
         float m_armor = 0.f;
-        float m_sightRange = 256.f;
+        float m_sightRange = 8.f;  // tile-count reveal radius from UnitStaticData
         float m_collisionRadius = 28.f;
         float m_buildTimeSeconds = 8.f;
         core::data::WeaponType m_weaponType = core::data::WeaponType::Normal;

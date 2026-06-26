@@ -4,6 +4,9 @@
 #include <cmath>
 #include <cstddef>
 
+#include <core/data/BuildingStaticData.hpp>
+#include <core/data/DataRegistry.hpp>
+#include <core/data/ResourceStaticData.hpp>
 #include <core/model/Building.hpp>
 #include <core/model/ResourceNode.hpp>
 #include <core/model/Unit.hpp>
@@ -20,6 +23,43 @@ namespace {
     constexpr float kMaxLocalAvoidancePush = 8.f;
     constexpr float kOverlapPadding = 0.5f;
     constexpr float kTinyDistanceSq = 0.0001f;
+
+    // Axis-aligned footprint rectangle (world units) of a static structure,
+    // centered on its position. Returns false for units (which stay circles).
+    struct FootprintRect { float cx, cy, hx, hy; };
+    bool structureRect(const rts::core::model::IGameElement& element,
+                       const rts::core::world::GameWorld& world,
+                       FootprintRect& out) {
+        const float tile = world.gridTransform().tileSize;
+        int fw = 0;
+        int fh = 0;
+        if (const auto* b = dynamic_cast<const rts::core::model::Building*>(&element)) {
+            const auto& d = rts::core::data::DataRegistry::global().building(b->buildingType());
+            fw = d.footprintWidth;
+            fh = d.footprintHeight;
+        } else if (const auto* r = dynamic_cast<const rts::core::model::ResourceNode*>(&element)) {
+            const auto& d = rts::core::data::DataRegistry::global().resource(r->type());
+            fw = d.footprintWidth;
+            fh = d.footprintHeight;
+        } else {
+            return false;
+        }
+        const auto c = element.getPosition();
+        out = { c.x, c.y, static_cast<float>(fw) * tile * 0.5f, static_cast<float>(fh) * tile * 0.5f };
+        return true;
+    }
+
+    // True when a circle (center p, radius r) overlaps the footprint rectangle;
+    // outputs the closest point on the rectangle for the collision response.
+    bool circleHitsRect(const rts::core::model::Vector2D& p, const float r,
+                        const FootprintRect& box, rts::core::model::Vector2D& nearest) {
+        const float nx = std::clamp(p.x, box.cx - box.hx, box.cx + box.hx);
+        const float ny = std::clamp(p.y, box.cy - box.hy, box.cy + box.hy);
+        nearest = { nx, ny };
+        const float dx = p.x - nx;
+        const float dy = p.y - ny;
+        return (dx * dx + dy * dy) < r * r;
+    }
 
     float collisionRadiusFor(const rts::core::model::IGameElement& element) {
         if (const auto* unit = dynamic_cast<const rts::core::model::Unit*>(&element)) {
@@ -77,18 +117,27 @@ namespace rts::core::manager {
                 continue;
             }
 
+            // Static structures block as their footprint rectangle; units as circles.
+            FootprintRect box;
+            if (structureRect(*other, world, box)) {
+                model::Vector2D nearest;
+                if (circleHitsRect(pos, unit.getCollisionRadius(), box, nearest)) {
+                    return CollisionHit { nearest, 0.0f, true, false };
+                }
+                continue;
+            }
+
             const auto otherPosition = other->getPosition();
             const float dx = otherPosition.x - pos.x;
             const float dy = otherPosition.y - pos.y;
             const float minDistance = unit.getCollisionRadius() + collisionRadiusFor(*other);
 
             if ((dx * dx + dy * dy) < minDistance * minDistance) {
-                const bool blockerIsUnit = dynamic_cast<const model::Unit*>(other.get()) != nullptr;
                 return CollisionHit {
                     otherPosition,
                     collisionRadiusFor(*other),
                     true,
-                    blockerIsUnit
+                    true  // the only non-structure blocker is another unit
                 };
             }
         }
@@ -172,16 +221,65 @@ namespace rts::core::manager {
                 continue;
             }
 
-            const auto otherPosition = other->getPosition();
-            const float dx = otherPosition.x - pos.x;
-            const float dy = otherPosition.y - pos.y;
-            const float minDistance = unit.getCollisionRadius() + collisionRadiusFor(*other);
-            if ((dx * dx + dy * dy) < minDistance * minDistance) {
-                return false;
+            // Non-unit blockers are static structures: test against the footprint rect.
+            FootprintRect box;
+            if (structureRect(*other, world, box)) {
+                model::Vector2D nearest;
+                if (circleHitsRect(pos, unit.getCollisionRadius(), box, nearest)) {
+                    return false;
+                }
             }
         }
 
         return true;
+    }
+
+    std::optional<model::Vector2D> CollisionSystem::structureEscapePush(
+        const world::GameWorld& world,
+        const model::Unit& unit,
+        const model::Vector2D& pos) const {
+        const float ur = unit.getCollisionRadius();
+        model::Vector2D push {};
+        bool overlapped = false;
+
+        for (const auto& element : world.getElements()) {
+            const auto other = std::dynamic_pointer_cast<model::IGameElement>(element);
+            if (!other || other->getAction() == model::ActionType::Dead) {
+                continue;
+            }
+            FootprintRect box;
+            if (!structureRect(*other, world, box)) {
+                continue;  // only static structures evict units
+            }
+
+            // Only evict a unit whose CENTER is inside the footprint (genuinely
+            // stuck, e.g. a building placed on top of it). A unit merely touching the
+            // edge is left alone so workers can gather / drop off and melee units can
+            // stand adjacent to a structure.
+            if (pos.x <= box.cx - box.hx || pos.x >= box.cx + box.hx ||
+                pos.y <= box.cy - box.hy || pos.y >= box.cy + box.hy) {
+                continue;
+            }
+            overlapped = true;
+
+            // Exit along the axis of least penetration, clearing the unit's radius.
+            const float left = pos.x - (box.cx - box.hx);
+            const float right = (box.cx + box.hx) - pos.x;
+            const float top = pos.y - (box.cy - box.hy);
+            const float bottom = (box.cy + box.hy) - pos.y;
+            const float minX = std::min(left, right);
+            const float minY = std::min(top, bottom);
+            if (minX < minY) {
+                push.x += (left < right ? -(left + ur) : (right + ur));
+            } else {
+                push.y += (top < bottom ? -(top + ur) : (bottom + ur));
+            }
+        }
+
+        if (!overlapped) {
+            return std::nullopt;
+        }
+        return push;
     }
 
     float CollisionSystem::movingUnitRadius() const noexcept {

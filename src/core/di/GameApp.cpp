@@ -17,6 +17,9 @@
 #include "game/login/LoginLogicManager.hpp"
 #include "game/login/LoginScene.hpp"
 #include "game/login/LoginUIManager.hpp"
+#include "game/lobby/LobbyLogicManager.hpp"
+#include "game/lobby/LobbyScene.hpp"
+#include "game/lobby/LobbyUIManager.hpp"
 #include "platform/sfml/SfmlRenderManager.hpp"
 #include "platform/sfml/SfmlWindow.hpp"
 #include "core/manager/SceneManager.hpp"
@@ -132,6 +135,32 @@ namespace rts::core {
             }
         );
 
+        // Lobby Scene (main menu)
+        di.registerScoped<scene::LobbyScene>(
+            [](DIContainer &di) {
+                return std::make_shared<scene::LobbyScene>(
+                    di.resolve<manager::LobbyUIManager>(),
+                    di.resolve<manager::LobbyLogicManager>()
+                );
+            }
+        );
+        di.registerScoped<manager::LobbyUIManager>(
+            [](DIContainer &di) {
+                auto &router = *di.resolve<command::UICommandRouter>();
+                auto &logicBus = *di.resolve<command::LogicCommandBus>();
+                auto &queue = *di.resolve<render::RenderQueue>();
+                auto &camera = *di.resolve<manager::CameraManager>();
+                return std::make_shared<manager::LobbyUIManager>(router, logicBus, queue, camera);
+            }
+        );
+        di.registerScoped<manager::LobbyLogicManager>(
+            [](DIContainer &di) {
+                auto &bus = *di.resolve<command::LogicCommandBus>();
+                auto &router = *di.resolve<command::LogicCommandRouter>();
+                return std::make_shared<manager::LobbyLogicManager>(bus, router);
+            }
+        );
+
         // GridQuery: Scoped (World에 종속)
         di.registerScoped<world::GameWorldGridQuery>([](DIContainer& di){
             auto& world = *di.resolve<world::GameWorld>();
@@ -149,7 +178,8 @@ namespace rts::core {
             [](DIContainer &di) {
                 auto &bus = *di.resolve<command::LogicCommandBus>();
                 auto &uiBus =  *di.resolve<command::UICommandBus>();
-                return std::make_shared<manager::SceneManager>(di, bus, uiBus);
+                auto &logicThread = *di.resolve<thread::LogicThread>();
+                return std::make_shared<manager::SceneManager>(di, bus, uiBus, logicThread);
             }
         );
 
@@ -188,7 +218,7 @@ namespace rts::core {
         m_renderQueue = di.resolve<render::RenderQueue>();
         m_renderContext = di.resolve<render::RenderContext>();
         m_renderManager = di.resolve<render::IRenderManager>();
-        m_sceneManager->changeScene(manager::SceneId::Game);
+        m_sceneManager->changeScene(manager::SceneId::Lobby);
     }
 
     void GameApp::run() const {
@@ -205,6 +235,10 @@ namespace rts::core {
             while (m_uiBus->tryPop(cmd)) {
                 m_uiRouter->dispatch(*cmd);
             }
+
+            // Apply any scene change requested this frame (after input dispatch, so the
+            // UI router can be safely reset). Safe even while the logic thread runs.
+            m_sceneManager->applyPendingScene();
 
             m_sceneManager->update();
 

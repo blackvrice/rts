@@ -50,6 +50,7 @@ namespace rts::core::render {
         bool trimTransparent { false };
         bool showInHud { false };
         float rotation { 0.0f };
+        bool flipX { false };  // mirror horizontally (unit facing left)
     };
 
     struct DrawCircle {

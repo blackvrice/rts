@@ -15,12 +15,14 @@ namespace rts::core::scene {
     }
 
     void LobbyScene::update() {
-
+        m_uiManager->update();
     }
-
 
     void LobbyScene::render() {
-
+        m_uiManager->render();
     }
 
+    void LobbyScene::tick(float) {
+        // No simulation in the lobby.
+    }
 }

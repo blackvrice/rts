@@ -164,6 +164,11 @@ namespace rts::core::manager {
         static std::string replayPath();
         void toggleRecording();   // start recording, or stop and write the replay file
         void startReplay();       // load the replay, reset to the start, and play it back
+        void startReplayFrom(const std::string& path);  // play a specific replay file
+        // Begins recording the current (already set up) match from tick 0.
+        void beginRecording();
+        // Saves the recorded replay to AppData with a timestamped name (once per match).
+        void saveReplayToAppData();
         // Gate + record a live player command: returns false when it should be
         // ignored (live input during playback), records it while in Record mode.
         bool acceptPlayerCommand(const command::LogicCommand& cmd);
@@ -215,12 +220,19 @@ namespace rts::core::manager {
         // Last logged resource snapshot per team (index by TeamId) for delta logging.
         core::model::PlayerResourceState m_lastResourceLog[3] {};
         bool m_resourceLogReady { false };
-        std::unordered_map<std::uint32_t, ElementSnapshot> m_feedbackSnapshots;
+        // Keyed by full EntityId (index<<32 | generation) so a recycled slot never
+        // mis-attributes one unit's HP change to another (which spawned phantom hits).
+        std::unordered_map<std::uint64_t, ElementSnapshot> m_feedbackSnapshots;
 
         // Replay: command stream + mode. m_applyingReplay is set only while the tick
         // re-dispatches recorded commands, so the gate lets them through.
         core::replay::ReplayLog m_replay;
         ReplayMode m_replayMode { ReplayMode::Off };
         bool m_applyingReplay { false };
+        bool m_replaySaved { false };  // guards one auto-save per recorded match
+        // Set when a playback reaches the end of the recorded stream: the simulation
+        // is frozen on its final frame (no advance/AI) and input stays locked so the
+        // finished replay never silently turns into a live, controllable match.
+        bool m_simFrozen { false };
     };
 } // namespace rts::manager

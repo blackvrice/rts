@@ -31,6 +31,7 @@ namespace rts::core::model {
         Vector2D position()  const noexcept { return m_position; }
         float    angleDeg()  const noexcept { return m_angleDeg; }
         int      ownerTeamId() const noexcept { return m_ownerTeamId; }
+        data::WeaponType weaponType() const noexcept { return m_weaponType; }
         const std::string& texturePath() const noexcept { return m_texturePath; }
 
     private:

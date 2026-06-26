@@ -312,6 +312,18 @@ namespace {
         return {};
     }
 
+    // True when the frame carries gameplay HUD data; non-game scenes (e.g. lobby)
+    // push no HUD commands, so the bottom console must not be drawn over them.
+    bool queueHasHud(const rts::core::render::RenderQueue& queue) {
+        for (const auto& command : queue.commands()) {
+            if (std::get_if<rts::core::render::UpdateHudSelection>(&command.data) ||
+                std::get_if<rts::core::render::UpdateHudResources>(&command.data)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     std::string hudCursor(
         const rts::core::render::RenderQueue& queue
     ) {
@@ -592,9 +604,13 @@ namespace rts::platform::sfml {
             );
         }
 
-        m_hud->render(*sfWindow, resources, selection, minimap);
-        if (selection.selectedCount == 1) {
-            drawSelectedHudSprite(*sfWindow, selectedHudUnit);
+        // Only the gameplay scene draws the bottom command HUD; the lobby/menu pushes
+        // no HUD data and renders its own full-screen UI instead.
+        if (queueHasHud(queue)) {
+            m_hud->render(*sfWindow, resources, selection, minimap);
+            if (selection.selectedCount == 1) {
+                drawSelectedHudSprite(*sfWindow, selectedHudUnit);
+            }
         }
         drawMouseCursor(*sfWindow, cursorKey);
     }
@@ -684,20 +700,28 @@ namespace rts::platform::sfml {
             );
             const float drawW = static_cast<float>(sourceRect.size.x) * scale;
             const float drawH = static_cast<float>(sourceRect.size.y) * scale;
+            const float baseX = r.x + (r.w - drawW) * 0.5f;
+            const float baseY = r.y + (r.h - drawH);
 
-            sprite.setPosition({
-                r.x + (r.w - drawW) * 0.5f,
-                r.y + (r.h - drawH)
-            });
-            sprite.setScale({scale, scale});
+            if (r.flipX) {
+                // Negative X scale mirrors around the origin; shift right by drawW to
+                // keep the sprite in the same on-screen box (face left).
+                sprite.setScale({-scale, scale});
+                sprite.setPosition({baseX + drawW, baseY});
+            } else {
+                sprite.setScale({scale, scale});
+                sprite.setPosition({baseX, baseY});
+            }
         } else {
-            sprite.setPosition({r.x, r.y});
-            sprite.setScale(
-                {
-                    r.w / static_cast<float>(sourceRect.size.x),
-                    r.h / static_cast<float>(sourceRect.size.y)
-                }
-            );
+            const float sx = r.w / static_cast<float>(sourceRect.size.x);
+            const float sy = r.h / static_cast<float>(sourceRect.size.y);
+            if (r.flipX) {
+                sprite.setScale({-sx, sy});
+                sprite.setPosition({r.x + r.w, r.y});
+            } else {
+                sprite.setScale({sx, sy});
+                sprite.setPosition({r.x, r.y});
+            }
         }
 
         window.draw(sprite);

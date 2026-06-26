@@ -124,7 +124,11 @@ namespace rts::core::world {
                 const auto impact = projectile->position();
                 emitSound(*this, SoundCue::Hit, impact, 58.0f);
                 emitEffect(*this, EffectType::HitSpark, impact, 40.0f, 0.35f);
-                emitEffect(*this, EffectType::ScorchDecal, impact, 26.0f, 7.0f, 0x24160D66u);
+                // Only siege shots scorch the ground; arrows/normal hits leave no
+                // lingering decal.
+                if (projectile->weaponType() == data::WeaponType::Siege) {
+                    emitEffect(*this, EffectType::ScorchDecal, impact, 26.0f, 7.0f, 0x24160D66u);
+                }
             }
         }
         auto it = m_projectiles.begin();
@@ -179,6 +183,12 @@ namespace rts::core::world {
         // player unit/building. Resources grant no vision; enemy elements never reveal.
         m_fog.resetVisible();
         const float tileSize = m_gridTransform.tileSize > 0.f ? m_gridTransform.tileSize : 1.f;
+        const auto tileSightToRadius = [tileSize](const float sightRangeTiles) {
+            // sightRange is authored as a tile count in JSON/static data. Convert
+            // through world units so the data scales with 16px, 32px, or larger maps.
+            const float worldRange = std::max(0.0f, sightRangeTiles) * tileSize;
+            return static_cast<int>(std::ceil(worldRange / tileSize));
+        };
         for (const auto& element : m_elements) {
             const auto ge = std::dynamic_pointer_cast<model::IGameElement>(element);
             if (!ge || ge->getTeamId() != model::TeamId::Player ||
@@ -188,11 +198,11 @@ namespace rts::core::world {
             const auto cell = m_gridTransform.worldToGrid(ge->getPosition());
             int radiusTiles = 0;
             if (const auto unit = std::dynamic_pointer_cast<model::Unit>(element)) {
-                radiusTiles = static_cast<int>(std::ceil(unit->getSightRange() / tileSize));
+                radiusTiles = tileSightToRadius(unit->getSightRange());
             } else if (const auto building = std::dynamic_pointer_cast<model::Building>(element)) {
                 const auto& d = data::DataRegistry::global().building(building->buildingType());
                 radiusTiles = d.sightRange > 0.f
-                    ? static_cast<int>(std::ceil(d.sightRange / tileSize))
+                    ? tileSightToRadius(d.sightRange)
                     : std::max(d.footprintWidth, d.footprintHeight) + 3;
             } else {
                 continue;

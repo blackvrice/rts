@@ -19,7 +19,9 @@ namespace rts::core::data {
         float attackCooldown { 0.8f };
         float moveSpeed { 120.0f };
         float armor { 0.0f };
-        float sightRange { 256.0f };
+        // Reveal radius authored in map tiles. World-space size is this value
+        // multiplied by the current map tileSize.
+        float sightRange { 8.0f };
         float collisionRadius { 28.0f };
         float buildTimeSeconds { 8.0f };
         WeaponType weaponType { WeaponType::Normal };
@@ -49,7 +51,7 @@ namespace rts::core::data {
             .attackCooldown = 0.75f,
             .moveSpeed = 120.0f,
             .armor = 1.0f,
-            .sightRange = 256.0f,
+            .sightRange = 8.0f,
             .collisionRadius = 28.0f,
             .buildTimeSeconds = 8.0f,
             .weaponType = WeaponType::Normal,
@@ -71,7 +73,7 @@ namespace rts::core::data {
             .attackCooldown = 0.9f,
             .moveSpeed = 115.0f,
             .armor = 0.0f,
-            .sightRange = 288.0f,
+            .sightRange = 9.0f,
             .collisionRadius = 26.0f,
             .buildTimeSeconds = 9.0f,
             .weaponType = WeaponType::Pierce,
@@ -93,7 +95,7 @@ namespace rts::core::data {
             .attackCooldown = 1.0f,
             .moveSpeed = 110.0f,
             .armor = 0.0f,
-            .sightRange = 224.0f,
+            .sightRange = 7.0f,
             .collisionRadius = 26.0f,
             .buildTimeSeconds = 12.0f,
             .weaponType = WeaponType::Normal,

@@ -1,9 +1,9 @@
 {
   "_comment": "Starting scenario. Edit positions/entities here (no recompile). Building/unit/resource 'type' ids match data/buildings.json, units.json, resources.json. team is player or enemy. blockedTiles are [x,y] grid cells forced non-walkable.",
 
-  "width": 128,
-  "height": 128,
-  "tileSize": 32,
+  "width": 256,
+  "height": 256,
+  "tileSize": 16,
 
   "startResources": {
     "player": { "gold": 500, "wood": 300 },

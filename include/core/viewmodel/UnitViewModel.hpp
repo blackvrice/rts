@@ -39,6 +39,7 @@ namespace rts::core::viewmodel {
         model::Vector2D m_position {};
         float m_hpRatio = 1.f;
         model::ActionType m_action = model::ActionType::Idle;
+        bool m_facingLeft = false;  // sprite mirrored to face left when moving left
 
         bool m_visible = true;
     };

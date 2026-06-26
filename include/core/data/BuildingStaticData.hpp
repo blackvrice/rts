@@ -19,8 +19,8 @@ namespace rts::core::data {
         // Footprint measured in grid tiles (square placement region).
         int footprintWidth { 3 };
         int footprintHeight { 3 };
-        // World-space reveal radius. A non-positive value keeps the legacy
-        // footprint-derived vision fallback for old or partial data files.
+        // Reveal radius authored in map tiles. A non-positive value keeps the
+        // legacy footprint-derived vision fallback for old or partial data files.
         float sightRange { 0.0f };
         float buildTimeSeconds { 20.0f };
         int goldCost { 0 };

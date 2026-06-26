@@ -68,7 +68,16 @@ namespace rts::core::viewmodel {
         if (!unit)
             return;
 
-        m_position = unit->getPosition();
+        // Face the horizontal travel direction (sprites default to facing right);
+        // keep the last facing while idle / moving purely vertically.
+        const model::Vector2D newPos = unit->getPosition();
+        const float dx = newPos.x - m_position.x;
+        if (dx < -0.05f) {
+            m_facingLeft = true;
+        } else if (dx > 0.05f) {
+            m_facingLeft = false;
+        }
+        m_position = newPos;
         m_action = unit->getAnimationAction();
         m_hpRatio = unit->getHp() / unit->getMaxHp();
     }
@@ -144,7 +153,8 @@ namespace rts::core::viewmodel {
                 .frameCount = clip->frameCount,
                 .framesPerSecond = clip->fps,
                 .trimTransparent = clip->trim,
-                .showInHud = unit->state().selected
+                .showInHud = unit->state().selected,
+                .flipX = m_facingLeft
             });
     }
 }

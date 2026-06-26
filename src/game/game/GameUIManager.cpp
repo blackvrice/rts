@@ -133,20 +133,28 @@ namespace rts::core::manager {
             }
         }
 
-        const char* effectTexture(const core::world::EffectType type) {
+        // Particle FX textures are horizontal strips of square frames; frame size
+        // equals the sheet height and the count is width/height.
+        struct EffectSprite {
+            const char* path { "" };
+            int frameSize { 0 };
+            int frameCount { 0 };
+        };
+
+        EffectSprite effectSprite(const core::world::EffectType type) {
             using core::world::EffectType;
             switch (type) {
-                case EffectType::AttackFlash: return "Particle FX/Fire_01.png";
-                case EffectType::HitSpark: return "Particle FX/Explosion_01.png";
-                case EffectType::DeathBurst: return "Particle FX/Dust_02.png";
-                case EffectType::Explosion: return "Particle FX/Explosion_02.png";
-                case EffectType::ConstructionDust: return "Particle FX/Dust_01.png";
-                case EffectType::ResourceGather: return "Particle FX/Dust_02.png";
+                case EffectType::AttackFlash:      return { "Particle FX/Fire_01.png", 64, 8 };
+                case EffectType::HitSpark:         return { "Particle FX/Explosion_01.png", 192, 8 };
+                case EffectType::DeathBurst:       return { "Particle FX/Dust_02.png", 64, 10 };
+                case EffectType::Explosion:        return { "Particle FX/Explosion_02.png", 192, 10 };
+                case EffectType::ConstructionDust: return { "Particle FX/Dust_01.png", 64, 8 };
+                case EffectType::ResourceGather:   return { "Particle FX/Dust_02.png", 64, 10 };
                 case EffectType::ScorchDecal:
                 case EffectType::BloodDecal:
-                    return "";
+                    return {};
             }
-            return "";
+            return {};
         }
 
         const char* commandUnitId(const ::rts::UnitType type) {
@@ -197,10 +205,16 @@ namespace rts::core::manager {
                 return;
             }
 
-            const char* texture = effectTexture(effect.type);
-            if (!texture || texture[0] == '\0') {
+            const EffectSprite es = effectSprite(effect.type);
+            if (!es.path || es.path[0] == '\0' || es.frameSize <= 0) {
                 return;
             }
+            // Pick a single frame from the strip based on how far the effect has
+            // played, so one frame fills the box instead of the whole sheet.
+            const float progress = std::clamp(effect.age / duration, 0.0f, 1.0f);
+            const int frameIndex = es.frameCount > 0
+                ? std::min(static_cast<int>(progress * es.frameCount), es.frameCount - 1)
+                : 0;
             const float size = effect.radius * (1.0f + (effect.age / duration) * 0.35f);
             queue.emplace(
                 core::render::RenderLayer::World,
@@ -210,10 +224,14 @@ namespace rts::core::manager {
                     .y = effect.position.y - size,
                     .w = size * 2.0f,
                     .h = size * 2.0f,
-                    .texturePath = texture,
+                    .texturePath = es.path,
+                    .sourceX = frameIndex * es.frameSize,
+                    .sourceY = 0,
+                    .sourceW = es.frameSize,
+                    .sourceH = es.frameSize,
                     .frameCount = 1,
                     .framesPerSecond = 0.0f,
-                    .trimTransparent = true,
+                    .trimTransparent = false,
                     .rotation = effect.rotation
                 });
         }
@@ -229,6 +247,7 @@ namespace rts::core::manager {
 
         router.on<command::MouseLeftPressedCommand>(
             [this](const command::MouseLeftPressedCommand &cmd) {
+                if (m_world.isReplayActive()) return;  // viewer-only during playback
                 m_isDragging = true;
                 const core::model::Vector2D &pos = cmd.position();
 
@@ -258,6 +277,7 @@ namespace rts::core::manager {
         );
         router.on<command::MouseLeftReleasedCommand>(
             [this](const command::MouseLeftReleasedCommand &cmd) {
+                if (m_world.isReplayActive()) return;  // viewer-only during playback
                 m_isDragging = false;
                 const core::model::Vector2D &pos = cmd.position();
                 for (const auto &element: m_elements) {
@@ -292,7 +312,8 @@ namespace rts::core::manager {
 
         router.on<command::BuildMenuSelectCommand>(
             [this](const command::BuildMenuSelectCommand &cmd) {
-                if (m_world.gameResult() != core::world::GameResult::InProgress) return;
+                if (m_world.gameResult() != core::world::GameResult::InProgress ||
+                    m_world.isReplayActive()) return;
                 // Arm placement of the building chosen from the worker build submenu.
                 m_pendingBuildType = static_cast<core::model::BuildingType>(cmd.buildingTypeId());
                 m_worldOrderMode = WorldOrderMode::Build;
@@ -301,7 +322,8 @@ namespace rts::core::manager {
 
         router.on<command::TrainMenuSelectCommand>(
             [this](const command::TrainMenuSelectCommand &cmd) {
-                if (m_world.gameResult() != core::world::GameResult::InProgress) return;
+                if (m_world.gameResult() != core::world::GameResult::InProgress ||
+                    m_world.isReplayActive()) return;
                 // Train the unit chosen from the production building's list (current
                 // selection resolves the building; the logic validates cost/tech).
                 m_logicBus.push(std::make_unique<command::TrainUnitCommand>(-1, cmd.unitTypeId()));
@@ -310,6 +332,7 @@ namespace rts::core::manager {
 
         router.on<command::SelectEntityUICommand>(
             [this](const command::SelectEntityUICommand &cmd) {
+                if (m_world.isReplayActive()) return;  // viewer-only during playback
                 // Clicking a portrait in the multi-selection list selects only that unit.
                 m_logicBus.push(std::make_unique<command::SelectEntityCommand>(
                     cmd.index(), cmd.generation()));
@@ -330,6 +353,23 @@ namespace rts::core::manager {
                 if (isControlKey(key) || static_cast<bool>(modifier & KM::Ctrl)) m_ctrl = true;
                 if (isShiftKey(key) || static_cast<bool>(modifier & KM::Shift)) m_shift = true;
 
+                // Replay playback: viewer can only pan the camera, toggle the debug
+                // overlay, or press ESC to leave. No gameplay/production input applies.
+                if (m_world.isReplayActive()) {
+                    switch (key) {
+                        case core::model::Key::Escape:
+                            m_logicBus.push(std::make_unique<command::QuitToLobbyCommand>());
+                            break;
+                        case core::model::Key::Left:  m_camera.moveBy({-kCameraStep, 0.0f}); break;
+                        case core::model::Key::Right: m_camera.moveBy({ kCameraStep, 0.0f}); break;
+                        case core::model::Key::Up:    m_camera.moveBy({0.0f, -kCameraStep}); break;
+                        case core::model::Key::Down:  m_camera.moveBy({0.0f,  kCameraStep}); break;
+                        case core::model::Key::F3:    m_showDebugOverlay = !m_showDebugOverlay; break;
+                        default: break;
+                    }
+                    return;
+                }
+
                 // Result screen: Enter restarts the match; all other input is inert.
                 if (m_world.gameResult() != core::world::GameResult::InProgress) {
                     if (key == core::model::Key::Enter) {
@@ -349,8 +389,14 @@ namespace rts::core::manager {
 
                 switch (key) {
                     case core::model::Key::Escape:
-                        // Cancel an armed build placement back to the default mode.
-                        m_worldOrderMode = WorldOrderMode::Attack;
+                        // First press cancels an armed order (build placement, etc.)
+                        // back to the default mode; from the default mode it leaves the
+                        // match and returns to the lobby (the replay is saved there).
+                        if (m_worldOrderMode != WorldOrderMode::Attack) {
+                            m_worldOrderMode = WorldOrderMode::Attack;
+                        } else {
+                            m_logicBus.push(std::make_unique<command::QuitToLobbyCommand>());
+                        }
                         break;
                     case core::model::Key::F3:
                         // Toggle the deterministic debug overlay (tick + world hash).
@@ -438,7 +484,8 @@ namespace rts::core::manager {
     }
 
     void GameUIManager::issueWorldOrderAtWorld(const core::model::Vector2D& worldPos) {
-        if (m_world.gameResult() != core::world::GameResult::InProgress) {
+        if (m_world.gameResult() != core::world::GameResult::InProgress ||
+            m_world.isReplayActive()) {
             return;
         }
 
@@ -490,7 +537,8 @@ namespace rts::core::manager {
     }
 
     void GameUIManager::handleGameplayInput(const command::GameplayInputCommand& cmd) {
-        if (m_world.gameResult() != core::world::GameResult::InProgress) {
+        if (m_world.gameResult() != core::world::GameResult::InProgress ||
+            m_world.isReplayActive()) {
             return;
         }
         switch (cmd.action()) {

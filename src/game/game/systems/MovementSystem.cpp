@@ -443,20 +443,29 @@ namespace {
         const GameWorld& world,
         Unit& unit,
         const CollisionSystem& collision) {
+        bool moved = false;
+
+        // First evict the unit from any building/resource footprint it overlaps. The
+        // push points outward and only reduces penetration, so it is applied directly
+        // (not gated) — a unit deep inside a structure escapes over several ticks
+        // instead of being permanently stuck.
+        if (const auto escape = collision.structureEscapePush(world, unit, unit.getPosition())) {
+            unit.setPosition(unit.getPosition() + *escape);
+            moved = true;
+        }
+
         const auto push = collision.localAvoidancePush(world, unit, unit.getPosition());
-        if (!push) {
-            return false;
+        if (push) {
+            const auto pushedPosition = unit.getPosition() + *push;
+            // Unit-unit overlaps resolve over several ticks; requiring one push to
+            // fully clear the collision would keep fully stacked units permanently stuck.
+            if (collision.canApplyUnitSeparationTo(world, unit, pushedPosition)) {
+                unit.setPosition(pushedPosition);
+                moved = true;
+            }
         }
 
-        const auto pushedPosition = unit.getPosition() + *push;
-        if (!collision.canApplyUnitSeparationTo(world, unit, pushedPosition)) {
-            return false;
-        }
-
-        // Unit-unit overlaps resolve over several ticks; requiring one push to
-        // fully clear the collision would keep fully stacked units permanently stuck.
-        unit.setPosition(pushedPosition);
-        return true;
+        return moved;
     }
 
     const char* pathFailureReason(
@@ -593,8 +602,14 @@ namespace rts::core::manager {
                     separatedFromUnits = applyUnitSeparation(world, *unit, collision);
                 }
 
-                // Movement is speculative until the collision system accepts the next position.
-                if (unit->getAction() != model::ActionType::Dead) {
+                // Movement is speculative until the collision system accepts the next
+                // position. Gather/Build workers deliberately approach a structure's
+                // footprint edge (bounded by their interact range), so they are exempt
+                // from the revert that would otherwise stop them short of the building.
+                const auto act = unit->getAction();
+                if (act != model::ActionType::Dead &&
+                    act != model::ActionType::Gather &&
+                    act != model::ActionType::Build) {
                     const auto hit = collision.findMoveBlocker(world, *unit, unit->getPosition());
                     if (hit.has_value() && !(separatedFromUnits && hit->isUnit)) {
                         unit->setPosition(previousPosition);

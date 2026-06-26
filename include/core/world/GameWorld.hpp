@@ -110,6 +110,11 @@ namespace rts::core::world {
         GameResult gameResult() const noexcept { return m_gameResult; }
         void setGameResult(GameResult result) noexcept { m_gameResult = result; }
 
+        // True while a replay is being played back: the UI reads this (like
+        // gameResult) to ignore live player input so the viewer can only watch.
+        bool isReplayActive() const noexcept { return m_replayActive; }
+        void setReplayActive(bool active) noexcept { m_replayActive = active; }
+
         // Monotonic logic-tick index; advanced once per fixed simulation tick.
         sim::TickCount currentTick() const noexcept { return m_currentTick; }
         void advanceTick() noexcept { ++m_currentTick; }
@@ -162,6 +167,7 @@ namespace rts::core::world {
         uint64_t m_collisionVersion { 0 };
         sim::TickCount m_currentTick { 0 };
         GameResult m_gameResult { GameResult::InProgress };
+        bool m_replayActive { false };
         mutable std::shared_mutex m_mutex;
     };
 

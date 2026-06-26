@@ -336,6 +336,7 @@ namespace rts::core::data {
                 d.woodCost      = e.value("woodCost", d.woodCost);
                 d.foodCost      = e.value("foodCost", d.foodCost);
                 if (!requirePositive("maxHp", id, d.maxHp)) { allOk = false; continue; }
+                if (!requirePositive("sightRange", id, d.sightRange)) { allOk = false; continue; }
                 if (!requirePositive("collisionRadius", id, d.collisionRadius)) { allOk = false; continue; }
                 m_units[*type] = d;
                 ++unitCount;

@@ -19,7 +19,11 @@ namespace rts::core::thread {
     LogicThread::LogicThread(command::LogicCommandBus& bus, command::LogicCommandRouter& router)
         : m_CommandBus(bus)
         , m_CommandRouter(router) {
-        router.on<command::ChangeLogicManagerCommand>(
+        registerRouterHandlers();
+    }
+
+    void LogicThread::registerRouterHandlers() {
+        m_CommandRouter.on<command::ChangeLogicManagerCommand>(
             [this](const command::ChangeLogicManagerCommand& cmd) {
                 m_logic = cmd.logic();
             }
@@ -37,17 +41,23 @@ namespace rts::core::thread {
         auto nextTick = clock::now();
 
         while (isRunning()) {
-            // 1️⃣ Command 처리 (이벤트)
-            command::LogicCommandPtr cmd;
-            while (m_CommandBus.tryPop(cmd)) {
-                m_CommandRouter.dispatch(*cmd);
-            }
+            {
+                // The SceneManager holds m_tickMutex for the duration of a scene swap;
+                // blocking here keeps command dispatch, tick, and the manager's
+                // lifetime from racing the router rebuild / scope teardown.
+                std::lock_guard<std::mutex> swapGuard(m_tickMutex);
 
+                // 1️⃣ Command 처리 (이벤트)
+                command::LogicCommandPtr cmd;
+                while (m_CommandBus.tryPop(cmd)) {
+                    m_CommandRouter.dispatch(*cmd);
+                }
 
-            if (m_logic) {
-                m_inTick.store(true, std::memory_order_release);
-                m_logic->tick(dt);
-                m_inTick.store(false, std::memory_order_release);
+                if (m_logic) {
+                    m_inTick.store(true, std::memory_order_release);
+                    m_logic->tick(dt);
+                    m_inTick.store(false, std::memory_order_release);
+                }
             }
             // 3️⃣ 다음 tick 시점 계산
             nextTick += TICK;

@@ -38,6 +38,12 @@ namespace rts::core::manager {
                                       const model::Unit& unit,
                                       const model::Vector2D& pos) const;
 
+        // Outward push to evict a unit overlapping a static structure's footprint
+        // rectangle (units spawned/pushed inside a building escape over a few ticks).
+        std::optional<model::Vector2D> structureEscapePush(const world::GameWorld& world,
+                                                           const model::Unit& unit,
+                                                           const model::Vector2D& pos) const;
+
         float movingUnitRadius() const noexcept;
     };
 }

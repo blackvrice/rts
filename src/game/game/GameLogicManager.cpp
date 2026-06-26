@@ -2,12 +2,16 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <limits>
 #include <memory>
 #include <vector>
+
+#include "core/app/SessionContext.hpp"
+#include "core/command/LogicCommand.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -71,6 +75,14 @@ namespace rts::core::manager {
             setupInitialWorld();
         }
 
+        // If the lobby asked us to play back a specific replay, load it now;
+        // otherwise record this live match so it can be reviewed afterwards.
+        if (auto replay = core::app::SessionContext::instance().takeReplayToPlay()) {
+            startReplayFrom(*replay);
+        } else {
+            beginRecording();
+        }
+
         m_router.on<command::SelectCommand>([this](const command::SelectCommand &cmd) {
             if (!acceptPlayerCommand(cmd)) return;
             auto lock = m_world.acquireWriteLock();
@@ -91,6 +103,7 @@ namespace rts::core::manager {
         m_router.on<command::RestartCommand>([this](const command::RestartCommand &) {
             if (m_world.gameResult() != core::world::GameResult::InProgress) {
                 restartMatch();
+                beginRecording();  // a fresh match records from the start again
             }
         });
 
@@ -119,6 +132,12 @@ namespace rts::core::manager {
         });
         m_router.on<command::PlayReplayCommand>([this](const command::PlayReplayCommand &) {
             startReplay();
+        });
+
+        // Leave the match (ESC): persist the recorded replay, then return to the lobby.
+        m_router.on<command::QuitToLobbyCommand>([this](const command::QuitToLobbyCommand &) {
+            saveReplayToAppData();
+            m_bus.push(std::make_unique<command::SceneChangeCommand>("lobby"));
         });
 
         m_router.on<command::MoveCommand>([this](const command::MoveCommand &cmd) {
@@ -205,6 +224,11 @@ namespace rts::core::manager {
     }
 
     void GameLogicManager::tick(float dt) {
+        // A finished replay freezes on its final frame: no further simulation, and
+        // input stays locked (replayActive) until the viewer leaves to the lobby.
+        if (m_simFrozen) {
+            return;
+        }
         // Playback: re-dispatch the recorded commands for this tick before the world
         // lock (each handler takes its own lock), matching live-command timing.
         if (m_replayMode == ReplayMode::Play) {
@@ -245,9 +269,12 @@ namespace rts::core::manager {
                 if (const auto h = m_replay.hashForTick(t); h && *h != m_world.worldHash()) {
                     std::cerr << "[Replay] divergence at tick " << t << "\n";
                 }
-                if (t >= m_replay.lastTick()) {
-                    m_replayMode = ReplayMode::Off;
-                    std::cout << "[Replay] playback finished at tick " << t << "\n";
+                if (t >= m_replay.lastTick() && !m_simFrozen) {
+                    // Freeze on the final frame and keep input locked (mode stays Play,
+                    // replayActive stays true) so the finished replay never becomes a
+                    // live, controllable match. The viewer leaves with ESC.
+                    m_simFrozen = true;
+                    std::cout << "[Replay] playback finished at tick " << t << " (frozen)\n";
                 }
             }
         }
@@ -1229,10 +1256,11 @@ namespace rts::core::manager {
     // Match lifecycle
     // =========================================================
     void GameLogicManager::setupInitialWorld() {
-        // Scenario comes from data/maps/skirmish.json (falls back to a built-in
-        // default), so the starting layout is editable without recompiling.
+        // Scenario comes from the Tiled map data/maps/tiled_skirmish.tmx (loadMap
+        // routes .tmx through tmxlite; falls back to a built-in default on failure),
+        // so the starting layout is editable in Tiled without recompiling.
         const auto map = core::map::loadMap(
-            std::string(core::data::DataRoot) + "/maps/skirmish.json");
+            std::string(core::data::DataRoot) + "/maps/tiled_skirmish.tmx");
 
         m_world.initTileMap(map.width, map.height, map.tileSize);
         for (const auto& tile : map.blockedTiles) {
@@ -1462,19 +1490,57 @@ namespace rts::core::manager {
         }
         // Begin from a known initial state so the stream replays deterministically.
         restartMatch();
-        m_replay.clear();
-        m_replay.setMapPath(std::string(core::data::DataRoot) + "/maps/skirmish.json");
-        m_replayMode = ReplayMode::Record;
+        beginRecording();
         std::cout << "[Replay] recording started\n";
     }
 
+    void GameLogicManager::beginRecording() {
+        // Caller has already set up the starting world; capture the stream from tick 0.
+        m_replay.clear();
+        m_replay.setMapPath(std::string(core::data::DataRoot) + "/maps/tiled_skirmish.tmx");
+        m_replayMode = ReplayMode::Record;
+        m_replaySaved = false;
+        m_world.setReplayActive(false);  // live match: player input applies
+    }
+
     void GameLogicManager::startReplay() {
+        restartMatch();  // rewind to the initial state the replay was recorded from
         if (!m_replay.load(replayPath())) {
             return;
         }
-        restartMatch();  // rewind to the initial state the replay was recorded from
         m_replayMode = ReplayMode::Play;
+        m_replaySaved = true;  // a replayed match is never re-saved
+        m_world.setReplayActive(true);  // viewer-only: ignore live player input
         std::cout << "[Replay] playback started (" << m_replay.lastTick() << " ticks)\n";
+    }
+
+    void GameLogicManager::startReplayFrom(const std::string& path) {
+        // The world was just set up by the constructor, so no restart is needed.
+        if (!m_replay.load(path)) {
+            std::cout << "[Replay] failed to load " << path << " (recording instead)\n";
+            beginRecording();
+            return;
+        }
+        m_replayMode = ReplayMode::Play;
+        m_replaySaved = true;  // a replayed match is never re-saved
+        m_world.setReplayActive(true);  // viewer-only: ignore live player input
+        std::cout << "[Replay] playback started from " << path
+                  << " (" << m_replay.lastTick() << " ticks)\n";
+    }
+
+    void GameLogicManager::saveReplayToAppData() {
+        if (m_replayMode != ReplayMode::Record || m_replaySaved) {
+            return;
+        }
+        m_replaySaved = true;
+        std::time_t now = std::time(nullptr);
+        char stamp[32] {};
+        std::strftime(stamp, sizeof(stamp), "%Y%m%d_%H%M%S", std::localtime(&now));
+        const std::string path =
+            core::app::SessionContext::replaysDir() + "/replay_" + stamp + ".json";
+        if (m_replay.save(path)) {
+            std::cout << "[Replay] saved to " << path << "\n";
+        }
     }
 
     bool GameLogicManager::acceptPlayerCommand(const command::LogicCommand& c) {
@@ -1899,14 +1965,16 @@ namespace rts::core::manager {
         if (playerHalls == 0) {
             m_world.setGameResult(core::world::GameResult::Defeat);
             world::emitSound(m_world, world::SoundCue::Defeat, {}, 80.0f);
+            saveReplayToAppData();
         } else if (enemyHalls == 0) {
             m_world.setGameResult(core::world::GameResult::Victory);
             world::emitSound(m_world, world::SoundCue::Victory, {}, 80.0f);
+            saveReplayToAppData();
         }
     }
 
     void GameLogicManager::captureFeedbackSnapshots() {
-        std::unordered_map<std::uint32_t, ElementSnapshot> next;
+        std::unordered_map<std::uint64_t, ElementSnapshot> next;
         for (const auto& element : m_world.getElements()) {
             auto gameElement = std::dynamic_pointer_cast<model::IGameElement>(element);
             if (!gameElement) {
@@ -1923,7 +1991,8 @@ namespace rts::core::manager {
                 hp = static_cast<float>(resource->remaining());
             }
 
-            const auto id = gameElement->entityId().index;
+            const auto eid = gameElement->entityId();
+            const auto id = (static_cast<std::uint64_t>(eid.index) << 32) | eid.generation;
             const auto action = gameElement->getAction();
             if (const auto it = m_feedbackSnapshots.find(id); it != m_feedbackSnapshots.end()) {
                 const auto& prev = it->second;
@@ -1937,8 +2006,8 @@ namespace rts::core::manager {
                     action == model::ActionType::Dead) {
                     const auto pos = gameElement->getPosition();
                     world::emitSound(m_world, world::SoundCue::Death, pos, 58.0f);
+                    // Brief death puff only; no lingering blood/scorch decal at the spot.
                     world::emitEffect(m_world, world::EffectType::DeathBurst, pos, 52.0f, 0.6f);
-                    world::emitEffect(m_world, world::EffectType::BloodDecal, pos, 24.0f, 6.0f, 0x4A050566u);
                 }
                 if (!prev.complete && complete) {
                     world::emitSound(m_world, world::SoundCue::ConstructionComplete,
@@ -1947,11 +2016,15 @@ namespace rts::core::manager {
                                       gameElement->getPosition(), 82.0f, 0.75f);
                 }
             }
-            next[id] = ElementSnapshot {
-                .hp = hp,
-                .complete = complete,
-                .action = action
-            };
+            // Dead elements linger in the world; don't keep tracking them (the
+            // death transition already fired) so they can't seed phantom feedback.
+            if (action != model::ActionType::Dead) {
+                next[id] = ElementSnapshot {
+                    .hp = hp,
+                    .complete = complete,
+                    .action = action
+                };
+            }
         }
         m_feedbackSnapshots.swap(next);
     }

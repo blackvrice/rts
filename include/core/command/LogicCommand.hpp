@@ -61,6 +61,11 @@ namespace rts::core::command {
     class PlayReplayCommand final : public LogicCommand {
     };
 
+    // Leave the current match: the logic layer saves the recorded replay, then the
+    // scene returns to the lobby (ESC).
+    class QuitToLobbyCommand final : public LogicCommand {
+    };
+
     class ResumeGameCommand final : public LogicCommand {
     };
 
