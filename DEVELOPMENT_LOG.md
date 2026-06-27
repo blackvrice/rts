@@ -1,5 +1,28 @@
 # Development Log
 
+## 2026-06-27 - Route Gameplay Sound Cues Through The Audio Thread
+
+- Connected the existing gameplay sound-cue feedback to the new audio thread, completing the "audio off the main thread" goal. Previously `SfmlRenderManager` consumed `render::PlaySound` commands on the render/main thread and synthesized + played one-shot tones inline (`toneForCue`/`soundBufferForCue`/`playSoundCue` + `g_soundBuffers`/`g_playingSounds` globals).
+- Added `PlayCueCommand` (cue key + volume) and moved the entire tone-synthesis path into `SfmlAudioManager` (cached per-cue buffers in `m_cueBuffers`, shared voice pool/master volume with the asset-based path). `SfmlRenderManager::draw(PlaySound)` is now a non-static member that just pushes a `PlayCueCommand` to the `AudioCommandBus`; the audio thread does the synthesis and playback. Removed the audio globals and the now-unused SFML Audio includes from the render manager.
+- `SfmlRenderManager` now takes an `AudioCommandBus&` (wired through `GameApp` DI). Net effect: zero audio work on the main thread — gameplay feedback (select/move/attack/death/victory/etc.) plays on `AudioThread` with the exact same synthesized tones as before.
+- Verification: rebuilt `RTS` (debug) — compiles and links clean. (clangd still reports SFML/include-path false positives; g++ build is clean.)
+
+## 2026-06-27 - SFML Audio Manager (Concrete Off-Thread Playback)
+
+- Built the concrete audio backend on top of the new bus/router/thread scaffolding. Added playback commands to `AudioCommand.hpp`: `PlaySoundCommand` (one-shot sfx by asset-relative name + volume), `PlayMusicCommand` (streamed track, loops by default), `StopMusicCommand`, and `SetMasterVolumeCommand`.
+- Added `SfmlAudioManager` (`include`/`src` under `platform/sfml`) implementing `IAudioManager`. It registers its handlers on the `AudioCommandRouter` in its constructor, so all playback runs on the AudioThread when it dispatches drained commands. Sound buffers are lazily loaded and cached (load misses are cached too, so a missing file is not retried); one-shot voices live in a `std::list<sf::Sound>` (stable addresses) capped at 64 and reclaimed in `update()` via `getStatus() == Stopped`. A single `sf::Music` handles streaming; master volume scales both voices and music.
+- Added a configured `AudioRoot` asset path (`assets/audio`, new `RTS_AUDIO_ROOT` in CMake + `SfmlAssetPaths.hpp.in`) mirroring `TinySwordsRoot`. Created `assets/audio/` with a README; no sound files shipped yet, so playback is a graceful no-op until assets are added.
+- Wired `SfmlAudioManager` into `GameApp` DI as the `IAudioManager` singleton and installed it into the thread at startup by pushing a `ChangeAudioManagerCommand` before `AudioThread::start()`. Registered the new sources in CMake.
+- Verification: rebuilt `RTS` (debug) — compiles and links clean. (IDE/clangd flagged include-path false positives for SFML headers; the g++ build resolves them via the SFML target, same as the existing SfmlRenderManager.)
+- Next: emit `PlaySoundCommand`s from gameplay/UI events (selection, attack, train-complete) by giving those managers access to the `AudioCommandBus`, and add actual `.wav`/`.ogg` assets.
+
+## 2026-06-27 - Audio Command Bus/Router + Dedicated Audio Thread
+
+- Completed the audio off-thread scaffolding to match the existing Logic pipeline (Bus = thread-safe queue, Router = type-indexed dispatcher, Thread = consumer). The half-written stubs were inconsistent: `AudioCommandBus` wrongly derived from `CommandRouterBase` (a dispatcher) instead of being a queue, `AudioCommandRouter` was referenced everywhere but never defined, `AudioThread` had no `.cpp`, and the audio headers were attached to the `imgui` CMake target by mistake.
+- Rewrote `AudioCommandBus` as a `std::queue` + mutex (mirrors `LogicCommandBus`); added `AudioCommandRouter` (`CommandRouterBase<AudioCommand>`) and a `ChangeAudioManagerCommand` so the thread can swap its `IAudioManager` like `ChangeLogicManagerCommand` does for logic. Fixed `;;` typos in `IAudioManager`/`AudioThread`.
+- Added `src/core/thread/AudioThread.cpp`: drains the bus, dispatches via the router, and runs the manager (`update()` + `tick`) on a steady ~60Hz poll (audio needs no deterministic fixed step). Wired bus/router/thread into `GameApp` DI and start/stop (`AudioThread` stops before `LogicThread`). Moved the audio headers from the `imgui` target to the `RTS` executable in CMake and registered the new `.cpp`.
+- Verification: rebuilt `RTS` (debug) — compiles and links clean. Audio manager remains null until a `ChangeAudioManagerCommand` installs one (no concrete `IAudioManager` impl yet — that's the next step).
+
 ## 2026-06-26 - Sprint 3 WorldHash Coverage Expansion
 
 - Started Sprint 3 by widening `GameWorld::worldHash()` to cover more deterministic simulation state instead of only visible entity position/HP/action.

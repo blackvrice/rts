@@ -9,6 +9,7 @@
 #include "core/command/CommandRouterBase.hpp"
 #include "core/command/LogicCommandBus.hpp"
 #include "core/command/UICommandBus.hpp"
+#include "core/command/AudioCommandBus.hpp"
 #include "core/di/DIContainer.hpp"
 #include "core/manager/CameraManager.hpp"
 #include "game/game/GameLogicManager.hpp"
@@ -22,6 +23,9 @@
 #include "game/lobby/LobbyUIManager.hpp"
 #include "platform/sfml/SfmlRenderManager.hpp"
 #include "platform/sfml/SfmlWindow.hpp"
+#include "platform/sfml/SfmlAudioManager.hpp"
+#include "core/command/AudioCommand.hpp"
+#include "core/manager/IAudioManager.hpp"
 #include "core/manager/SceneManager.hpp"
 #include "core/manager/PathManager.hpp"
 #include "core/model/Vector2D.hpp"
@@ -29,6 +33,7 @@
 #include "core/render/RenderContext.hpp"
 #include "core/render/RenderQueue.hpp"
 #include "core/thread/LogicThread.hpp"
+#include "core/thread/AudioThread.hpp"
 #include "core/world/GameWorld.hpp"
 #include "core/world/GameWorldGridQuery.hpp"
 
@@ -68,6 +73,28 @@ namespace rts::core {
                 auto &bus = *di.resolve<command::LogicCommandBus>();
                 auto &router = *di.resolve<command::LogicCommandRouter>();
                 return std::make_shared<thread::LogicThread>(bus, router);
+            }
+        );
+
+        di.registerSingleton<command::AudioCommandBus>(
+            [](auto &) { return std::make_shared<command::AudioCommandBus>(); }
+        );
+        di.registerSingleton<command::AudioCommandRouter>(
+            [](auto &) { return std::make_shared<command::AudioCommandRouter>(); }
+        );
+        di.registerSingleton<thread::AudioThread>(
+            [](DIContainer &di) {
+                auto &bus = *di.resolve<command::AudioCommandBus>();
+                auto &router = *di.resolve<command::AudioCommandRouter>();
+                return std::make_shared<thread::AudioThread>(bus, router);
+            }
+        );
+        di.registerSingleton<manager::IAudioManager>(
+            [](DIContainer &di) {
+                auto &bus = *di.resolve<command::AudioCommandBus>();
+                auto &router = *di.resolve<command::AudioCommandRouter>();
+                return std::static_pointer_cast<manager::IAudioManager>(
+                    std::make_shared<platform::sfml::SfmlAudioManager>(bus, router));
             }
         );
 
@@ -186,7 +213,8 @@ namespace rts::core {
         di.registerSingleton<render::IRenderManager>(
             [](DIContainer &di) {
                 auto &uiBus = *di.resolve<command::UICommandBus>();
-                return std::make_shared<platform::sfml::SfmlRenderManager>(uiBus);
+                auto &audioBus = *di.resolve<command::AudioCommandBus>();
+                return std::make_shared<platform::sfml::SfmlRenderManager>(uiBus, audioBus);
             }
         );
 
@@ -210,6 +238,13 @@ namespace rts::core {
         );
 
         m_logicThread = di.resolve<thread::LogicThread>();
+        m_audioThread = di.resolve<thread::AudioThread>();
+        m_audioBus = di.resolve<command::AudioCommandBus>();
+        m_audioRouter = di.resolve<command::AudioCommandRouter>();
+        m_audioManager = di.resolve<manager::IAudioManager>();
+        // Install the audio manager into the thread before it starts; the thread
+        // owns a reference and dispatches drained commands to its router handlers.
+        m_audioBus->push(std::make_unique<command::ChangeAudioManagerCommand>(m_audioManager));
         m_uiBus = di.resolve<command::UICommandBus>();
         m_uiRouter = di.resolve<command::UICommandRouter>();
         m_logicBus = di.resolve<command::LogicCommandBus>();
@@ -225,6 +260,7 @@ namespace rts::core {
         using clock = std::chrono::steady_clock;
         auto& window = m_renderContext->window();
         m_logicThread->start();
+        m_audioThread->start();
         while (window.isOpen()) {
             window.clear();
             // 1️⃣ OS 이벤트 수집
@@ -248,6 +284,7 @@ namespace rts::core {
 
             window.display();
         }
+        m_audioThread->stop();
         m_logicThread->stop();
     }
 } // namespace rts::core

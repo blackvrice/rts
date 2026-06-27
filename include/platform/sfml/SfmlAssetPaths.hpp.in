@@ -2,4 +2,7 @@
 
 namespace rts::platform::sfml {
     inline constexpr const char* TinySwordsRoot = R"RTS(@RTS_TINY_SWORDS_ROOT@)RTS";
+    // Root of runtime audio assets (sfx/music), resolved at configure time so the
+    // SfmlAudioManager finds files regardless of working directory.
+    inline constexpr const char* AudioRoot = R"RTS(@RTS_AUDIO_ROOT@)RTS";
 }

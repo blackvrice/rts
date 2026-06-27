@@ -18,6 +18,8 @@ set(RTS_TINY_SWORDS_ROOT "${CMAKE_SOURCE_DIR}/Tiny Swords (Free Pack)/Tiny Sword
 # Data files (JSON) consumed at runtime by DataRegistry. Resolved via a
 # configured absolute path so the executable finds them regardless of CWD.
 set(RTS_DATA_ROOT "${CMAKE_SOURCE_DIR}/data")
+# Runtime audio assets (sfx/music) loaded by SfmlAudioManager.
+set(RTS_AUDIO_ROOT "${CMAKE_SOURCE_DIR}/assets/audio")
 
 find_package(SFML 3 REQUIRED COMPONENTS System Window Graphics Audio)
 find_package(OpenGL REQUIRED)
@@ -88,6 +90,10 @@ add_executable(RTS
         include/core/command/LogicCommandBus.hpp
         include/core/thread/LogicThread.hpp
         src/core/thread/LogicThread.cpp
+        include/core/command/AudioCommand.hpp
+        include/core/command/AudioCommandBus.hpp
+        include/core/thread/AudioThread.hpp
+        src/core/thread/AudioThread.cpp
         include/core/app/GameApp.hpp
         src/core/di/GameApp.cpp
         include/core/ecs/Entity.hpp
@@ -123,6 +129,7 @@ add_executable(RTS
         include/core/command/UICommandBus.hpp
         include/core/command/UICommand.hpp
         include/core/command/LogicCommand.hpp
+        include/core/command/CommandRouterBase.hpp
         include/core/manager/CameraManager.hpp
         src/core/manager/CameraManager.cpp
         include/core/Manager/SceneManager.hpp
@@ -164,6 +171,8 @@ add_executable(RTS
         src/platform/sfml/SfmlRenderManager.cpp
         include/platform/sfml/SfmlHudOverlay.hpp
         src/platform/sfml/SfmlHudOverlay.cpp
+        include/platform/sfml/SfmlAudioManager.hpp
+        src/platform/sfml/SfmlAudioManager.cpp
         include/platform/sfml/SfmlAssetPaths.hpp.in
         include/core/render/RenderContext.hpp
         src/game/login/LoginLogicManager.cpp
@@ -230,6 +239,7 @@ add_executable(RTS
         include/core/viewmodel/BuildingViewModel.hpp
         include/core/viewmodel/ProjectileViewModel.hpp
         include/core/viewmodel/ResourceNodeViewModel.hpp
+        include/core/manager/IAudioManager.hpp
 )
 
 # tmxlite

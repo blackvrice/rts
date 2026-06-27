@@ -1,9 +1,4 @@
-﻿//
-// Created by black on 25. 12. 6..
-//
-
-#ifndef RTS_THREADBASE_HPP
-#define RTS_THREADBASE_HPP
+﻿
 
 // include/rts/core/ThreadBase.hpp
 #pragma once
@@ -41,6 +36,3 @@ namespace rts::core::thread {
     };
 
 } // namespace rts::core
-
-
-#endif //RTS_THREADBASE_HPP

@@ -11,6 +11,7 @@
 
 namespace rts::core::command {
     class UICommandBus;
+    class AudioCommandBus;
 }
 
 namespace rts::core::render {
@@ -30,7 +31,8 @@ namespace rts::platform::sfml {
 
     class SfmlRenderManager : public core::render::IRenderManager {
     public:
-        explicit SfmlRenderManager(core::command::UICommandBus& uiBus);
+        SfmlRenderManager(core::command::UICommandBus& uiBus,
+                          core::command::AudioCommandBus& audioBus);
         ~SfmlRenderManager() override;
 
         void execute(const core::render::RenderQueue& queue, const core::render::RenderContext& ctx) override;
@@ -50,10 +52,12 @@ namespace rts::platform::sfml {
 
         static void draw(sf::RenderWindow& window, const core::render::UpdateHudCursor& cursor);
 
-        static void draw(sf::RenderWindow& window, const core::render::PlaySound& sound);
+        // Non-static: forwards the cue to the audio thread via m_audioBus.
+        void draw(sf::RenderWindow& window, const core::render::PlaySound& sound);
 
         static void draw(sf::RenderWindow& window, const core::render::UpdateMinimap& minimap);
 
         std::unique_ptr<SfmlHudOverlay> m_hud;
+        core::command::AudioCommandBus& m_audioBus;
     };
 }

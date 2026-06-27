@@ -5,6 +5,7 @@
 #include <vector>
 #include <functional>
 
+#include "AudioCommand.hpp"
 #include "LogicCommand.hpp"
 #include "UICommand.hpp"
 
@@ -63,4 +64,6 @@ namespace rts::core::command {
     class LogicCommandRouter final
         : public CommandRouterBase<LogicCommand> {};
 
+    class AudioCommandRouter final
+        : public CommandRouterBase<AudioCommand> {};
 } // namespace rts::command

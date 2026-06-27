@@ -31,8 +31,8 @@ This document is a quick orientation map for future AI agents working in this re
 ## Core Layer
 
 - `include/core/app` and `src/core/di` hold application startup and dependency wiring, including `GameApp`.
-- `include/core/command` defines command types and command buses used between UI and logic.
-- `include/core/thread` and `src/core/thread` contain logic-thread support.
+- `include/core/command` defines command types and command buses used between UI and logic. Each domain follows a two-part pattern: a `*CommandBus` (thread-safe queue for cross-thread hand-off) plus a `*CommandRouter` (type-indexed dispatcher from `CommandRouterBase`). Logic, UI, and Audio each have their own bus/router pair.
+- `include/core/thread` and `src/core/thread` contain off-thread workers: `LogicThread` drives the fixed-step simulation and `AudioThread` drains `AudioCommandBus` to drive an `IAudioManager` on its own ~60Hz poll. Both swap their managed manager via a `Change*ManagerCommand`.
 - `include/core/manager` and `src/core/manager` contain cross-scene managers such as scene, camera, and path management.
 - `include/core/scene` defines scene interfaces.
 - `include/core/map` + `src/core/map`: terrain (`TileMapSoA`), fog of war, and `MapData`/`MapLoader` — a JSON scenario (`data/maps/*.json`) defining grid size, starting resources, and building/unit/resource placement. `GameLogicManager::setupInitialWorld` loads it (falling back to a built-in default) instead of hard-coding the starting layout; type ids resolve through `DataRegistry`.
@@ -59,7 +59,9 @@ This document is a quick orientation map for future AI agents working in this re
 ## Platform Layer
 
 - `include/platform/IWindow.hpp` defines the platform window abstraction.
-- `include/platform/sfml` and `src/platform/sfml` contain SFML-backed windowing, rendering, HUD overlay, font metrics, synthesized sound cue playback, and asset-path integration.
+- `include/platform/sfml` and `src/platform/sfml` contain SFML-backed windowing, rendering, HUD overlay, font metrics, audio playback, and asset-path integration.
+- `SfmlAudioManager` is the SFML-backed `IAudioManager` driven by `AudioThread`: it registers `PlayCueCommand`/`PlaySoundCommand`/`PlayMusicCommand`/`StopMusicCommand`/`SetMasterVolumeCommand` handlers on the `AudioCommandRouter`, lazily caches `sf::SoundBuffer`s, pools one-shot voices, and streams one `sf::Music`. It loads files from the configured `AudioRoot` (`assets/audio`) and synthesizes one-shot tones per gameplay `SoundCue`. All playback runs on the audio thread.
+- Gameplay `SoundCue` feedback flows logic → `RenderQueue` (`render::PlaySound`) → `SfmlRenderManager`, which forwards a `PlayCueCommand` to the `AudioCommandBus` rather than playing inline; tone synthesis lives in `SfmlAudioManager`, not the render thread.
 - `SfmlHudOverlay` draws the ImGui HUD command panel and emits gameplay UI input through `UICommandBus`; `GameUIManager` translates those UI inputs into `LogicCommand` payloads when enough target data exists.
 - HUD resource numbers are supplied through `RenderQueue` using `UpdateHudResources`; avoid hardcoding live economy values in `SfmlHudOverlay`.
 
