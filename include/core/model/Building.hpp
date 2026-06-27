@@ -64,6 +64,11 @@ namespace rts::core::model {
         BuildingType buildingType() const { return m_type; }
         bool isDropOff() const noexcept;
         core::data::ArmorType armorType() const override;
+        // World-unit reach added to an attacker's range so units can hit the
+        // building from its footprint edge instead of needing to reach its center.
+        // Set by GameWorld::addElement once the map tile size is known.
+        float attackHitRadius() const noexcept override { return m_attackHitRadius; }
+        void setAttackHitRadius(float radius) noexcept { m_attackHitRadius = radius; }
         std::string displayName() const override;
         float getHp() const { return m_hp; }
         float getMaxHp() const { return m_maxHp; }
@@ -112,6 +117,9 @@ namespace rts::core::model {
         bool m_completed = true;
         float m_buildTime = 0.f;
         float m_buildProgress = 0.f;
+        // Footprint half-diagonal in world units; covers every approach angle so a
+        // unit blocked at any wall/corner still registers as in attack range.
+        float m_attackHitRadius = 52.f;
         GameState m_state{};
     };
 

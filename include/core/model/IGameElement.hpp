@@ -86,6 +86,12 @@ namespace rts::core::model {
         // 기본 Ground (건물·자원 포함); 공중 유닛만 오버라이드.
         virtual data::MovementDomain movementDomain() const { return data::MovementDomain::Ground; }
 
+        // 공격 사거리 판정용 대상 반경 (월드 단위). 사거리는 중심-중심 거리로
+        // 재므로, 대상의 몸체 크기만큼을 공격 측 사거리에 더해 가장자리 기준으로
+        // 판정한다. 건물처럼 풋프린트가 큰 대상이 붙어 있어도 공격되지 않는 문제를
+        // 막는다. 기본 0(점); Unit/Building이 오버라이드.
+        virtual float attackHitRadius() const noexcept { return 0.f; }
+
         // 엔티티 핸들 (GameWorld가 addElement 시 부여)
         ecs::EntityId entityId() const noexcept { return m_entityId; }
         void setEntityId(const ecs::EntityId id) noexcept { m_entityId = id; }

@@ -132,6 +132,7 @@ namespace rts::core::model {
         core::data::ArmorType getArmorType() const noexcept;
         core::data::ArmorType armorType() const override { return m_armorType; }
         core::data::MovementDomain movementDomain() const override { return m_domain; }
+        float attackHitRadius() const noexcept override { return m_collisionRadius; }
         // 공격 가능 대상 판정: 살아있는 적(다른 팀, 중립 자원 제외)이며
         // 이 유닛의 지상/공중 공격 능력이 대상 레이어를 커버할 때만 true.
         bool canAttackTarget(const IGameElement* target) const;
@@ -283,7 +284,6 @@ namespace rts::core::model {
         core::data::MovementDomain m_domain = core::data::MovementDomain::Ground;
         bool m_attacksGround = true;
         bool m_attacksAir = true;
-        float m_attackRangeSq = 0.f;  // cached attackRange^2 for range checks
 
         float m_hp = 100.f;
         float m_maxHp = 100.f;

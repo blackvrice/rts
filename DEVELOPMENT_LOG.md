@@ -7,6 +7,14 @@
 - `SfmlRenderManager` now takes an `AudioCommandBus&` (wired through `GameApp` DI). Net effect: zero audio work on the main thread — gameplay feedback (select/move/attack/death/victory/etc.) plays on `AudioThread` with the exact same synthesized tones as before.
 - Verification: rebuilt `RTS` (debug) — compiles and links clean. (clangd still reports SFML/include-path false positives; g++ build is clean.)
 
+## 2026-06-27 - Fix Approach-Path A* Explosion (Sim Freeze)
+
+- Fixed a sim freeze: entering the Game scene on the portfolio map hung the main thread at `GameWorld::acquireReadLock` because the logic thread held the write lock for seconds inside `MovementSystem::update`.
+- Root cause was the prior `findApproachPath` widening (radius 6). For an attack-move onto a town hall the goal tile is blocked, so it ring-searches for a free approach cell — but it ran a full cross-map A* on *every* free candidate in the ring to pick the lowest-score one. A 4x4 footprint exposes ~16 free cells per ring and the wave AI sends a dozen idle soldiers at the town hall at once, so one tick issued ~200 cross-map A* searches on the 256x256 grid → multi-second tick under the write lock. Diagnosed with temporary per-phase tick heartbeats (hang was always in `movement.update`).
+- Changed `findApproachPath` to test candidates closest to the requested target first and return the **first reachable** one (no exhaustive scoring): ~1 A* per order instead of ~16. Verified the instrumented run advanced past the previously-hanging tick and kept ticking.
+- Also added the missing `#include <memory>` to `core/command/AudioCommand.hpp` (uses `std::unique_ptr`), which was breaking the build through the command-router include chain.
+- Note: with the freeze gone, intermittent early exits remained while the in-progress `AudioThread` system was being added concurrently; those need a stable audio build to diagnose.
+
 ## 2026-06-27 - SFML Audio Manager (Concrete Off-Thread Playback)
 
 - Built the concrete audio backend on top of the new bus/router/thread scaffolding. Added playback commands to `AudioCommand.hpp`: `PlaySoundCommand` (one-shot sfx by asset-relative name + volume), `PlayMusicCommand` (streamed track, loops by default), `StopMusicCommand`, and `SetMasterVolumeCommand`.
@@ -22,6 +30,37 @@
 - Rewrote `AudioCommandBus` as a `std::queue` + mutex (mirrors `LogicCommandBus`); added `AudioCommandRouter` (`CommandRouterBase<AudioCommand>`) and a `ChangeAudioManagerCommand` so the thread can swap its `IAudioManager` like `ChangeLogicManagerCommand` does for logic. Fixed `;;` typos in `IAudioManager`/`AudioThread`.
 - Added `src/core/thread/AudioThread.cpp`: drains the bus, dispatches via the router, and runs the manager (`update()` + `tick`) on a steady ~60Hz poll (audio needs no deterministic fixed step). Wired bus/router/thread into `GameApp` DI and start/stop (`AudioThread` stops before `LogicThread`). Moved the audio headers from the `imgui` target to the `RTS` executable in CMake and registered the new `.cpp`.
 - Verification: rebuilt `RTS` (debug) — compiles and links clean. Audio manager remains null until a `ChangeAudioManagerCommand` installs one (no concrete `IAudioManager` impl yet — that's the next step).
+
+## 2026-06-26 - Fix Approach-Path Stall On Multi-Tile Buildings
+
+- Fixed an AI busy-loop / log spam (`[MovementSystem] Path order failed ... reason=goal_static_blocked ... target=<player town hall>`) that fired every tick on the portfolio map. The enemy wave AI (`updateAiWaves`) runs each tick and attack-moves idle soldiers onto the player Town Hall; because the order never issued, the soldiers stayed Idle, so the wave re-fired indefinitely.
+- Root cause was in `MovementSystem::findApproachPath`: an attack/move onto a structure has a blocked goal tile, so it ring-searches outward for the nearest free reachable cell — but only to Chebyshev radius 3. A 4x4 Town Hall's footprint, inflated by the pathing agent radius (`footprint/2 + clearance = 2 + 2`), blocks out to distance 4 from centre, so radius 3 could never find an approach cell and the order failed every time. Verified by flood-fill: the first free, reachable ring for both town halls is r=4.
+- Raised the approach search to radius 6 (`kMaxApproachRadius`), covering the largest footprint plus margin. The early per-candidate blocked-cell skip keeps the extra rings cheap (A* only runs on the few free candidates once a free ring is reached).
+- Verification: rebuilt `RTS`; flood-fill confirmed a free reachable approach cell now resolves at r=4 for both town halls (was none within r<=3); `rts_headless_smoke` still passes.
+
+## 2026-06-26 - Portfolio Showcase Map
+
+- Added `data/maps/portfolio.json`, a scenario laid out for the portfolio-video beats: player base (Town Hall + Barracks, 4 workers, 9 combat units, gold/wood) in the bottom-left; enemy base (Town Hall + 2 Barracks, 3 workers, 12 combat units) in the top-right; a 2-unit enemy scout patrol near centre for the "first contact" beat; and a contested centre expansion.
+- Pathfinding is showcased by forest/canyon chokepoints between the bases: a lower ridge above the player base with a single central pass, a vertical spur near centre, a mid ridge with an offset pass, a tight canyon mouth before the enemy base, and scattered boulders — 1720 blocked tiles total. A forest belt (wood nodes) flanks the lower pass for both cover and gathering.
+- The map is generated by `scripts/gen_portfolio_map.py` (walls authored in tile space, filled into `blockedTiles`) which validates that no building/resource footprint or unit sits on a blocked tile and everything is in-bounds before writing. Edit the script, not the JSON.
+- Pointed `GameLogicManager::defaultMapPath()` at `portfolio.json` so the lobby's START GAME loads it directly (there is no in-game map picker). Revert to `/maps/tiled_skirmish.tmx` for the original layout.
+- Verification: built `RTS` with the CLion-bundled CMake path; ran the generator (validation passed); launched `RTS.exe` (stays running); cross-checked every map entity `type` against units/buildings/resources registries (no bad references).
+
+## 2026-06-26 - Edge-to-Edge Attack Range (Building Footprints)
+
+- Fixed units failing to attack targets they were standing next to, most visibly against buildings. The range gate measured center-to-center distance against weapon range, ignoring the target's body size; a building's center is far from its wall, so a unit collision-blocked at the footprint edge stayed "out of range" and chased the unreachable center forever without ever swinging.
+- Added `IGameElement::attackHitRadius()` (world units): the target body radius added to an attacker's weapon range so range is judged edge-to-edge. `Unit` returns its collision radius; `Building` returns its footprint half-diagonal (covers every approach angle/tile size) set by `GameWorld::addElement` once tile size is known; default 0 for other elements.
+- Applied the effective range (`attackRange + target->attackHitRadius()`) in `Unit::updateAttack` (range gate + chase stop distance), `Unit::updateHold`, `Unit::holdEngage`, and the initial-animation pick in `beginAttack`. Widened `GameLogicManager::findClosestHoldTarget` to query past weapon range and gate each candidate by its own edge so big buildings are still acquired on Hold.
+- Removed the now-unused `m_attackRangeSq` cache (was only read by the replaced gates).
+- Verification: built `RTS` and `rts_headless_smoke` with the CLion-bundled CMake path; ran `rts_headless_smoke.exe` (all checks passed).
+
+## 2026-06-26 - Idle Auto-Acquire Combat Behavior
+
+- Fixed combat units never engaging nearby enemies unless under an explicit attack-move/hold/patrol order. There were engage passes for attack-move, patrol, hold, and post-kill retarget, but no pass for genuinely idle units — so a unit standing next to an enemy (or one that finished an attack-move and went `Idle`, which clears `attackMoveActive`) just sat there.
+- Added `GameLogicManager::handleIdleAutoAcquire()` (with `findClosestIdleTarget`) called each tick after the hold pass. It scans non-worker, combat-capable units whose action is `Idle` and that are not already steered by another pass (attack-move/patrol/retarget/queued order), then issues a direct `attack()` on the closest valid enemy.
+- Acquisition radius is the unit's sight range (tiles × tileSize), lower-bounded by the shared attack-move acquire radius and the unit's own weapon range, so long-range/wide-sighted units still reach what they can perceive. Reuses `world::queryRadius` + `Unit::canAttackTarget`, matching the existing engage passes.
+- This also fixes the practical attack-move complaint: once an attack-move unit arrives at its destination and drops to `Idle`, it now keeps acquiring enemies in sight instead of going passive.
+- Verification: built `RTS` and `rts_headless_smoke` with the CLion-bundled CMake path; ran `rts_headless_smoke.exe` (all checks passed).
 
 ## 2026-06-26 - Sprint 3 WorldHash Coverage Expansion
 

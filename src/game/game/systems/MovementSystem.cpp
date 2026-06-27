@@ -284,56 +284,54 @@ namespace {
         const Vector2D& requestedTarget,
         const rts::core::path::PathOptions& options) {
         const auto& transform = world.gridTransform();
-        std::optional<MovePlan> bestPlan;
-        float bestScore = std::numeric_limits<float>::max();
 
-        for (int radius = 1; radius <= 3; ++radius) {
+        // The goal tile of an attack/move onto a structure is itself blocked, so we
+        // ring-search outward for the nearest free, reachable approach cell. The
+        // radius must clear the largest footprint inflated by the pathing agent
+        // radius: a 4x4 town hall blocks out to Chebyshev distance
+        // (footprint/2 + clearance) = 4 from its centre, so radius 3 could never
+        // reach a free cell and the order would fail.
+        //
+        // Each candidate requires a full A* on a large grid, so we must not test
+        // every free cell in a ring (a 4x4 footprint exposes ~16 free cells per
+        // ring, and the AI can wave a dozen units at one town hall — that was
+        // hundreds of cross-map searches per tick, stalling the sim). Instead try
+        // the free candidates closest to the requested target first and return the
+        // first one that is actually reachable.
+        constexpr int kMaxApproachRadius = 6;
+        std::vector<rts::core::path::GridPos> candidates;
+        for (int radius = 1; radius <= kMaxApproachRadius; ++radius) {
+            candidates.clear();
             for (int dy = -radius; dy <= radius; ++dy) {
                 for (int dx = -radius; dx <= radius; ++dx) {
                     if (std::max(std::abs(dx), std::abs(dy)) != radius) {
                         continue;
                     }
-
-                    const rts::core::path::GridPos candidate {
-                        goal.x + dx,
-                        goal.y + dy
-                    };
-
+                    const rts::core::path::GridPos candidate { goal.x + dx, goal.y + dy };
                     if (!world.gridQuery().inBounds(candidate) ||
                         world.gridQuery().isBlockedStatic(candidate) ||
                         world.gridQuery().isBlockedDynamic(candidate)) {
                         continue;
                     }
-
-                    auto path = world.path().findPath(
-                        world.gridQuery(),
-                        world.collisionVersion(),
-                        start,
-                        candidate,
-                        options
-                    );
-                    if (!path || path->empty()) {
-                        continue;
-                    }
-
-                    const Vector2D candidateWorld = transform.gridToWorldCenter(candidate);
-                    const float score =
-                        static_cast<float>(path->size()) * 64.0f +
-                        distanceSq(candidateWorld, requestedTarget) * 0.01f;
-
-                    if (score < bestScore) {
-                        bestScore = score;
-                        bestPlan = MovePlan{*path, candidateWorld};
-                    }
+                    candidates.push_back(candidate);
                 }
             }
+            std::sort(candidates.begin(), candidates.end(),
+                      [&](const auto& a, const auto& b) {
+                          return distanceSq(transform.gridToWorldCenter(a), requestedTarget) <
+                                 distanceSq(transform.gridToWorldCenter(b), requestedTarget);
+                      });
 
-            if (bestPlan.has_value()) {
-                break;
+            for (const auto& candidate : candidates) {
+                auto path = world.path().findPath(
+                    world.gridQuery(), world.collisionVersion(), start, candidate, options);
+                if (path && !path->empty()) {
+                    return MovePlan{*path, transform.gridToWorldCenter(candidate)};
+                }
             }
         }
 
-        return bestPlan;
+        return std::nullopt;
     }
 
     std::optional<rts::core::path::GridPos> findAvoidanceCell(

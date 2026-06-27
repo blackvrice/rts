@@ -36,6 +36,9 @@ namespace {
     constexpr float kAttackTargetPickRadius = 64.0f;
     constexpr float kAttackTargetPickRadiusSq = kAttackTargetPickRadius * kAttackTargetPickRadius;
     constexpr float kAttackMoveAcquireRadius = 220.0f;
+    // Upper bound on a target's body radius (largest building footprint half-
+    // diagonal) used to widen acquisition queries before per-target edge gating.
+    constexpr float kMaxTargetHitRadius = 200.0f;
 
     float distanceSq(
         const rts::core::model::Vector2D& a,
@@ -421,6 +424,7 @@ namespace rts::core::manager {
         handleAttackMoveOrders();
         handlePatrolOrders();
         handleHoldPositionOrders();
+        handleIdleAutoAcquire();
         handleQueuedOrders();
         applyReadyResourceDeliveries();
         handleGatherRedirects();
@@ -796,18 +800,22 @@ namespace rts::core::manager {
         const model::Unit& unit) const {
         std::shared_ptr<model::IGameElement> bestTarget;
         float bestDistanceSq = std::numeric_limits<float>::max();
-        const float rangeSq = unit.getAttackRange() * unit.getAttackRange();
+        // Range is gated per-candidate (weapon range + that target's body radius),
+        // so the query is widened by the largest footprint reach to still surface a
+        // big building whose center sits just past weapon range.
+        const float queryRadius = unit.getAttackRange() + kMaxTargetHitRadius;
 
-        for (auto candidate : world::queryRadius(m_world, unit.getPosition(), unit.getAttackRange())) {
+        for (auto candidate : world::queryRadius(m_world, unit.getPosition(), queryRadius)) {
             if (!candidate || !unit.canAttackTarget(candidate.get())) {
                 continue;
             }
 
+            const float effectiveRange = unit.getAttackRange() + candidate->attackHitRadius();
             const float candidateDistanceSq = distanceSq(
                 candidate->getPosition(),
                 unit.getPosition()
             );
-            if (candidateDistanceSq <= rangeSq &&
+            if (candidateDistanceSq <= effectiveRange * effectiveRange &&
                 candidateDistanceSq < bestDistanceSq) {
                 bestDistanceSq = candidateDistanceSq;
                 bestTarget = candidate;
@@ -828,6 +836,62 @@ namespace rts::core::manager {
 
             if (auto target = findClosestHoldTarget(*unit)) {
                 unit->holdEngage(target.get());
+            }
+        }
+    }
+
+    std::shared_ptr<model::IGameElement> GameLogicManager::findClosestIdleTarget(
+        const model::Unit& unit) const {
+        std::shared_ptr<model::IGameElement> bestTarget;
+        float bestDistanceSq = std::numeric_limits<float>::max();
+        // An idle unit watches its full sight radius for enemies to engage, with
+        // the shared acquire radius and its own weapon range as lower bounds so a
+        // long-range or wide-sighted unit still reaches what it can perceive.
+        const float sightWorld = unit.getSightRange() * m_world.gridTransform().tileSize;
+        const float acquireRadius = std::max(
+            { kAttackMoveAcquireRadius, unit.getAttackRange(), sightWorld });
+        const float acquireRadiusSq = acquireRadius * acquireRadius;
+
+        for (auto candidate : world::queryRadius(m_world, unit.getPosition(), acquireRadius)) {
+            if (!candidate || !unit.canAttackTarget(candidate.get())) {
+                continue;
+            }
+
+            const float candidateDistanceSq = distanceSq(
+                candidate->getPosition(),
+                unit.getPosition()
+            );
+            if (candidateDistanceSq <= acquireRadiusSq &&
+                candidateDistanceSq < bestDistanceSq) {
+                bestDistanceSq = candidateDistanceSq;
+                bestTarget = candidate;
+            }
+        }
+
+        return bestTarget;
+    }
+
+    void GameLogicManager::handleIdleAutoAcquire() {
+        for (const auto& element : m_world.getElements()) {
+            auto unit = std::dynamic_pointer_cast<model::Unit>(element);
+            // Only genuinely idle, combat-capable units acquire on their own.
+            // Move/Attack/Hold/Gather/Build all report a non-Idle action, so a unit
+            // carrying out any explicit order is skipped here. Workers keep mining,
+            // and units already steered by another pass (attack-move, patrol,
+            // post-kill retarget, or a queued order) are left to that pass.
+            if (!unit || unit->getAction() != model::ActionType::Idle) {
+                continue;
+            }
+            if (unit->isWorker() ||
+                unit->isAttackMoveActive() ||
+                unit->isPatrolActive() ||
+                unit->needsAttackRetarget() ||
+                unit->hasQueuedOrders()) {
+                continue;
+            }
+
+            if (auto target = findClosestIdleTarget(*unit)) {
+                unit->attack(target.get());
             }
         }
     }
@@ -1508,6 +1572,8 @@ namespace rts::core::manager {
     }
 
     std::string GameLogicManager::defaultMapPath() {
+        // Portfolio showcase scenario (data/maps/portfolio.json). Revert to
+        // "/maps/tiled_skirmish.tmx" for the original skirmish layout.
         return std::string(core::data::DataRoot) + "/maps/tiled_skirmish.tmx";
     }
 

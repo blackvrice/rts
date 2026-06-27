@@ -101,7 +101,6 @@ namespace rts::core::model {
         m_domain = staticData.domain;
         m_attacksGround = staticData.attacksGround;
         m_attacksAir = staticData.attacksAir;
-        m_attackRangeSq = attackRange * attackRange;
     }
 
     ActionType Unit::getAction() const {
@@ -247,7 +246,8 @@ namespace rts::core::model {
         m_moveTarget = target->getPosition();
         m_finalTargetWorld = m_moveTarget;
         // The order is attack, but the sprite should run until the weapon is in range.
-        m_animationAction = distanceSq(m_moveTarget, m_position) <= m_attackRangeSq
+        const float effectiveRange = attackRange + target->attackHitRadius();
+        m_animationAction = distanceSq(m_moveTarget, m_position) <= effectiveRange * effectiveRange
                                 ? ActionType::Attack
                                 : ActionType::Move;
         m_gridPath.clear();
@@ -294,7 +294,8 @@ namespace rts::core::model {
         if (m_action == ActionType::Dead) return;
         if (!canAttackTarget(target)) return;
 
-        if (distanceSq(target->getPosition(), m_position) > m_attackRangeSq) {
+        const float effectiveRange = attackRange + target->attackHitRadius();
+        if (distanceSq(target->getPosition(), m_position) > effectiveRange * effectiveRange) {
             return;
         }
 
@@ -350,7 +351,8 @@ namespace rts::core::model {
             return;
         }
 
-        const float rangeSq = m_attackRangeSq;
+        const float effectiveRange = attackRange + target->attackHitRadius();
+        const float rangeSq = effectiveRange * effectiveRange;
         if (distanceSq(target->getPosition(), m_position) > rangeSq) {
             // Hold position never chases; targets outside weapon range are released.
             m_attackTargetId = ecs::InvalidEntityId;
@@ -468,8 +470,12 @@ namespace rts::core::model {
         m_moveTarget = targetPos;
         m_finalTargetWorld = targetPos;
 
+        // Range is measured center-to-center, so the target's body radius is added
+        // to our weapon range. Without this a large footprint (buildings) keeps the
+        // attacker "out of range" even while collision-blocked against its wall.
+        const float effectiveRange = attackRange + target->attackHitRadius();
+        const float rangeSq = effectiveRange * effectiveRange;
         float distSq = distanceSq(targetPos, m_position);
-        float rangeSq = m_attackRangeSq;
 
         if (distSq > rangeSq) {
             m_animationAction = ActionType::Move;
@@ -482,7 +488,7 @@ namespace rts::core::model {
 
             const Vector2D dir{(targetPos.x - m_position.x) / dist, (targetPos.y - m_position.y) / dist};
             float advance = moveSpeed * dt;
-            const float maxAdvance = dist - attackRange;
+            const float maxAdvance = dist - effectiveRange;
             if (advance > maxAdvance) {
                 advance = maxAdvance;
             }

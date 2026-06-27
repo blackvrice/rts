@@ -60,6 +60,16 @@ namespace rts::core::world {
                        data::SplashRadii splash, const std::string& texturePath) {
                     spawnProjectile(origin, target, damage, weapon, team, splash, texturePath);
                 });
+
+            // Buildings are blocked at their footprint rectangle, so attackers need
+            // the footprint half-diagonal added to their range to hit from any edge.
+            if (const auto building = std::dynamic_pointer_cast<model::Building>(gameElement)) {
+                const auto& d = data::DataRegistry::global().building(building->buildingType());
+                const float tile = m_gridTransform.tileSize > 0.f ? m_gridTransform.tileSize : 32.f;
+                const float hx = static_cast<float>(d.footprintWidth) * tile * 0.5f;
+                const float hy = static_cast<float>(d.footprintHeight) * tile * 0.5f;
+                building->setAttackHitRadius(std::sqrt(hx * hx + hy * hy));
+            }
         }
 
         onCollisionChanged();
