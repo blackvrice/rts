@@ -4,6 +4,7 @@
 
 #include "game/game/GameUIManager.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -44,6 +45,14 @@ namespace rts::core::manager {
         constexpr float kCameraStep = 128.0f;
         constexpr float kEdgeThreshold = 20.0f;
         constexpr float kEdgeScrollSpeed = 8.0f;
+
+        model::Vector2D mapWorldSize(const world::GameWorld& world) {
+            const float tile = std::max(world.gridTransform().tileSize, 1.0f);
+            return {
+                std::max(1.0f, static_cast<float>(world.gridWidth()) * tile),
+                std::max(1.0f, static_cast<float>(world.gridHeight()) * tile)
+            };
+        }
 
         const char* actionText(const core::model::ActionType action) {
             switch (action) {
@@ -294,9 +303,9 @@ namespace rts::core::manager {
 
         router.on<command::MinimapCommand>(
             [this](const command::MinimapCommand &cmd) {
-                const float tile = m_world.gridTransform().tileSize;
-                const float worldW = static_cast<float>(m_world.gridWidth()) * tile;
-                const float worldH = static_cast<float>(m_world.gridHeight()) * tile;
+                const auto worldSize = mapWorldSize(m_world);
+                const float worldW = worldSize.x;
+                const float worldH = worldSize.y;
                 if (worldW <= 0.0f || worldH <= 0.0f) return;
                 const core::model::Vector2D world{ cmd.u() * worldW, cmd.v() * worldH };
                 if (cmd.isRight()) {
@@ -938,8 +947,9 @@ namespace rts::core::manager {
         // (fogged enemies omitted), consumed by the HUD overlay.
         {
             core::render::UpdateMinimap mm;
-            const float worldW = static_cast<float>(m_world.gridWidth()) * tile;
-            const float worldH = static_cast<float>(m_world.gridHeight()) * tile;
+            const auto worldSize = mapWorldSize(m_world);
+            const float worldW = worldSize.x;
+            const float worldH = worldSize.y;
             mm.worldW = worldW;
             mm.worldH = worldH;
             if (worldW > 0.0f && worldH > 0.0f) {
@@ -1025,6 +1035,9 @@ namespace rts::core::manager {
     }
 
     void GameUIManager::syncWithWorld() {
+        // Camera panning is constrained by the authored terrain, not by entity extents.
+        m_camera.setWorldSize(mapWorldSize(m_world));
+
         // 1. 기존 ViewModel 중 expired 제거
         std::erase_if(m_viewModels,
                       [](const auto &vm) { return vm->expired(); });

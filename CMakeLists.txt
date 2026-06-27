@@ -269,6 +269,7 @@ if(BUILD_TESTING)
         add_executable(rts_headless_smoke
                 tests/rts_headless_smoke.cpp
                 src/core/data/DataRegistry.cpp
+                src/core/manager/CameraManager.cpp
                 src/core/manager/PathManager.cpp
                 src/core/map/FogOfWar.cpp
                 src/core/map/MapLoader.cpp
@@ -279,9 +280,15 @@ if(BUILD_TESTING)
                 src/core/replay/ReplayLog.cpp
                 src/core/sim/Fixed.cpp
                 src/core/tech/TechTreeValidator.cpp
+                src/core/ui/SelectBox.cpp
+                src/core/viewmodel/BuildingViewModel.cpp
+                src/core/viewmodel/ProjectileViewModel.cpp
+                src/core/viewmodel/ResourceNodeViewModel.cpp
+                src/core/viewmodel/UnitViewModel.cpp
                 src/core/world/GameWorld.cpp
                 src/core/world/GameWorldGridQuery.cpp
                 src/core/world/WorldRuntimeServices.cpp
+                src/game/game/GameUIManager.cpp
                 src/game/game/GameLogicManager.cpp
                 src/game/game/systems/CollisionSystem.cpp
                 src/game/game/systems/ControlGroupSystem.cpp

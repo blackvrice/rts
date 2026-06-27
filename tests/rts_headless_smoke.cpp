@@ -1,5 +1,7 @@
 #include <filesystem>
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -9,15 +11,18 @@
 #include "core/command/LogicCommandBus.hpp"
 #include "core/data/DataPaths.hpp"
 #include "core/data/DataRegistry.hpp"
+#include "core/manager/CameraManager.hpp"
 #include "core/map/MapData.hpp"
 #include "core/model/Building.hpp"
 #include "core/model/ResourceNode.hpp"
 #include "core/replay/ReplayLog.hpp"
+#include "core/render/RenderQueue.hpp"
 #include "core/sim/Fixed.hpp"
 #include "core/sim/SimClock.hpp"
 #include "core/tech/TechTreeValidator.hpp"
 #include "core/world/GameWorld.hpp"
 #include "game/game/GameLogicManager.hpp"
+#include "game/game/GameUIManager.hpp"
 
 namespace {
     int g_failures = 0;
@@ -85,6 +90,21 @@ namespace {
         expect(portfolio.units.size() == 28, "portfolio.tmx loads 28 units");
         expect(portfolio.resources.size() == 31, "portfolio.tmx loads 31 resources");
         expect(portfolio.blockedTiles.size() > 1000, "portfolio.tmx loads collision tiles");
+
+        const float portfolioWorldW = static_cast<float>(portfolio.width) * portfolio.tileSize;
+        const float portfolioWorldH = static_cast<float>(portfolio.height) * portfolio.tileSize;
+        const auto inPortfolioBounds = [&](const rts::core::model::Vector2D& p) {
+            return p.x >= 0.0f && p.y >= 0.0f &&
+                   p.x <= portfolioWorldW && p.y <= portfolioWorldH;
+        };
+        const bool portfolioObjectsInBounds =
+            std::all_of(portfolio.buildings.begin(), portfolio.buildings.end(),
+                [&](const auto& b) { return inPortfolioBounds(b.position); }) &&
+            std::all_of(portfolio.units.begin(), portfolio.units.end(),
+                [&](const auto& u) { return inPortfolioBounds(u.position); }) &&
+            std::all_of(portfolio.resources.begin(), portfolio.resources.end(),
+                [&](const auto& r) { return inPortfolioBounds(r.position); });
+        expect(portfolioObjectsInBounds, "portfolio.tmx entities stay inside map bounds");
     }
 
     void testTechTree() {
@@ -214,6 +234,35 @@ namespace {
         // one logic tick, which made GameScene's read lock look deadlocked.
         expect(maxTickMs < 100.0, "portfolio.tmx tick stays under 100ms");
     }
+
+    void testCameraBoundsFollowPortfolioMap() {
+        rts::core::command::LogicCommandBus logicBus;
+        rts::core::command::LogicCommandRouter logicRouter;
+        rts::core::world::GameWorld world;
+        rts::core::manager::GameLogicManager logic(logicBus, logicRouter, world);
+
+        rts::core::command::UICommandRouter uiRouter;
+        rts::core::render::RenderQueue renderQueue;
+        rts::core::manager::CameraManager camera;
+        rts::core::manager::GameUIManager ui(uiRouter, logicBus, renderQueue, world, camera);
+
+        {
+            const auto lock = world.acquireReadLock();
+            ui.syncWithWorld();
+        }
+
+        const auto& worldSize = camera.worldSize();
+        expect(std::abs(worldSize.x - 4096.0f) < 0.01f &&
+               std::abs(worldSize.y - 4096.0f) < 0.01f,
+               "game UI camera bounds follow portfolio.tmx world size");
+
+        camera.setViewportSize({ 1920.0f, 1080.0f });
+        camera.setPosition({ 4096.0f, 4096.0f });
+        const auto& cameraPos = camera.position();
+        expect(std::abs(cameraPos.x - 2176.0f) < 0.01f &&
+               std::abs(cameraPos.y - 3016.0f) < 0.01f,
+               "portfolio.tmx camera can pan to the lower map edge");
+    }
 }
 
 int main() {
@@ -223,6 +272,7 @@ int main() {
     testReplayLog();
     testFixedMath();
     testPortfolioGameTicks();
+    testCameraBoundsFollowPortfolioMap();
 
     if (g_failures != 0) {
         std::cerr << "[rts_headless_smoke] " << g_failures << " check(s) failed\n";
