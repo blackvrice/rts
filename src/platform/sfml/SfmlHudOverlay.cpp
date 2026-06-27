@@ -420,12 +420,51 @@ namespace {
         outMax = ImVec2{max.x - 14.0f, max.y - 14.0f};
     }
 
+    float minimapAspect(const rts::core::render::UpdateMinimap& mm) {
+        if (mm.worldW > 0.0f && mm.worldH > 0.0f &&
+            std::isfinite(mm.worldW) && std::isfinite(mm.worldH)) {
+            return mm.worldW / mm.worldH;
+        }
+        if (mm.fogW > 0 && mm.fogH > 0) {
+            return static_cast<float>(mm.fogW) / static_cast<float>(mm.fogH);
+        }
+        return 1.0f;
+    }
+
+    void minimapMapRect(const ImVec2 min, const ImVec2 max,
+                        const rts::core::render::UpdateMinimap& mm,
+                        ImVec2& outMin, ImVec2& outMax) {
+        ImVec2 innerMin, innerMax;
+        minimapInnerRect(min, max, innerMin, innerMax);
+
+        const float innerW = std::max(1.0f, innerMax.x - innerMin.x);
+        const float innerH = std::max(1.0f, innerMax.y - innerMin.y);
+        const float aspect = std::max(0.001f, minimapAspect(mm));
+        const float innerAspect = innerW / innerH;
+
+        float mapW = innerW;
+        float mapH = innerH;
+        if (innerAspect > aspect) {
+            mapW = innerH * aspect;
+        } else {
+            mapH = innerW / aspect;
+        }
+
+        const float padX = (innerW - mapW) * 0.5f;
+        const float padY = (innerH - mapH) * 0.5f;
+        outMin = ImVec2{innerMin.x + padX, innerMin.y + padY};
+        outMax = ImVec2{outMin.x + mapW, outMin.y + mapH};
+    }
+
     void drawMiniMap(ImDrawList& drawList, const ImVec2 min, const ImVec2 max,
                      const rts::core::render::UpdateMinimap& mm) {
+        ImVec2 innerMin, innerMax;
+        minimapInnerRect(min, max, innerMin, innerMax);
         ImVec2 mapMin, mapMax;
-        minimapInnerRect(min, max, mapMin, mapMax);
+        minimapMapRect(min, max, mm, mapMin, mapMax);
         const float spanX = mapMax.x - mapMin.x;
         const float spanY = mapMax.y - mapMin.y;
+        drawList.AddRectFilled(innerMin, innerMax, IM_COL32(3, 8, 10, 255), 1.0f);
         drawList.AddRectFilled(mapMin, mapMax, IM_COL32(6, 14, 16, 255), 1.0f);
 
         // Terrain + fog: one cell per fog tile, tinted by explored/visible/unexplored.
@@ -448,7 +487,9 @@ namespace {
 
         // Entity blips (player/enemy/resource); GameUIManager omits fogged enemies.
         for (const auto& dot : mm.dots) {
-            const ImVec2 p{mapMin.x + dot.u * spanX, mapMin.y + dot.v * spanY};
+            const float u = std::clamp(dot.u, 0.0f, 1.0f);
+            const float v = std::clamp(dot.v, 0.0f, 1.0f);
+            const ImVec2 p{mapMin.x + u * spanX, mapMin.y + v * spanY};
             ImU32 col;
             switch (dot.team) {
                 case 1:  col = IM_COL32(232, 86, 74, 255);  break;   // enemy red
@@ -460,11 +501,21 @@ namespace {
 
         // Camera viewport rectangle.
         if (mm.camW > 0.0f && mm.camH > 0.0f) {
-            const ImVec2 vMin{mapMin.x + mm.camU * spanX, mapMin.y + mm.camV * spanY};
-            const ImVec2 vMax{vMin.x + mm.camW * spanX, vMin.y + mm.camH * spanY};
-            drawList.AddRect(vMin, vMax, IM_COL32(220, 240, 232, 235), 0.0f, 0, 1.5f);
+            const float u0 = std::clamp(mm.camU, 0.0f, 1.0f);
+            const float v0 = std::clamp(mm.camV, 0.0f, 1.0f);
+            const float u1 = std::clamp(mm.camU + mm.camW, 0.0f, 1.0f);
+            const float v1 = std::clamp(mm.camV + mm.camH, 0.0f, 1.0f);
+            if (u1 > u0 && v1 > v0) {
+                const ImVec2 vMin{mapMin.x + u0 * spanX, mapMin.y + v0 * spanY};
+                const ImVec2 vMax{mapMin.x + u1 * spanX, mapMin.y + v1 * spanY};
+                drawList.AddRect(vMin, vMax, IM_COL32(220, 240, 232, 235), 0.0f, 0, 1.5f);
+            }
         }
 
+        if (mapMin.x > innerMin.x || mapMin.y > innerMin.y ||
+            mapMax.x < innerMax.x || mapMax.y < innerMax.y) {
+            drawList.AddRect(mapMin, mapMax, kPanelEdge, 1.0f, 0, 1.0f);
+        }
         drawList.AddRect(mapMin, mapMax, kPanelHigh, 1.0f, 0, 1.0f);
     }
 
@@ -790,7 +841,7 @@ namespace rts::platform::sfml {
         // button over the inner map captures the click without blocking other input.
         {
             ImVec2 mapMin, mapMax;
-            minimapInnerRect(miniMin, miniMax, mapMin, mapMax);
+            minimapMapRect(miniMin, miniMax, minimap, mapMin, mapMax);
             ImGui::SetCursorScreenPos(mapMin);
             ImGui::InvisibleButton("##minimap", {mapMax.x - mapMin.x, mapMax.y - mapMin.y});
             if (ImGui::IsItemActive() || ImGui::IsItemHovered()) {

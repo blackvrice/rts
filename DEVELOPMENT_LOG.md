@@ -1,5 +1,12 @@
 # Development Log
 
+## 2026-06-28 - Scale Minimap To Map Aspect
+
+- Updated the HUD minimap so the drawn map area is fitted inside the panel using the loaded map's `worldW/worldH` aspect ratio instead of stretching to the full rectangular panel. This keeps square and non-square maps visually proportional while still using the existing HUD frame.
+- Routed minimap fog cells, entity blips, and camera viewport through the same fitted map rectangle. Blips and the viewport are clamped to the visible map bounds so off-map positions do not draw into the panel padding.
+- Changed minimap click handling to use the fitted map rectangle too, so clicks in letterbox padding do not translate to world orders or camera jumps.
+- Verification: built `RTS` with `C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe`, ran `cmake-build-debug\rts_headless_smoke.exe`, and launched `cmake-build-debug\RTS.exe` for a 5-second smoke run.
+
 ## 2026-06-28 - Fix Portfolio Camera Bounds
 
 - Fixed gameplay camera panning on `portfolio.tmx`: the camera still used its default `2048x2048` world bounds after the 256x256, 16px-tile map loaded, so the lower half of the authored `4096x4096` map could not be reached even though the objects were inside the map.
