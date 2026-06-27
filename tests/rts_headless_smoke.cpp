@@ -15,6 +15,8 @@
 #include "core/map/MapData.hpp"
 #include "core/model/Building.hpp"
 #include "core/model/ResourceNode.hpp"
+#include "core/model/Unit.hpp"
+#include "core/path/IGridQuery.hpp"
 #include "core/replay/ReplayLog.hpp"
 #include "core/render/RenderQueue.hpp"
 #include "core/sim/Fixed.hpp"
@@ -23,6 +25,7 @@
 #include "core/world/GameWorld.hpp"
 #include "game/game/GameLogicManager.hpp"
 #include "game/game/GameUIManager.hpp"
+#include "game/game/systems/CollisionSystem.hpp"
 
 namespace {
     int g_failures = 0;
@@ -262,6 +265,15 @@ namespace {
         expect(std::abs(cameraPos.x - 2176.0f) < 0.01f &&
                std::abs(cameraPos.y - 3016.0f) < 0.01f,
                "portfolio.tmx camera can pan to the lower map edge");
+
+        const auto& grid = world.gridQuery();
+        expect(grid.isBlockedStatic({ 35, 205 }),
+               "portfolio.tmx building pathing keeps wider clearance around town hall");
+
+        rts::core::manager::CollisionSystem collision;
+        rts::core::model::Unit probe(rts::UnitType::Worker);
+        expect(collision.canMoveUnitTo(world, probe, { 3000.0f, 3000.0f }),
+               "collision bounds follow the loaded portfolio.tmx map size");
     }
 }
 

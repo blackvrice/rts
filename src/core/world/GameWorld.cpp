@@ -18,6 +18,7 @@
 namespace rts::core::world {
     namespace {
         constexpr float kPathingAgentRadius = 28.0f;
+        constexpr float kStructurePathClearancePadding = 16.0f;
     }
 
     GameWorld::GameWorld()
@@ -489,7 +490,8 @@ namespace rts::core::world {
             markCells(m_structureOccupancy, originX, originY, fw, fh);
 
             const float tileSize = m_gridTransform.tileSize > 0.0f ? m_gridTransform.tileSize : 1.0f;
-            const int clearanceTiles = static_cast<int>(std::ceil(kPathingAgentRadius / tileSize));
+            const int clearanceTiles = static_cast<int>(
+                std::ceil((kPathingAgentRadius + kStructurePathClearancePadding) / tileSize));
             markCells(
                 m_structurePathBlocking,
                 originX - clearanceTiles,

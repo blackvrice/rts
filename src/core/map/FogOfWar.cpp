@@ -1,5 +1,6 @@
 #include "core/map/FogOfWar.hpp"
 #include <algorithm>
+#include <cstdlib>
 
 namespace rts::core::map {
 
@@ -19,8 +20,19 @@ namespace rts::core::map {
 
     void FogOfWar::revealCircle(int cx, int cy, int radius) {
         if (m_width <= 0 || m_height <= 0) return;
+        if (radius < 0) return;
 
-        const int r2 = radius * radius;
+        const long long r2 = static_cast<long long>(radius) * radius;
+        const int farthestX = std::max(std::abs(cx), std::abs((m_width - 1) - cx));
+        const int farthestY = std::max(std::abs(cy), std::abs((m_height - 1) - cy));
+        const long long farthestCornerSq =
+            static_cast<long long>(farthestX) * farthestX +
+            static_cast<long long>(farthestY) * farthestY;
+        if (r2 >= farthestCornerSq) {
+            std::fill(m_states.begin(), m_states.end(), State::Visible);
+            return;
+        }
+
         const int minY = std::max(0, cy - radius);
         const int maxY = std::min(m_height - 1, cy + radius);
         const int minX = std::max(0, cx - radius);
@@ -28,10 +40,10 @@ namespace rts::core::map {
 
         for (int y = minY; y <= maxY; ++y) {
             const int dy = y - cy;
-            const int dy2 = dy * dy;
+            const long long dy2 = static_cast<long long>(dy) * dy;
             for (int x = minX; x <= maxX; ++x) {
                 const int dx = x - cx;
-                if (dx * dx + dy2 <= r2) {
+                if (static_cast<long long>(dx) * dx + dy2 <= r2) {
                     m_states[static_cast<std::size_t>(y * m_width + x)] = State::Visible;
                 }
             }

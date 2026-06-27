@@ -15,14 +15,22 @@
 namespace {
     constexpr float kMapMinX = 0.f;
     constexpr float kMapMinY = 0.f;
-    constexpr float kMapMaxX = 2000.f;
-    constexpr float kMapMaxY = 2000.f;
     constexpr float kUnitCollisionRadius = 28.f;
     constexpr float kResourceCollisionRadius = 44.f;
     constexpr float kBuildingCollisionRadius = 52.f;
+    constexpr float kStructureClearancePadding = 16.f;
     constexpr float kMaxLocalAvoidancePush = 8.f;
     constexpr float kOverlapPadding = 0.5f;
     constexpr float kTinyDistanceSq = 0.0001f;
+
+    bool outsideWorldBounds(
+        const rts::core::world::GameWorld& world,
+        const rts::core::model::Vector2D& pos) {
+        const float tile = std::max(world.gridTransform().tileSize, 1.0f);
+        const float maxX = static_cast<float>(world.gridWidth()) * tile;
+        const float maxY = static_cast<float>(world.gridHeight()) * tile;
+        return pos.x < kMapMinX || pos.y < kMapMinY || pos.x > maxX || pos.y > maxY;
+    }
 
     // Axis-aligned footprint rectangle (world units) of a static structure,
     // centered on its position. Returns false for units (which stay circles).
@@ -104,8 +112,7 @@ namespace rts::core::manager {
         const world::GameWorld& world,
         const model::Unit& unit,
         const model::Vector2D& pos) const {
-        if (pos.x < kMapMinX || pos.y < kMapMinY ||
-            pos.x > kMapMaxX || pos.y > kMapMaxY) {
+        if (outsideWorldBounds(world, pos)) {
             return CollisionHit {};
         }
 
@@ -121,7 +128,11 @@ namespace rts::core::manager {
             FootprintRect box;
             if (structureRect(*other, world, box)) {
                 model::Vector2D nearest;
-                if (circleHitsRect(pos, unit.getCollisionRadius(), box, nearest)) {
+                if (circleHitsRect(
+                        pos,
+                        unit.getCollisionRadius() + kStructureClearancePadding,
+                        box,
+                        nearest)) {
                     return CollisionHit { nearest, 0.0f, true, false };
                 }
                 continue;
@@ -207,8 +218,7 @@ namespace rts::core::manager {
         const world::GameWorld& world,
         const model::Unit& unit,
         const model::Vector2D& pos) const {
-        if (pos.x < kMapMinX || pos.y < kMapMinY ||
-            pos.x > kMapMaxX || pos.y > kMapMaxY) {
+        if (outsideWorldBounds(world, pos)) {
             return false;
         }
 
@@ -225,7 +235,11 @@ namespace rts::core::manager {
             FootprintRect box;
             if (structureRect(*other, world, box)) {
                 model::Vector2D nearest;
-                if (circleHitsRect(pos, unit.getCollisionRadius(), box, nearest)) {
+                if (circleHitsRect(
+                        pos,
+                        unit.getCollisionRadius() + kStructureClearancePadding,
+                        box,
+                        nearest)) {
                     return false;
                 }
             }
@@ -262,17 +276,19 @@ namespace rts::core::manager {
             }
             overlapped = true;
 
-            // Exit along the axis of least penetration, clearing the unit's radius.
+            // Exit along the axis of least penetration, clearing the unit radius plus
+            // the same structure padding regular movement uses.
             const float left = pos.x - (box.cx - box.hx);
             const float right = (box.cx + box.hx) - pos.x;
             const float top = pos.y - (box.cy - box.hy);
             const float bottom = (box.cy + box.hy) - pos.y;
+            const float clearRadius = ur + kStructureClearancePadding;
             const float minX = std::min(left, right);
             const float minY = std::min(top, bottom);
             if (minX < minY) {
-                push.x += (left < right ? -(left + ur) : (right + ur));
+                push.x += (left < right ? -(left + clearRadius) : (right + clearRadius));
             } else {
-                push.y += (top < bottom ? -(top + ur) : (bottom + ur));
+                push.y += (top < bottom ? -(top + clearRadius) : (bottom + clearRadius));
             }
         }
 

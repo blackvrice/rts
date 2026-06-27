@@ -1,5 +1,12 @@
 # Development Log
 
+## 2026-06-28 - Widen Unit Structure Clearance
+
+- Increased unit spacing around building/resource footprints by adding a 16px structure-clearance pad to runtime collision checks and to the cached structure path-blocking grid. Structure-target approach searches now look out to radius 8 so attack/move orders can still find a reachable stop cell outside the wider padding.
+- Fixed `CollisionSystem` map bounds to use the loaded terrain dimensions instead of the old hard-coded `2000x2000` world box. This prevents portfolio units/buildings below or right of 2000 world units from being treated as out of bounds every tick.
+- Hardened fog reveal for very large sight ranges: full-map reveals now fill the fog grid directly and circle math uses 64-bit intermediates to avoid overflow. This keeps edited data such as very large building `sightRange` values from doing unnecessary per-cell circle checks.
+- Verification: added `rts_headless_smoke` coverage for wider town-hall path clearance and collision inside the 4096x4096 portfolio map; built `RTS`, ran `cmake-build-debug\rts_headless_smoke.exe`, and launched `cmake-build-debug\RTS.exe` for a 5-second smoke run.
+
 ## 2026-06-28 - Scale Minimap To Map Aspect
 
 - Updated the HUD minimap so the drawn map area is fitted inside the panel using the loaded map's `worldW/worldH` aspect ratio instead of stretching to the full rectangular panel. This keeps square and non-square maps visually proportional while still using the existing HUD frame.

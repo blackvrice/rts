@@ -288,9 +288,8 @@ namespace {
         // The goal tile of an attack/move onto a structure is itself blocked, so we
         // ring-search outward for the nearest free, reachable approach cell. The
         // radius must clear the largest footprint inflated by the pathing agent
-        // radius: a 4x4 town hall blocks out to Chebyshev distance
-        // (footprint/2 + clearance) = 4 from its centre, so radius 3 could never
-        // reach a free cell and the order would fail.
+        // radius plus the extra structure clearance padding, so units keep a small
+        // visual gap instead of hugging building edges.
         //
         // Each candidate requires a full A* on a large grid, so we must not test
         // every free cell in a ring (a 4x4 footprint exposes ~16 free cells per
@@ -298,7 +297,7 @@ namespace {
         // hundreds of cross-map searches per tick, stalling the sim). Instead try
         // the free candidates closest to the requested target first and return the
         // first one that is actually reachable.
-        constexpr int kMaxApproachRadius = 6;
+        constexpr int kMaxApproachRadius = 8;
         std::vector<rts::core::path::GridPos> candidates;
         for (int radius = 1; radius <= kMaxApproachRadius; ++radius) {
             candidates.clear();
