@@ -1572,9 +1572,9 @@ namespace rts::core::manager {
     }
 
     std::string GameLogicManager::defaultMapPath() {
-        // Portfolio showcase scenario (data/maps/portfolio.json). Revert to
-        // "/maps/tiled_skirmish.tmx" for the original skirmish layout.
-        return std::string(core::data::DataRoot) + "/maps/tiled_skirmish.tmx";
+        // Portfolio showcase scenario (data/maps/portfolio.tmx; portfolio.json is
+        // the same layout). Revert to "/maps/tiled_skirmish.tmx" for the original.
+        return std::string(core::data::DataRoot) + "/maps/portfolio.tmx";
     }
 
     bool GameLogicManager::saveGame(const std::string& path) {

@@ -585,6 +585,7 @@ namespace rts::core::manager {
         const CollisionSystem& collision) {
         processQueuedPathRequests(world);
 
+        bool worldCollisionChanged = false;
         for (const auto& element : world.getElements()) {
             if (auto unit = std::dynamic_pointer_cast<model::Unit>(element)) {
                 const auto previousPosition = unit->getPosition();
@@ -625,7 +626,7 @@ namespace rts::core::manager {
                 const auto currentPosition = unit->getPosition();
                 if (currentPosition.x != previousPosition.x ||
                     currentPosition.y != previousPosition.y) {
-                    world.onCollisionChanged();
+                    worldCollisionChanged = true;
                 }
                 continue;
             }
@@ -633,6 +634,10 @@ namespace rts::core::manager {
             if (auto gameElement = std::dynamic_pointer_cast<model::IGameElement>(element)) {
                 gameElement->tick(dt);
             }
+        }
+
+        if (worldCollisionChanged) {
+            world.onCollisionChanged();
         }
     }
 

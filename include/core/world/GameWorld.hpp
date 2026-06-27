@@ -147,12 +147,17 @@ namespace rts::core::world {
         // Rebuilds the cached structure-occupancy grid (building/resource footprints)
         // so multi-tile walkability is an O(1) lookup instead of a per-query scan.
         void rebuildStructureOccupancy();
+        // Rebuilds the cached unit-occupancy grid. A* asks about dynamic blocking
+        // for many cells, so this must be O(1) at query time.
+        void rebuildUnitOccupancy();
 
         std::unique_ptr<map::TileMapSoA> m_tileMap;
         // gridW*gridH, row-major: 1 where a live building/resource footprint sits.
         std::vector<std::uint8_t> m_structureOccupancy;
         // Same layout, inflated by unit radius for pathfinding clearance.
         std::vector<std::uint8_t> m_structurePathBlocking;
+        // gridW*gridH, row-major: 1 where a live unit's current center cell sits.
+        std::vector<std::uint8_t> m_unitOccupancy;
         map::FogOfWar m_fog;  // local player's vision (explored/visible)
         std::vector<std::shared_ptr<model::IElement>> m_elements;
         std::vector<std::shared_ptr<model::Projectile>> m_projectiles;

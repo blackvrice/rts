@@ -269,10 +269,24 @@ if(BUILD_TESTING)
         add_executable(rts_headless_smoke
                 tests/rts_headless_smoke.cpp
                 src/core/data/DataRegistry.cpp
+                src/core/manager/PathManager.cpp
+                src/core/map/FogOfWar.cpp
                 src/core/map/MapLoader.cpp
+                src/core/model/Building.cpp
+                src/core/model/Projectile.cpp
+                src/core/model/ResourceNode.cpp
+                src/core/model/Unit.cpp
                 src/core/replay/ReplayLog.cpp
                 src/core/sim/Fixed.cpp
                 src/core/tech/TechTreeValidator.cpp
+                src/core/world/GameWorld.cpp
+                src/core/world/GameWorldGridQuery.cpp
+                src/core/world/WorldRuntimeServices.cpp
+                src/game/game/GameLogicManager.cpp
+                src/game/game/systems/CollisionSystem.cpp
+                src/game/game/systems/ControlGroupSystem.cpp
+                src/game/game/systems/MovementSystem.cpp
+                src/game/game/systems/SelectionSystem.cpp
         )
 
         target_include_directories(rts_headless_smoke PRIVATE
@@ -282,6 +296,8 @@ if(BUILD_TESTING)
         )
 
         target_link_libraries(rts_headless_smoke PRIVATE
+                SFML::System
+                SFML::Window
                 tmxlite
         )
 
@@ -303,6 +319,13 @@ add_custom_command(TARGET RTS POST_BUILD
         "D:/Libs/SFML-3.0.2/bin"
         $<TARGET_FILE_DIR:RTS>
 )
+if(TARGET rts_headless_smoke)
+        add_custom_command(TARGET rts_headless_smoke POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "D:/Libs/SFML-3.0.2/bin"
+                $<TARGET_FILE_DIR:rts_headless_smoke>
+        )
+endif()
 
 get_target_property(RTS_TMXLITE_TYPE tmxlite TYPE)
 if(WIN32 AND RTS_TMXLITE_TYPE STREQUAL "SHARED_LIBRARY")

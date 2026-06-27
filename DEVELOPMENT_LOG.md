@@ -1,5 +1,20 @@
 # Development Log
 
+## 2026-06-28 - Fix Portfolio TMX Read-Lock Stall
+
+- Diagnosed the `portfolio.tmx` game-start stall at `GameWorld::acquireReadLock()` as a long logic tick, not a recursive lock deadlock: the logic thread held the world write lock while processing cross-map A* path requests for the initial enemy wave.
+- Root cause: `GameWorld::isUnitCellOccupied()` scanned every element for every dynamic-blocking query inside A*. On the 256x256 portfolio map, a wave tick processing 8 path requests reached ~3.1s under the write lock, so the main thread waited at the read lock.
+- Added a cached unit-occupancy grid beside the existing structure footprint grids, making dynamic-blocking checks O(1). Movement now refreshes collision occupancy once at the end of a tick when any unit moved, instead of rebuilding during each unit update.
+- Lowered queued path planning to 2 requests per tick so large AI waves spread path work across a few 30Hz ticks instead of blocking rendering in one frame.
+- Verification: extended `rts_headless_smoke` to instantiate the default `portfolio.tmx` match and run 90 logic ticks. Before the fix the max tick was ~3125ms; after the fix it is under 30ms on this machine.
+
+## 2026-06-28 - Portfolio Map TMX Export
+
+- Added a Tiled `.tmx` form of the portfolio showcase map so it can be edited in Tiled and rendered/loaded through the existing TMX path. `scripts/gen_portfolio_map.py` now emits both `data/maps/portfolio.json` and `data/maps/portfolio.tmx` from one source of truth.
+- The TMX carries a CSV `collision` tile layer (1 = blocked, the 1720 wall tiles) plus a point-object group (class building/unit/resource with kind/team properties) and map properties for start resources — exactly what `MapLoader::loadTmxMap` reads. A minimal embedded tileset (firstgid=1) keeps Tiled happy; tmxlite only records the image path and never opens it.
+- Pointed `GameLogicManager::defaultMapPath()` at `portfolio.tmx`.
+- Verification: extended `rts_headless_smoke` to load `portfolio.tmx` through the real loader and assert 256x256, tile 16, 5 buildings / 28 units / 31 resources, and a populated collision layer (>1000 blocked tiles) — all checks pass; `RTS` builds clean.
+
 ## 2026-06-27 - Route Gameplay Sound Cues Through The Audio Thread
 
 - Connected the existing gameplay sound-cue feedback to the new audio thread, completing the "audio off the main thread" goal. Previously `SfmlRenderManager` consumed `render::PlaySound` commands on the render/main thread and synthesized + played one-shot tones inline (`toneForCue`/`soundBufferForCue`/`playSoundCue` + `g_soundBuffers`/`g_playingSounds` globals).

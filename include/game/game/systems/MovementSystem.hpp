@@ -74,7 +74,7 @@ namespace rts::core::manager {
             std::optional<model::Vector2D> patrolStart {};
         };
 
-        static constexpr std::size_t kMaxPathRequestsPerTick { 8 };
+        static constexpr std::size_t kMaxPathRequestsPerTick { 2 };
 
         std::shared_ptr<model::Unit> findUnitHandle(world::GameWorld& world, model::Unit& unit) const;
         void enqueuePathRequest(world::GameWorld& world,

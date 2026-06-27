@@ -538,25 +538,33 @@ namespace rts::core::world {
         return idx < m_structurePathBlocking.size() && m_structurePathBlocking[idx];
     }
 
-    bool GameWorld::isUnitCellOccupied(int x, int y) const noexcept {
+    void GameWorld::rebuildUnitOccupancy() {
         const int w = gridWidth();
-        if (x < 0 || y < 0 || x >= w || y >= gridHeight()) {
-            return true;
-        }
+        const int h = gridHeight();
+        m_unitOccupancy.assign(static_cast<std::size_t>(w) * h, 0u);
+        if (w <= 0 || h <= 0) return;
 
-        // Units occupy a single cell and move every tick, so they stay a live check.
         for (const auto& element : m_elements) {
             const auto unit = std::dynamic_pointer_cast<model::Unit>(element);
             if (!unit || unit->getAction() == model::ActionType::Dead) {
                 continue;
             }
             const auto cell = m_gridTransform.worldToGrid(unit->getPosition());
-            if (cell.x == x && cell.y == y) {
-                return true;
+            if (cell.x < 0 || cell.y < 0 || cell.x >= w || cell.y >= h) {
+                continue;
             }
+            m_unitOccupancy[static_cast<std::size_t>(cell.y) * w + cell.x] = 1u;
+        }
+    }
+
+    bool GameWorld::isUnitCellOccupied(int x, int y) const noexcept {
+        const int w = gridWidth();
+        if (x < 0 || y < 0 || x >= w || y >= gridHeight()) {
+            return true;
         }
 
-        return false;
+        const auto idx = static_cast<std::size_t>(y) * w + x;
+        return idx < m_unitOccupancy.size() && m_unitOccupancy[idx];
     }
 
     bool GameWorld::isCellOccupied(int x, int y) const noexcept {
@@ -603,6 +611,7 @@ namespace rts::core::world {
     void GameWorld::onCollisionChanged() {
         ++m_collisionVersion;
         rebuildStructureOccupancy();
+        rebuildUnitOccupancy();
         m_pathManager->bumpCollisionVersion();
     }
 }

@@ -1,9 +1,12 @@
 #include <filesystem>
+#include <chrono>
 #include <iostream>
 #include <memory>
 #include <string>
 
+#include "core/command/CommandRouterBase.hpp"
 #include "core/command/LogicCommand.hpp"
+#include "core/command/LogicCommandBus.hpp"
 #include "core/data/DataPaths.hpp"
 #include "core/data/DataRegistry.hpp"
 #include "core/map/MapData.hpp"
@@ -11,7 +14,10 @@
 #include "core/model/ResourceNode.hpp"
 #include "core/replay/ReplayLog.hpp"
 #include "core/sim/Fixed.hpp"
+#include "core/sim/SimClock.hpp"
 #include "core/tech/TechTreeValidator.hpp"
+#include "core/world/GameWorld.hpp"
+#include "game/game/GameLogicManager.hpp"
 
 namespace {
     int g_failures = 0;
@@ -69,6 +75,16 @@ namespace {
         expect(tmxMap.buildings.size() >= 2, "tiled_skirmish.tmx loads buildings");
         expect(tmxMap.units.size() >= 2, "tiled_skirmish.tmx loads units");
         expect(tmxMap.resources.size() >= 2, "tiled_skirmish.tmx loads resources");
+
+        // Portfolio showcase map (TMX): the CSV "collision" tile layer must load as
+        // blocked tiles, and the object group must yield the full entity roster.
+        const auto portfolio = rts::core::map::loadMap(dataPath("maps/portfolio.tmx"));
+        expect(portfolio.width == 256 && portfolio.height == 256, "portfolio.tmx is 256x256");
+        expect(portfolio.tileSize == 16.0f, "portfolio.tmx tile size is 16");
+        expect(portfolio.buildings.size() == 5, "portfolio.tmx loads 5 buildings");
+        expect(portfolio.units.size() == 28, "portfolio.tmx loads 28 units");
+        expect(portfolio.resources.size() == 31, "portfolio.tmx loads 31 resources");
+        expect(portfolio.blockedTiles.size() > 1000, "portfolio.tmx loads collision tiles");
     }
 
     void testTechTree() {
@@ -155,6 +171,49 @@ namespace {
         expect(next == FixedVec2 { Fixed::fromInt(0), Fixed::fromInt(2) },
                "Fixed stepToward advances deterministically");
     }
+
+    void testPortfolioGameTicks() {
+        using clock = std::chrono::steady_clock;
+
+        rts::core::command::LogicCommandBus bus;
+        rts::core::command::LogicCommandRouter router;
+        rts::core::world::GameWorld world;
+        rts::core::manager::GameLogicManager logic(bus, router, world);
+
+        {
+            const auto lock = world.acquireReadLock();
+            expect(world.gridWidth() == 256 && world.gridHeight() == 256,
+                   "portfolio.tmx default match initializes 256x256 terrain");
+            expect(world.getElements().size() == 64,
+                   "portfolio.tmx default match spawns the full entity roster");
+        }
+
+        constexpr int ticks = 90;
+        double maxTickMs = 0.0;
+        double totalTickMs = 0.0;
+        for (int i = 0; i < ticks; ++i) {
+            const auto start = clock::now();
+            logic.tick(rts::core::sim::kFixedDeltaSeconds);
+            const auto elapsed = std::chrono::duration<double, std::milli>(
+                clock::now() - start).count();
+            maxTickMs = std::max(maxTickMs, elapsed);
+            totalTickMs += elapsed;
+        }
+
+        {
+            const auto lock = world.acquireReadLock();
+            expect(world.currentTick() == ticks,
+                   "portfolio.tmx default match advances simulation ticks");
+        }
+
+        std::cout << "[rts_headless_smoke] portfolio.tmx " << ticks
+                  << " ticks max=" << maxTickMs
+                  << "ms total=" << totalTickMs << "ms\n";
+
+        // The old portfolio freeze held the write lock for multiple seconds inside
+        // one logic tick, which made GameScene's read lock look deadlocked.
+        expect(maxTickMs < 100.0, "portfolio.tmx tick stays under 100ms");
+    }
 }
 
 int main() {
@@ -163,6 +222,7 @@ int main() {
     testTechTree();
     testReplayLog();
     testFixedMath();
+    testPortfolioGameTicks();
 
     if (g_failures != 0) {
         std::cerr << "[rts_headless_smoke] " << g_failures << " check(s) failed\n";
