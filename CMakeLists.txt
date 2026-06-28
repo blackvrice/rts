@@ -85,6 +85,7 @@ endif()
 add_executable(RTS
         src/main.cpp
         include/core/thread/ThreadBase.hpp
+        include/core/thread/ThreadPool.hpp
         include/core/di/DIContainer.hpp
         include/core/command/Command.hpp
         include/core/command/LogicCommandBus.hpp

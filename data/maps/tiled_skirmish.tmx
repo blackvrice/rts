@@ -2,7 +2,7 @@
 <!-- Sample Tiled map (object-only, no tilesets) loaded via tmxlite.
      Object class = building|unit|resource; "kind"/"team" are custom properties.
      Point the scenario path at this file (.tmx) to start a game from a Tiled map. -->
-<map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="256" height="256" tilewidth="32" tileheight="32" infinite="0" nextlayerid="2" nextobjectid="12">
+<map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="256" height="256" tilewidth="64" tileheight="64" infinite="0" nextlayerid="2" nextobjectid="12">
  <properties>
   <property name="playerGold" type="int" value="500"/>
   <property name="playerWood" type="int" value="300"/>

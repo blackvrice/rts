@@ -1,6 +1,7 @@
 ﻿// include/rts/path/PathManager.hpp
 #pragma once
 #include <algorithm>
+#include <mutex>
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
@@ -21,7 +22,10 @@ namespace rts::core::manager {
         // 외부(World)가 충돌 상태가 바뀔 때 올려주는 버전.
         // ✅ singleton PathManager라도 world별로 다른 버전값을 넘길 수 있게 findPath 인자로 받게 함.
         void setCacheEnabled(bool enabled) { m_cacheEnabled = enabled; }
-        void clearCache() { m_cache.clear(); }
+        void clearCache() {
+            std::lock_guard<std::mutex> lock(m_cacheMutex);
+            m_cache.clear();
+        }
 
         void bumpCollisionVersion();
 
@@ -38,33 +42,29 @@ namespace rts::core::manager {
             if (isBlocked(grid, goal, opt)) return std::nullopt;
 
             // ✅ 캐시 키: (gridId + start + goal + collisionVersion)
+            // The cache is shared, so its accesses are mutex-guarded: many path
+            // requests resolve in parallel on worker threads within one logic tick.
+            // The A* itself runs outside the lock (it only reads the grid), so worker
+            // threads contend only briefly for the cache lookup/insert.
+            const CacheKeyEx key{
+                gridId(grid),
+                start,
+                goal,
+                collisionVersion,
+                opt.allowDiagonal,
+                opt.useDynamicBlocking,
+                opt.preventDiagonalCornerCutting,
+                opt.useTerrainCost
+            };
             if (m_cacheEnabled) {
-                CacheKeyEx key{
-                    gridId(grid),
-                    start,
-                    goal,
-                    collisionVersion,
-                    opt.allowDiagonal,
-                    opt.useDynamicBlocking,
-                    opt.preventDiagonalCornerCutting,
-                    opt.useTerrainCost
-                };
+                std::lock_guard<std::mutex> lock(m_cacheMutex);
                 auto it = m_cache.find(key);
                 if (it != m_cache.end()) return it->second;
             }
 
             auto result = aStar(grid, start, goal, opt);
             if (result && m_cacheEnabled) {
-                CacheKeyEx key{
-                    gridId(grid),
-                    start,
-                    goal,
-                    collisionVersion,
-                    opt.allowDiagonal,
-                    opt.useDynamicBlocking,
-                    opt.preventDiagonalCornerCutting,
-                    opt.useTerrainCost
-                };
+                std::lock_guard<std::mutex> lock(m_cacheMutex);
                 m_cache.emplace(key, *result);
             }
             return result;
@@ -119,6 +119,7 @@ namespace rts::core::manager {
         }
 
         std::unordered_map<CacheKeyEx, path::Path, CacheKeyExHash> m_cache;
+        mutable std::mutex m_cacheMutex;
 
         struct Node {
             path::GridPos p;

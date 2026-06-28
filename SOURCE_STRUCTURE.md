@@ -55,7 +55,7 @@ This document is a quick orientation map for future AI agents working in this re
 - `include/game/login` and `src/game/login` contain the login scene, UI manager, and logic manager.
 - `include/game/lobby` and `src/game/lobby` contain the lobby scene, UI manager, and logic manager.
 - `include/game/game` and `src/game/game` contain the main gameplay scene, UI manager, and logic manager.
-- `include/game/game/systems` and `src/game/game/systems` contain gameplay systems such as collision, control groups, movement, and selection.
+- `include/game/game/systems` and `src/game/game/systems` contain gameplay systems such as collision, control groups, movement, and selection. `MovementSystem` throttles A* (fresh orders and periodic replans each have their own per-tick budget) and periodically re-plans traveling units to their current final target (`kRepathInterval`) so paths adapt to the changing world.
 
 ## Platform Layer
 

@@ -193,13 +193,14 @@ namespace rts::core::world {
         // Demote last tick's Visible cells to Explored, then re-reveal from each live
         // player unit/building. Resources grant no vision; enemy elements never reveal.
         m_fog.resetVisible();
+        m_visionSources.clear();
         const float tileSize = m_gridTransform.tileSize > 0.f ? m_gridTransform.tileSize : 1.f;
-        const auto tileSightToRadius = [tileSize](const float sightRangeTiles) {
-            // sightRange is authored as a tile count in JSON/static data. Convert
-            // through world units so the data scales with 16px, 32px, or larger maps.
-            const float worldRange = std::max(0.0f, sightRangeTiles) * tileSize;
-            return static_cast<int>(std::ceil(worldRange / tileSize));
-        };
+        // sightRange is authored as a tile count, but vision should reveal at the
+        // on-screen tile scale the art/grass grid is drawn at (kVisualTilePixels),
+        // not the finer internal pathfinding tile (tileSize) used for collision and
+        // routing. Otherwise a unit's vision is a fraction of the tiles the player
+        // visually sees around it. The fog grid stays at tileSize resolution.
+        constexpr float kVisualTilePixels = 64.0f;
         for (const auto& element : m_elements) {
             const auto ge = std::dynamic_pointer_cast<model::IGameElement>(element);
             if (!ge || ge->getTeamId() != model::TeamId::Player ||
@@ -207,18 +208,22 @@ namespace rts::core::world {
                 continue;
             }
             const auto cell = m_gridTransform.worldToGrid(ge->getPosition());
-            int radiusTiles = 0;
+            float worldRange = 0.f;  // vision radius in world pixels
             if (const auto unit = std::dynamic_pointer_cast<model::Unit>(element)) {
-                radiusTiles = tileSightToRadius(unit->getSightRange());
+                worldRange = std::max(0.0f, unit->getSightRange()) * kVisualTilePixels;
             } else if (const auto building = std::dynamic_pointer_cast<model::Building>(element)) {
                 const auto& d = data::DataRegistry::global().building(building->buildingType());
-                radiusTiles = d.sightRange > 0.f
-                    ? tileSightToRadius(d.sightRange)
-                    : std::max(d.footprintWidth, d.footprintHeight) + 3;
+                worldRange = d.sightRange > 0.f
+                    ? d.sightRange * kVisualTilePixels
+                    : static_cast<float>(std::max(d.footprintWidth, d.footprintHeight) + 3) * tileSize;
             } else {
                 continue;
             }
+            const int radiusTiles = static_cast<int>(std::ceil(worldRange / tileSize));
             m_fog.revealCircle(cell.x, cell.y, radiusTiles);
+            // Exact world-space circle for the renderer's smooth reveal (the tile
+            // grid above is intentionally coarser for gameplay/explored memory).
+            m_visionSources.push_back({ ge->getPosition(), worldRange });
         }
     }
 

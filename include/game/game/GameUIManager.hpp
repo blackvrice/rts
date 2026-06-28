@@ -84,6 +84,7 @@ namespace rts::core::manager {
         bool m_hasMousePos { false };
         bool m_isDragging { false };
         bool m_showDebugOverlay { false };  // F3 toggles tick/world-hash readout
+        bool m_cameraCentered { false };    // one-time center on the player's base at match start
         std::uint64_t m_lastFeedbackSerial { 0 };
     };
 }

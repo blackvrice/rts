@@ -2,10 +2,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <iostream>
 #include <iterator>
+#include <latch>
 #include <limits>
 #include <optional>
+#include <thread>
 #include <vector>
 
 #include <core/manager/PathManager.hpp>
@@ -500,89 +503,150 @@ namespace {
                   << '\n';
     }
 
+    // Outcome of resolving a path request: either a usable path (direct or via an
+    // approach cell) to finalTarget, or unresolved.
+    struct PathPlan {
+        bool resolved { false };
+        rts::core::path::Path path;
+        Vector2D finalTarget {};
+    };
+
+    // Pure path resolution: reads only the world grid (and the thread-safe path
+    // cache) and never touches unit state, so a batch of these can run on worker
+    // threads in parallel. The result is applied later, single-threaded, in a fixed
+    // order — keeping the simulation deterministic regardless of worker interleaving.
+    PathPlan resolvePathPlan(
+        GameWorld& world,
+        const Vector2D& unitPos,
+        const Vector2D& target,
+        const rts::core::path::PathOptions& options) {
+        const auto& transform = world.gridTransform();
+        const auto start = transform.worldToGrid(unitPos);
+        const auto goal = transform.worldToGrid(target);
+
+        const auto path = world.path().findPath(
+            world.gridQuery(), world.collisionVersion(), start, goal, options);
+        if (path && !path->empty()) {
+            return PathPlan{ true, *path, target };
+        }
+
+        const bool canTryApproach =
+            world.gridQuery().inBounds(start) && world.gridQuery().inBounds(goal);
+        if (canTryApproach) {
+            if (auto approach = findApproachPath(world, start, goal, target, options)) {
+                // Occupied goals are approached through a nearby free cell instead of retrying forever.
+                return PathPlan{ true, approach->path, approach->finalTarget };
+            }
+        }
+
+        return PathPlan{ false, {}, target };
+    }
+
+    // Applies a resolved plan to the unit. Mutates unit state, so it must run
+    // single-threaded (after the parallel resolve phase).
+    void applyPathPlan(
+        GameWorld& world,
+        Unit& unit,
+        const Vector2D& target,
+        PathOrderKind kind,
+        std::optional<Vector2D> patrolStart,
+        bool refresh,
+        const PathPlan& plan) {
+        const Vector2D from = patrolStart.value_or(unit.getPosition());
+
+        // A fresh order halts current motion before re-pathing; a periodic replan
+        // lets the unit keep gliding on its existing path until the new one is set,
+        // so there is no per-interval stutter.
+        if (!refresh && (kind != PathOrderKind::Patrol || patrolStart.has_value())) {
+            unit.stop();
+        }
+
+        if (plan.resolved) {
+            switch (kind) {
+                case PathOrderKind::Move:
+                    unit.setMoveTargetWithPath(plan.path, plan.finalTarget);
+                    break;
+                case PathOrderKind::AttackMove:
+                    unit.setAttackMoveTargetWithPath(plan.path, plan.finalTarget);
+                    break;
+                case PathOrderKind::Patrol:
+                    if (patrolStart.has_value()) {
+                        unit.setPatrolRouteWithPath(plan.path, plan.finalTarget, from, target);
+                    } else {
+                        unit.setPatrolTargetWithPath(plan.path, plan.finalTarget);
+                    }
+                    break;
+            }
+            return;
+        }
+
+        // A failed periodic replan is silent: the unit keeps its current path.
+        if (!refresh) {
+            const auto& transform = world.gridTransform();
+            const auto start = transform.worldToGrid(unit.getPosition());
+            const auto goal = transform.worldToGrid(target);
+            logPathFailure(kind, start, goal, target, pathFailureReason(world, start, goal));
+            unit.stop();
+        }
+    }
+
     bool issuePathOrder(
         GameWorld& world,
         Unit& unit,
         const Vector2D& target,
         PathOrderKind kind,
-        std::optional<Vector2D> patrolStart = std::nullopt) {
-        const auto& transform = world.gridTransform();
-        const Vector2D from = patrolStart.value_or(unit.getPosition());
-        const auto start = transform.worldToGrid(unit.getPosition());
-        const auto goal = transform.worldToGrid(target);
-        auto options = movementPathOptions();
+        std::optional<Vector2D> patrolStart = std::nullopt,
+        bool refresh = false) {
+        const auto options = movementPathOptions();
+        const PathPlan plan = resolvePathPlan(world, unit.getPosition(), target, options);
+        applyPathPlan(world, unit, target, kind, patrolStart, refresh, plan);
+        return plan.resolved;
+    }
 
-        const auto path = world.path().findPath(
-            world.gridQuery(),
-            world.collisionVersion(),
-            start,
-            goal,
-            options
-        );
+    // Resolved A* request bound to a unit; the unitPos snapshot lets the parallel
+    // resolve avoid touching the unit at all.
+    struct PathJob {
+        std::weak_ptr<Unit> unit;
+        Vector2D unitPos {};
+        Vector2D target {};
+        PathOrderKind kind { PathOrderKind::Move };
+        std::optional<Vector2D> patrolStart {};
+        bool refresh { false };
+        PathPlan plan {};
+    };
 
-        if (kind != PathOrderKind::Patrol || patrolStart.has_value()) {
-            unit.stop();
+    std::size_t pathPoolWorkerCount() {
+        const unsigned hardware = std::thread::hardware_concurrency();
+        // Reserve a core for the logic thread (and render/audio); fall back to
+        // single-threaded resolution on low-core machines.
+        if (hardware <= 2) {
+            return 0;
         }
-
-        bool issued = false;
-        const bool canTryApproach =
-            world.gridQuery().inBounds(start) &&
-            world.gridQuery().inBounds(goal);
-        if (path && !path->empty()) {
-            switch (kind) {
-                case PathOrderKind::Move:
-                    unit.setMoveTargetWithPath(*path, target);
-                    break;
-                case PathOrderKind::AttackMove:
-                    unit.setAttackMoveTargetWithPath(*path, target);
-                    break;
-                case PathOrderKind::Patrol:
-                    if (patrolStart.has_value()) {
-                        unit.setPatrolRouteWithPath(*path, target, from, target);
-                    } else {
-                        unit.setPatrolTargetWithPath(*path, target);
-                    }
-                    break;
-            }
-            issued = true;
-        } else if (auto approach = canTryApproach
-                   ? findApproachPath(world, start, goal, target, options)
-                   : std::optional<MovePlan>{}) {
-            // Occupied goals are approached through a nearby free cell instead of retrying forever.
-            switch (kind) {
-                case PathOrderKind::Move:
-                    unit.setMoveTargetWithPath(approach->path, approach->finalTarget);
-                    break;
-                case PathOrderKind::AttackMove:
-                    unit.setAttackMoveTargetWithPath(approach->path, approach->finalTarget);
-                    break;
-                case PathOrderKind::Patrol:
-                    if (patrolStart.has_value()) {
-                        unit.setPatrolRouteWithPath(approach->path, approach->finalTarget, from, target);
-                    } else {
-                        unit.setPatrolTargetWithPath(approach->path, approach->finalTarget);
-                    }
-                    break;
-            }
-            issued = true;
-        }
-
-        if (!issued) {
-            const char* reason = pathFailureReason(world, start, goal);
-            logPathFailure(kind, start, goal, target, reason);
-            unit.stop();
-        }
-
-        return issued;
+        return static_cast<std::size_t>(hardware - 1);
     }
 }
 
 namespace rts::core::manager {
+    MovementSystem::MovementSystem()
+        : m_pathPool(pathPoolWorkerCount()) {
+    }
+
     void MovementSystem::update(
         world::GameWorld& world,
         float dt,
         const CollisionSystem& collision) {
-        processQueuedPathRequests(world);
+        // Periodically re-plan traveling units so paths track the changing world
+        // (new/destroyed buildings, congestion). Replans are queued separately and
+        // only fill the path budget left over by real orders.
+        m_repathTimer += dt;
+        if (m_repathTimer >= kRepathInterval) {
+            m_repathTimer = 0.0f;
+            enqueuePeriodicRepaths(world);
+        }
+
+        // Resolve this tick's queued path requests (real orders first, then replans)
+        // in parallel on the thread pool, then apply them in a fixed order.
+        processPathBatch(world);
 
         bool worldCollisionChanged = false;
         for (const auto& element : world.getElements()) {
@@ -765,8 +829,10 @@ namespace rts::core::manager {
 
     void MovementSystem::reset() {
         m_pathRequests.clear();
+        m_repathRequests.clear();
         m_latestPathRequestByUnit.clear();
         m_nextPathRequestId = 1;
+        m_repathTimer = 0.0f;
     }
 
     std::shared_ptr<model::Unit> MovementSystem::findUnitHandle(
@@ -809,29 +875,132 @@ namespace rts::core::manager {
         });
     }
 
-    void MovementSystem::processQueuedPathRequests(world::GameWorld& world) {
-        std::size_t processed = 0;
-        while (processed < kMaxPathRequestsPerTick && !m_pathRequests.empty()) {
-            auto request = m_pathRequests.front();
-            m_pathRequests.pop_front();
+    void MovementSystem::processPathBatch(world::GameWorld& world) {
+        std::vector<PathJob> jobs;
 
-            auto unit = request.unit.lock();
+        // Drains up to `maxCount` live requests from a queue into `jobs`, snapshotting
+        // each unit's position (the resolve phase must not touch units). Mirrors the
+        // old per-queue gating: skip dead/superseded units, and for replans skip any
+        // unit no longer traveling.
+        const auto collect = [&](std::deque<PathRequest>& queue,
+                                 std::size_t maxCount,
+                                 bool requireTraveling) {
+            std::size_t taken = 0;
+            while (taken < maxCount && !queue.empty()) {
+                auto request = queue.front();
+                queue.pop_front();
+
+                auto unit = request.unit.lock();
+                if (!unit) {
+                    continue;
+                }
+                if (unit->getAction() == model::ActionType::Dead) {
+                    m_latestPathRequestByUnit.erase(unit.get());
+                    continue;
+                }
+
+                auto latest = m_latestPathRequestByUnit.find(unit.get());
+                if (latest == m_latestPathRequestByUnit.end() || latest->second != request.id) {
+                    continue;  // superseded by a newer request
+                }
+                m_latestPathRequestByUnit.erase(latest);
+
+                if (requireTraveling) {
+                    const auto action = unit->getAction();
+                    if (action != model::ActionType::Move &&
+                        action != model::ActionType::Patrol) {
+                        continue;
+                    }
+                }
+
+                jobs.push_back(PathJob {
+                    .unit = unit,
+                    .unitPos = unit->getPosition(),
+                    .target = request.target,
+                    .kind = request.kind,
+                    .patrolStart = request.patrolStart,
+                    .refresh = request.refresh,
+                    .plan = {}
+                });
+                ++taken;
+            }
+        };
+
+        // Real orders claim their budget first; replans fill what is left.
+        collect(m_pathRequests, kMaxPathRequestsPerTick, false);
+        collect(m_repathRequests, kMaxRepathRequestsPerTick, true);
+        if (jobs.empty()) {
+            return;
+        }
+
+        const auto options = movementPathOptions();
+
+        // Resolve every request in parallel (pure grid reads; no unit mutation), then
+        // apply results in `jobs` order — so the outcome is independent of how the
+        // worker threads interleave and the simulation stays deterministic.
+        if (jobs.size() > 1 && m_pathPool.workerCount() > 0) {
+            std::latch done(static_cast<std::ptrdiff_t>(jobs.size()));
+            for (std::size_t i = 0; i < jobs.size(); ++i) {
+                m_pathPool.submit([&jobs, i, &world, &options, &done] {
+                    jobs[i].plan = resolvePathPlan(world, jobs[i].unitPos, jobs[i].target, options);
+                    done.count_down();
+                });
+            }
+            done.wait();
+        } else {
+            for (auto& job : jobs) {
+                job.plan = resolvePathPlan(world, job.unitPos, job.target, options);
+            }
+        }
+
+        for (auto& job : jobs) {
+            auto unit = job.unit.lock();
             if (!unit) {
                 continue;
             }
-            if (unit->getAction() == model::ActionType::Dead) {
-                m_latestPathRequestByUnit.erase(unit.get());
-                continue;
-            }
-
-            auto latest = m_latestPathRequestByUnit.find(unit.get());
-            if (latest == m_latestPathRequestByUnit.end() || latest->second != request.id) {
-                continue;
-            }
-
-            m_latestPathRequestByUnit.erase(latest);
-            issuePathOrder(world, *unit, request.target, request.kind, request.patrolStart);
-            ++processed;
+            applyPathPlan(world, *unit, job.target, job.kind, job.patrolStart, job.refresh, job.plan);
         }
     }
+
+    void MovementSystem::enqueuePeriodicRepaths(world::GameWorld& world) {
+        for (const auto& element : world.getElements()) {
+            auto unit = std::dynamic_pointer_cast<model::Unit>(element);
+            if (!unit) {
+                continue;
+            }
+
+            // Only re-plan units that are actually traveling a path. Gather/Build/
+            // Attack/Hold/Idle units are steered by their own logic, not a path tail.
+            const auto action = unit->getAction();
+            if (action != model::ActionType::Move &&
+                action != model::ActionType::Patrol) {
+                continue;
+            }
+
+            // Leave any unit that already has a pending order or replan alone, so a
+            // replan never clobbers a freshly issued command.
+            if (m_latestPathRequestByUnit.contains(unit.get())) {
+                continue;
+            }
+
+            PathOrderKind kind = PathOrderKind::Move;
+            if (unit->isPatrolActive()) {
+                kind = PathOrderKind::Patrol;
+            } else if (unit->isAttackMoveActive()) {
+                kind = PathOrderKind::AttackMove;
+            }
+
+            const auto id = m_nextPathRequestId++;
+            m_latestPathRequestByUnit[unit.get()] = id;
+            m_repathRequests.push_back(PathRequest {
+                .id = id,
+                .unit = unit,
+                .target = unit->finalTargetWorld(),
+                .kind = kind,
+                .patrolStart = std::nullopt,
+                .refresh = true
+            });
+        }
+    }
+
 }

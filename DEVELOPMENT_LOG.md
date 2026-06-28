@@ -1,5 +1,32 @@
 # Development Log
 
+## 2026-06-28 - Open Camera On Player Base + Attack-Move Cursor
+
+- The match now opens with the camera centered on the player's base instead of the map's top-left corner. `GameUIManager::syncWithWorld` centers once (guarded by `m_cameraCentered`) on the player Town Hall, falling back to any player building, then any player unit; the camera clamps to the world bounds as usual.
+- Gave attack-move (A) its own cursor: `WorldOrderMode::AttackMove` always shows the "attack" cursor so pressing A gives immediate feedback that the order is armed, instead of looking unchanged until the cursor is over an enemy. The default Attack mode still only shows the attack cursor when hovering an enemy.
+- Verification: `RTS` builds and links clean.
+
+## 2026-06-28 - Smooth Pixel-Circle Fog Reveal
+
+- Replaced the tile-staircase fog shroud with a GPU-composited mask so the currently-visible area reveals as a pixel-smooth circle instead of blocky tiles. The explored/unexplored memory stays tile-resolution; only the *visible* boundary is smoothed.
+- `GameWorld::updateFog` now also records per-source vision circles in world units (`VisionSource{center, worldRange}`) alongside the existing tile `revealCircle`. The tile grid still drives gameplay (enemy hiding, minimap, explored memory) unchanged.
+- Added `core::render::DrawFog` (tile state grid + world-space vision circles). `GameUIManager` emits one `DrawFog` per frame in place of the old per-tile shroud quads.
+- `SfmlRenderManager` renders the shroud into an offscreen `sf::RenderTexture`, then punches each vision circle out with a reveal blend (`dst *= 1 - srcAlpha`): an opaque core plus a feathered rim (`kCoreFraction = 0.78`) gives a soft, smooth edge. The mask is blitted full-screen over the world.
+- Vision now reveals at the on-screen tile scale (`kVisualTilePixels = 64`, the grass-grid tile the art is drawn at) instead of the finer 16px pathfinding tile, so a unit's sight matches the tiles the player visually sees (e.g. sight 8 → 512px = 8 grass tiles, was 128px). The fog grid, collision, routing, and map stay at 16px — only the vision radius changed, so balance/pathfinding are untouched. (Rescaling the map itself to 64px tiles was rejected: it needs the world ×4 with a sweep of every pixel-based constant and still fails because unit sprites are fixed-size art, or it coarsens the 256×256 pathfinding showcase.)
+- Verification: rebuilt `RTS` (debug) and `rts_headless_smoke` — compiles, links, all smoke checks pass.
+
+## 2026-06-28 - Periodic Path Replanning
+
+- Added periodic path replanning so traveling units re-plan to their current final target on a fixed cadence (`MovementSystem::kRepathInterval`, 1s), keeping paths fresh as the world changes (new/destroyed buildings, unit congestion). Previously a unit pathed once on order and only re-routed locally when it physically hit a blocker, so paths went stale.
+- Replans run in a dedicated queue (`m_repathRequests`) drained *after* real orders with its own small per-tick budget (`kMaxRepathRequestsPerTick`), so they never delay player/AI commands and never spike A* (≤2 extra searches/tick on top of the existing 2). Deterministic: the cadence accumulates the fixed sim `dt`.
+- A replan is seamless and non-destructive: `issuePathOrder` gained a `refresh` flag that skips the upfront `stop()` (the unit keeps gliding on its current path until the new one is computed) and silently keeps the current path if the replan finds none (no stutter, no failure log). Only units actually traveling (`Move`/`Patrol`) are replanned; a unit with a pending order/replan is left alone so a replan never clobbers a fresh command.
+- Verification: rebuilt `RTS` (debug) — compiles and links clean.
+
+## 2026-06-28 - Passive Enemy AI (Portfolio Mode)
+
+- Added a `kAiPassive` flag (true) in `GameLogicManager` so the enemy never marches on the player during portfolio capture. It skips the offensive AI passes (`updateAiDefense`, `updateAiWaves`) and makes idle enemy units skip `handleIdleAutoAcquire`, so only the player's idle units auto-engage. The enemy economy (workers/production) still runs, and enemy units still retaliate when directly attacked. Set the flag false to restore the aggressive AI.
+- Verification: `RTS` and `rts_headless_smoke` build; smoke passes.
+
 ## 2026-06-28 - Widen Unit Structure Clearance
 
 - Increased unit spacing around building/resource footprints by adding a 16px structure-clearance pad to runtime collision checks and to the cached structure path-blocking grid. Structure-target approach searches now look out to radius 8 so attack/move orders can still find a reachable stop cell outside the wider padding.

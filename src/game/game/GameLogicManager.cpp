@@ -40,6 +40,11 @@ namespace {
     // diagonal) used to widen acquisition queries before per-target edge gating.
     constexpr float kMaxTargetHitRadius = 200.0f;
 
+    // Portfolio mode: keep the enemy passive (no waves, no defensive sorties, no
+    // idle auto-acquire) so it never marches on the player. The economy (workers/
+    // production) still runs. Set false to restore the aggressive AI.
+    constexpr bool kAiPassive = true;
+
     float distanceSq(
         const rts::core::model::Vector2D& a,
         const rts::core::model::Vector2D& b) {
@@ -887,6 +892,11 @@ namespace rts::core::manager {
                 unit->isPatrolActive() ||
                 unit->needsAttackRetarget() ||
                 unit->hasQueuedOrders()) {
+                continue;
+            }
+            // Passive (portfolio) mode: the enemy never engages on its own; only
+            // the player's idle units auto-acquire nearby threats.
+            if (kAiPassive && unit->getTeamId() == model::TeamId::Enemy) {
                 continue;
             }
 
@@ -2120,8 +2130,12 @@ namespace rts::core::manager {
         updateAiBuildOrder();
         updateAiProduction(dt);
         updateAiWorkers(dt);
-        updateAiDefense(dt);
-        updateAiWaves(dt);
+        // Passive (portfolio) mode skips the offensive passes so the enemy never
+        // sorties or waves against the player.
+        if (!kAiPassive) {
+            updateAiDefense(dt);
+            updateAiWaves(dt);
+        }
     }
 
     void GameLogicManager::updateAiBuildOrder() {

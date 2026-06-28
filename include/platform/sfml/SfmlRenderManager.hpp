@@ -8,6 +8,7 @@
 
 #include <core/render/IRenderManager.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
+#include <SFML/Graphics/RenderTexture.hpp>
 
 namespace rts::core::command {
     class UICommandBus;
@@ -19,6 +20,7 @@ namespace rts::core::render {
     struct DrawRect;
     struct DrawSprite;
     struct DrawText;
+    struct DrawFog;
     struct UpdateHudResources;
     struct UpdateHudSelection;
     struct UpdateHudCursor;
@@ -46,6 +48,10 @@ namespace rts::platform::sfml {
 
         static void draw(sf::RenderWindow& window, const core::render::DrawCircle& c);
 
+        // Non-static: composites the shroud into m_fogTexture so the visible area
+        // can be revealed as smooth circles before being drawn over the world.
+        void draw(sf::RenderWindow& window, const core::render::DrawFog& fog);
+
         static void draw(sf::RenderWindow& window, const core::render::UpdateHudResources& resources);
 
         static void draw(sf::RenderWindow& window, const core::render::UpdateHudSelection& selection);
@@ -59,5 +65,8 @@ namespace rts::platform::sfml {
 
         std::unique_ptr<SfmlHudOverlay> m_hud;
         core::command::AudioCommandBus& m_audioBus;
+        // Offscreen mask for smooth fog: shroud is rendered here, vision circles are
+        // punched out, then the result is drawn full-screen over the world.
+        std::unique_ptr<sf::RenderTexture> m_fogTexture;
     };
 }

@@ -5,7 +5,10 @@
 #include <SFML/Graphics/Font.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
 #include <SFML/Graphics/CircleShape.hpp>
+#include <SFML/Graphics/BlendMode.hpp>
+#include <SFML/Graphics/RenderTexture.hpp>
 #include <SFML/Graphics/Sprite.hpp>
+#include <SFML/Graphics/VertexArray.hpp>
 #include <SFML/Graphics/Text.hpp>
 #include <SFML/Graphics/Texture.hpp>
 #include <SFML/Graphics/View.hpp>
@@ -690,6 +693,119 @@ namespace rts::platform::sfml {
         shape.setOutlineThickness(1.f);
 
         window.draw(shape);
+    }
+
+    void SfmlRenderManager::draw(
+        sf::RenderWindow& window,
+        const core::render::DrawFog& fog
+    ) {
+        if (fog.tileSize <= 0.0f || fog.fogW <= 0 || fog.fogH <= 0) {
+            return;
+        }
+        const std::size_t expected =
+            static_cast<std::size_t>(fog.fogW) * static_cast<std::size_t>(fog.fogH);
+        if (fog.states.size() < expected) {
+            return;
+        }
+
+        // The window view is the world view at this point in the World-layer pass, so
+        // the offscreen mask shares world coordinates and ends up screen-aligned.
+        const sf::View worldView = window.getView();
+        const sf::Vector2u winSize = window.getSize();
+        if (winSize.x == 0 || winSize.y == 0) {
+            return;
+        }
+        if (!m_fogTexture || m_fogTexture->getSize() != winSize) {
+            m_fogTexture = std::make_unique<sf::RenderTexture>();
+            if (!m_fogTexture->resize(winSize)) {
+                m_fogTexture.reset();
+                return;
+            }
+            m_fogTexture->setSmooth(true);
+        }
+        m_fogTexture->setView(worldView);
+        m_fogTexture->clear(sf::Color::Transparent);
+
+        // Shroud memory layer (tile resolution): unexplored = dark, everything seen
+        // before (Explored/Visible) = dim. Only the camera-visible tiles are emitted.
+        const float tile = fog.tileSize;
+        const sf::Vector2f vc = worldView.getCenter();
+        const sf::Vector2f vs = worldView.getSize();
+        const int minX = std::max(0, static_cast<int>(std::floor((vc.x - vs.x * 0.5f) / tile)));
+        const int minY = std::max(0, static_cast<int>(std::floor((vc.y - vs.y * 0.5f) / tile)));
+        const int maxX = std::min(fog.fogW - 1, static_cast<int>(std::ceil((vc.x + vs.x * 0.5f) / tile)));
+        const int maxY = std::min(fog.fogH - 1, static_cast<int>(std::ceil((vc.y + vs.y * 0.5f) / tile)));
+
+        const sf::Color exploredColor(fog.exploredColor);
+        const sf::Color unexploredColor(fog.unexploredColor);
+        // FogOfWar::State: Unexplored = 0, Explored = 1, Visible = 2.
+        sf::VertexArray shroud(sf::PrimitiveType::Triangles);
+        for (int y = minY; y <= maxY; ++y) {
+            for (int x = minX; x <= maxX; ++x) {
+                const std::uint8_t state = fog.states[static_cast<std::size_t>(y) * fog.fogW + x];
+                const sf::Color c = (state == 0) ? unexploredColor : exploredColor;
+                const float x0 = x * tile, y0 = y * tile;
+                const float x1 = x0 + tile, y1 = y0 + tile;
+                shroud.append(sf::Vertex{ { x0, y0 }, c });
+                shroud.append(sf::Vertex{ { x1, y0 }, c });
+                shroud.append(sf::Vertex{ { x1, y1 }, c });
+                shroud.append(sf::Vertex{ { x0, y0 }, c });
+                shroud.append(sf::Vertex{ { x1, y1 }, c });
+                shroud.append(sf::Vertex{ { x0, y1 }, c });
+            }
+        }
+        if (shroud.getVertexCount() > 0) {
+            m_fogTexture->draw(shroud);
+        }
+
+        // Punch the currently-visible circles out of the shroud. The reveal blend
+        // multiplies the destination by (1 - src.alpha), so an opaque-cored circle
+        // that feathers to zero at its rim clears the shroud with a soft, pixel-smooth
+        // edge instead of the old tile staircase.
+        const sf::RenderStates reveal{ sf::BlendMode{
+            sf::BlendMode::Factor::Zero,
+            sf::BlendMode::Factor::OneMinusSrcAlpha,
+            sf::BlendMode::Equation::Add } };
+        constexpr int kSegments = 48;
+        constexpr float kCoreFraction = 0.78f;  // fully-clear inside, feather beyond
+        const sf::Color opaque(255, 255, 255, 255);
+        const sf::Color clear(255, 255, 255, 0);
+        for (const auto& s : fog.sources) {
+            if (s.radius <= 0.0f) {
+                continue;
+            }
+            const float innerR = s.radius * kCoreFraction;
+
+            // Solid core (triangle fan) clears the interior completely.
+            sf::VertexArray core(sf::PrimitiveType::TriangleFan, kSegments + 2);
+            core[0] = sf::Vertex{ { s.cx, s.cy }, opaque };
+            for (int i = 0; i <= kSegments; ++i) {
+                const float a = (2.0f * std::numbers::pi_v<float> * i) / kSegments;
+                core[i + 1] = sf::Vertex{
+                    { s.cx + innerR * std::cos(a), s.cy + innerR * std::sin(a) }, opaque };
+            }
+            m_fogTexture->draw(core, reveal);
+
+            // Feather ring: opaque at innerR fading to clear at the full radius.
+            sf::VertexArray ring(sf::PrimitiveType::TriangleStrip, (kSegments + 1) * 2);
+            for (int i = 0; i <= kSegments; ++i) {
+                const float a = (2.0f * std::numbers::pi_v<float> * i) / kSegments;
+                const float cosA = std::cos(a), sinA = std::sin(a);
+                ring[i * 2] = sf::Vertex{
+                    { s.cx + innerR * cosA, s.cy + innerR * sinA }, opaque };
+                ring[i * 2 + 1] = sf::Vertex{
+                    { s.cx + s.radius * cosA, s.cy + s.radius * sinA }, clear };
+            }
+            m_fogTexture->draw(ring, reveal);
+        }
+
+        m_fogTexture->display();
+
+        // Blit the mask over the world in screen space (it already holds the world
+        // view's pixels), then restore the world view for any later world commands.
+        window.setView(window.getDefaultView());
+        window.draw(sf::Sprite(m_fogTexture->getTexture()));
+        window.setView(worldView);
     }
 
     void SfmlRenderManager::draw(

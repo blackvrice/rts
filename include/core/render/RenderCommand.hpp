@@ -61,6 +61,30 @@ namespace rts::core::render {
         uint32_t color;
     };
 
+    // One currently-seeing source (unit/building) for the smooth fog reveal, in
+    // world coordinates. The renderer punches a soft circle of this radius out of
+    // the shroud so the visible boundary is pixel-smooth rather than tile-blocky.
+    struct FogVisionSource {
+        float cx;
+        float cy;
+        float radius;  // world units
+    };
+
+    // Fog-of-war shroud for the world layer. The explored/unexplored memory stays
+    // tile-resolution (states grid, mirrors FogOfWar::State, row-major fogW*fogH),
+    // but the currently-visible area is rendered from `sources` as smooth circles
+    // composited on the GPU. Emitted once per frame above the world sprites.
+    struct DrawFog {
+        float tileSize { 0.0f };
+        int fogW { 0 };
+        int fogH { 0 };
+        std::vector<uint8_t> states {};
+        std::vector<FogVisionSource> sources {};
+        // 0xRRGGBBAA shroud tints; alpha is the last byte.
+        uint32_t exploredColor { 0x05070A66u };    // seen before, not in sight now
+        uint32_t unexploredColor { 0x05070AE6u };  // never seen
+    };
+
     struct UpdateHudResources {
         model::PlayerResourceState resources;
     };
@@ -184,6 +208,7 @@ namespace rts::core::render {
         DrawText,
         DrawSprite,
         DrawCircle,
+        DrawFog,
         UpdateHudResources,
         UpdateHudSelection,
         UpdateHudCursor,

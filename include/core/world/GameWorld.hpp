@@ -131,6 +131,13 @@ namespace rts::core::world {
         void updateFog();
         const map::FogOfWar& fog() const noexcept { return m_fog; }
 
+        // Currently-seeing sources (player units/buildings), in world coordinates,
+        // refreshed every updateFog. The renderer uses these to draw the visible
+        // area as smooth circles; the tile fog grid still drives gameplay (enemy
+        // hiding) and the explored/unexplored memory.
+        struct VisionSource { model::Vector2D center; float radius; };  // radius in world units
+        const std::vector<VisionSource>& visionSources() const noexcept { return m_visionSources; }
+
         // Deterministic 64-bit digest of simulation state (tick, player economy and
         // every entity's id/type/quantized position/hp/action/team), excluding
         // rendering/UI. Equal states hash equal; used by replay verification and the
@@ -159,6 +166,7 @@ namespace rts::core::world {
         // gridW*gridH, row-major: 1 where a live unit's current center cell sits.
         std::vector<std::uint8_t> m_unitOccupancy;
         map::FogOfWar m_fog;  // local player's vision (explored/visible)
+        std::vector<VisionSource> m_visionSources;  // smooth-fog reveal circles (world coords)
         std::vector<std::shared_ptr<model::IElement>> m_elements;
         std::vector<std::shared_ptr<model::Projectile>> m_projectiles;
         std::vector<std::shared_ptr<model::Projectile>> m_projectilePool;

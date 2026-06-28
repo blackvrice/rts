@@ -838,21 +838,21 @@ namespace rts::core::manager {
                    m_worldOrderMode == WorldOrderMode::Patrol ||
                    m_worldOrderMode == WorldOrderMode::Gather) {
             cursorKey = "move";
-        } else if (m_worldOrderMode == WorldOrderMode::Attack ||
-                   m_worldOrderMode == WorldOrderMode::AttackMove) {
+        } else if (m_worldOrderMode == WorldOrderMode::AttackMove) {
+            // Attack-move is an armed order (A then right-click): always show the
+            // attack cursor so the player can see the mode is active before clicking.
+            cursorKey = "attack";
+        } else if (m_worldOrderMode == WorldOrderMode::Attack) {
+            // Default mode: only the targeted-attack cursor when over an enemy.
             core::model::Vector2D worldPos = m_camera.screenToWorld(m_mousePos);
-            bool hoverEnemy = false;
             for (const auto& element : m_world.getElements()) {
                 auto unit = std::dynamic_pointer_cast<core::model::Unit>(element);
                 if (unit && unit->getTeamId() != core::model::TeamId::Player && unit->getAction() != core::model::ActionType::Dead) {
                     if (unit->getPosition().distanceTo(worldPos) < 32.0f) {
-                        hoverEnemy = true;
+                        cursorKey = "attack";
                         break;
                     }
                 }
-            }
-            if (hoverEnemy) {
-                cursorKey = "attack";
             }
         }
 
@@ -909,38 +909,24 @@ namespace rts::core::manager {
             viewModel->buildRenderCommands(m_renderQueue);
         }
 
-        // Fog shroud quads (World layer, above sprites). Only the camera-visible tile
-        // range is emitted to bound the rect count.
+        // Fog shroud (World layer, above sprites). The explored/unexplored memory is
+        // sent as the tile grid; the currently-visible area is sent as world-space
+        // circles so the renderer can reveal it pixel-smooth instead of tile-blocky.
         if (tile > 0.0f && fog.width() > 0 && fog.height() > 0) {
-            const auto camPos = m_camera.position();
-            const auto& vp = m_camera.viewportSize();
-            const int minX = std::max(0, static_cast<int>(std::floor(camPos.x / tile)));
-            const int minY = std::max(0, static_cast<int>(std::floor(camPos.y / tile)));
-            const int maxX = std::min(fog.width() - 1, static_cast<int>(std::ceil((camPos.x + vp.x) / tile)));
-            const int maxY = std::min(fog.height() - 1, static_cast<int>(std::ceil((camPos.y + vp.y) / tile)));
-            for (int y = minY; y <= maxY; ++y) {
-                for (int x = minX; x <= maxX; ++x) {
-                    const auto state = fog.get(x, y);
-                    if (state == core::map::FogOfWar::State::Visible) {
-                        continue;
-                    }
-                    // Colors are 0xRRGGBBAA (SFML), so alpha is the last byte.
-                    const std::uint32_t fill =
-                        state == core::map::FogOfWar::State::Unexplored
-                            ? 0x05070AE6u   // unexplored: near-opaque shroud
-                            : 0x05070A66u;  // explored: translucent shroud
-                    const core::model::Vector2D tl{ x * tile, y * tile };
-                    const core::model::Vector2D br{ tl.x + tile, tl.y + tile };
-                    m_renderQueue.emplace(
-                        core::render::RenderLayer::World,
-                        100,
-                        core::render::DrawRect{
-                            .rect = core::model::Rect{ tl, br },
-                            .border_color = 0x00000000u,
-                            .color = fill
-                        });
-                }
+            core::render::DrawFog df;
+            df.tileSize = tile;
+            df.fogW = fog.width();
+            df.fogH = fog.height();
+            df.states.reserve(fog.states().size());
+            for (const auto s : fog.states()) {
+                df.states.push_back(static_cast<std::uint8_t>(s));
             }
+            const auto& sources = m_world.visionSources();
+            df.sources.reserve(sources.size());
+            for (const auto& vs : sources) {
+                df.sources.push_back({ vs.center.x, vs.center.y, vs.radius });
+            }
+            m_renderQueue.emplace(core::render::RenderLayer::World, 100, std::move(df));
         }
 
         // Minimap snapshot: world size, camera viewport, fog grid and entity blips
@@ -1037,6 +1023,39 @@ namespace rts::core::manager {
     void GameUIManager::syncWithWorld() {
         // Camera panning is constrained by the authored terrain, not by entity extents.
         m_camera.setWorldSize(mapWorldSize(m_world));
+
+        // Open the match looking at the player's base instead of the map corner.
+        // Done once, the first sync where the world is populated. Prefers the player
+        // Town Hall, then any player building, then any player unit.
+        if (!m_cameraCentered) {
+            core::model::Vector2D focus {};
+            bool found = false;
+            for (const auto& element : m_world.getElements()) {
+                auto building = std::dynamic_pointer_cast<core::model::Building>(element);
+                if (building && building->getTeamId() == core::model::TeamId::Player &&
+                    building->buildingType() == core::model::BuildingType::TownHall) {
+                    focus = building->getPosition();
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                for (const auto& element : m_world.getElements()) {
+                    auto ge = std::dynamic_pointer_cast<core::model::IGameElement>(element);
+                    if (ge && ge->getTeamId() == core::model::TeamId::Player &&
+                        ge->getAction() != core::model::ActionType::Dead) {
+                        focus = ge->getPosition();
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (found) {
+                const auto& vp = m_camera.viewportSize();
+                m_camera.setPosition({ focus.x - vp.x * 0.5f, focus.y - vp.y * 0.5f });
+                m_cameraCentered = true;
+            }
+        }
 
         // 1. 기존 ViewModel 중 expired 제거
         std::erase_if(m_viewModels,
