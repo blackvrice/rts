@@ -1,5 +1,12 @@
 # Development Log
 
+## 2026-06-28 - Gate Sounds And Effects By Vision
+
+- World events outside the local player's current vision are now silenced and hidden, matching the fog: `GameUIManager::syncWithWorld` checks each feedback event / active effect position against `FogOfWar::State::Visible` before emitting it.
+- Sound gating is cue-aware: only world-located combat/death cues (`AttackFire`, `Hit`, `Death`, `Explosion`) are gated; player UI/order/economy/result cues (`Select`, `MoveOrder`, `AttackOrder`, production/construction, resource, victory/defeat) always play even when their target sits in the fog. The feedback serial still advances on skipped events so they are not re-checked.
+- All on-map effects (attack flashes, hit sparks, death bursts, explosions, dust, decals) are drawn only where currently visible.
+- Verification: rebuilt `RTS` and `rts_headless_smoke` (debug) — compiles, links, all smoke checks pass.
+
 ## 2026-06-28 - Open Camera On Player Base + Attack-Move Cursor
 
 - The match now opens with the camera centered on the player's base instead of the map's top-left corner. `GameUIManager::syncWithWorld` centers once (guarded by `m_cameraCentered`) on the player Town Hall, falling back to any player building, then any player unit; the camera clamps to the world bounds as usual.

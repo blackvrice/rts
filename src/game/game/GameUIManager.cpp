@@ -862,9 +862,35 @@ namespace rts::core::manager {
             core::render::UpdateHudCursor { cursorKey }
         );
 
+        // A world position is "seen" only where the local player currently has
+        // vision. World events (combat, deaths, on-map effects) outside that are
+        // hidden and silenced; player UI/order cues always play.
+        const auto& fogState = m_world.fog();
+        const auto& gridTf = m_world.gridTransform();
+        const auto seenAt = [&](const core::model::Vector2D& p) {
+            const auto cell = gridTf.worldToGrid(p);
+            return fogState.get(cell.x, cell.y) == core::map::FogOfWar::State::Visible;
+        };
+        const auto isWorldSound = [](const core::world::SoundCue cue) {
+            switch (cue) {
+                case core::world::SoundCue::AttackFire:
+                case core::world::SoundCue::Hit:
+                case core::world::SoundCue::Death:
+                case core::world::SoundCue::Explosion:
+                    return true;  // emitted at a map location; gate by vision
+                default:
+                    return false;  // player select/order/economy/result cues
+            }
+        };
+
         for (const auto& event : core::world::feedbackEvents(m_world)) {
             if (event.serial <= m_lastFeedbackSerial) {
                 continue;
+            }
+            // Advance the serial even when skipped so the event isn't re-checked.
+            m_lastFeedbackSerial = std::max(m_lastFeedbackSerial, event.serial);
+            if (isWorldSound(event.cue) && !seenAt(event.position)) {
+                continue;  // combat/death sound from beyond the player's sight
             }
             m_renderQueue.emplace(
                 core::render::RenderLayer::UI,
@@ -873,10 +899,12 @@ namespace rts::core::manager {
                     .cue = core::world::soundCueKey(event.cue),
                     .volume = event.volume
                 });
-            m_lastFeedbackSerial = std::max(m_lastFeedbackSerial, event.serial);
         }
 
         for (const auto& effect : core::world::activeEffects(m_world)) {
+            if (!seenAt(effect.position)) {
+                continue;  // on-map effect outside the player's current vision
+            }
             emitRuntimeEffect(m_renderQueue, effect);
         }
 
