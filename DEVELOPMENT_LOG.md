@@ -1,5 +1,12 @@
 # Development Log
 
+## 2026-08-31 - Portfolio README Landing Page
+
+- Reworked the root README from a broad feature inventory into a recruiter-first portfolio landing page: game identity, stack, core loop, four technical highlights, architecture, two code-backed problem-solving cases, verification, documentation, and run instructions.
+- Kept the determinism claim scoped to the implemented 30Hz fixed-tick command path, replay checkpoints, and WorldHash divergence detection; the README now explicitly records that float-based collision/range/projectile work prevents a cross-platform bit-determinism claim.
+- Removed the broken-placeholder media pattern and uses plain `To be added` labels until gameplay GIF/video files exist.
+- Verification: built the existing debug targets with the CLion-bundled CMake path, ran CTest (`rts_headless_smoke` 1/1), and launched `cmake-build-debug/RTS.exe`; it remained running for the five-second smoke window. README paths and commands were checked against the current repository.
+
 ## 2026-06-28 - Gate Sounds And Effects By Vision
 
 - World events outside the local player's current vision are now silenced and hidden, matching the fog: `GameUIManager::syncWithWorld` checks each feedback event / active effect position against `FogOfWar::State::Visible` before emitting it.

@@ -1,139 +1,125 @@
-# RTS — C++ 실시간 전략 게임 (Vertical Slice)
+# RTS
 
-> C++23 / SFML 로 직접 구현한 RTS 게임. 데이터 주도 설계, 고정 틱 결정론 시뮬레이션,
-> 명령 로그 기반 리플레이, A* 패스파인딩, 전장의 안개, 적 AI까지 하나의 수직 슬라이스로 구현했습니다.
+C++23과 SFML로 고정 틱 시뮬레이션, 명령 리플레이, A* 이동을 구성한 실시간 전략 게임 Vertical Slice입니다.
 
-<!-- TODO: 데모 GIF/스크린샷 넣기 (gameplay.gif). 채집→생산→전투→안개 정찰 30초 클립 권장 -->
-<!-- ![gameplay](docs/gameplay.gif) -->
+**Gameplay GIF:** To be added
 
----
+**Gameplay Video:** To be added
 
-## ✨ Features
+| 개발 | Engine / Framework | Language | 핵심 | 검증 |
+|---|---|---|---|---|
+| 개인 프로젝트 / 1인 개발 | SFML 3 · Dear ImGui · CMake | C++23 | Fixed Tick · Command/Replay · WorldHash · A* | CTest Headless Smoke · Manual QA Checklist |
 
-**전투 (Combat)**
-- 무기/장갑 상성 테이블 (Normal·Pierce·Siege·Magic × Unarmored·Light·Heavy·Fortified)
-- 공격 FSM: 선딜(PreCast) → 발사(FirePoint) → 후딜(Cooldown), 무빙샷 취소 지원
-- 원거리 투사체(호밍) + AoE/스플래시(거리별 감쇠), 공중/지상 타게팅 데이터
+## Overview
 
-**경제 / 테크 (Economy & Tech)**
-- 자원 채집 루프(채집 → 반납 → 재채집), Cost/canAfford/pay/refund 비용 처리
-- 실시간 인구·병력 집계, 자원 부족 시 HUD 경고 표시
-- `TechTreeValidator`: 선행 건물/업그레이드 요구 검증 (CanBuild / CanProduce)
+일꾼으로 자원을 모으고 건물을 지어 병력을 생산한 뒤, 유닛을 지휘해 적 기지를 파괴하는 RTS입니다. 렌더링 기능보다 게임 내부 시스템 설계에 초점을 두고 입력을 Command로 변환해 30Hz Logic Tick에서 처리하며, 결과를 렌더 스레드에 전달하는 구조로 구현했습니다.
 
-**유닛 제어 (Control)**
-- 드래그 박스 / Shift 추가 / Ctrl·더블클릭 동일 타입 선택, 컨트롤 그룹(1~9)
-- 명령 큐(Shift 예약), Move·Attack·AttackMove·Patrol·Hold·Gather·Build
+## Core Gameplay
 
-**UI / 시야 (UI & Fog of War)**
-- 컨텍스트 명령 카드(선택 종류별 버튼, 조건/자원 미충족 시 회색 잠금)
-- 워커 **빌드 메뉴** / 생산 건물 **생산 리스트** / 다중 선택 **초상화 그리드**(클릭 시 개별 선택)
-- 전장의 안개(미탐색/탐색/시야 3단계, 시야 밖 적 은폐)
-- **인터랙티브 미니맵**: 지형·유닛·자원 표시, 카메라 뷰포트, 좌클릭 이동 / 우클릭 명령
+`Gather → Build → Produce → Control Units → Combat → Victory / Defeat`
 
-**맵 / 저장 / 리플레이 (Map · Save · Replay)**
-- **Tiled `.tmx`** 맵 임포트(tmxlite) + 자체 JSON 맵 포맷
-- 세이브/로드(JSON 스냅샷: 틱·경제·엔티티 상태·생산 큐)
-- **WorldHash**(FNV-1a 결정론 해시) + 디버그 오버레이(F3)
-- **리플레이**: 플레이어 명령 로그 기록/재생, 30틱마다 해시 체크포인트로 divergence 검출
+선택·컨트롤 그룹·명령 큐, 채집·건설·생산, 근접/원거리 전투, 적 AI, Fog of War와 미니맵이 하나의 매치 흐름으로 연결됩니다. JSON 또는 Tiled `.tmx` 맵에서 유닛·건물·자원 배치를 읽어 같은 시스템으로 실행합니다.
 
-**AI**
-- 빌드 오더 상태머신(Opening → Gather → BuildBarracks → ProduceArmy → Attack), 워커 자동 채집, 병력 집결·공격 타이밍·방어 반응
+## Technical Highlights
 
----
+1. **Fixed-Tick Command Simulation** — 화면 입력을 `LogicCommand`로 변환하고 단일 Router를 거쳐 30Hz Logic Tick에 적용합니다. 렌더 프레임 시간과 게임 규칙의 시간 기준을 분리했습니다.
+2. **Command Replay + WorldHash** — 명령을 Tick과 함께 기록·재생하고, 30 Tick마다 렌더 상태를 제외한 WorldHash를 비교해 divergence를 찾습니다. Save/Load 뒤에도 해시를 비교할 수 있습니다.
+3. **A* Pathfinding / Unit Movement** — 정적 footprint와 동적 유닛 점유를 분리하고, A* 요청을 여러 Tick과 worker thread에 분산한 뒤 결과는 고정 순서로 적용합니다.
+4. **Entity / Data-driven Architecture** — `EntityId(index + generation)`로 재사용 슬롯의 stale handle을 무효화하고, 유닛·건물·자원·애니메이션·맵 데이터는 JSON/TMX로 분리했습니다.
 
-## 🧱 Tech Stack
+## Architecture
 
-| 분류 | 사용 기술 |
-|------|-----------|
-| 언어 | **C++23** |
-| 렌더/윈도우 | **SFML 3** + OpenGL |
-| UI 오버레이 | **Dear ImGui** |
-| 데이터 | **nlohmann/json** (units·buildings·resources·animations·maps) |
-| 맵 | **tmxlite** (Tiled `.tmx`) |
-| 빌드 | **CMake** (Ninja / CLion) |
-
-핵심 설계: 고정 틱(30Hz) 결정론 시뮬레이션 · Logic/Render 스레드 분리 · Command Bus + Router ·
-EntityId 핸들(index+generation) · 데이터 주도(콘텐츠 무재컴파일 교체) · DI 컨테이너.
-
----
-
-## 🏗 Architecture
-
-```
-                 ┌────────────────────────────┐
-   입력(SFML) ─▶ │  UICommandBus → UIManager   │  (화면 좌표, ImGui HUD)
-                 └─────────────┬──────────────┘
-                               │ LogicCommand (Move/Attack/Build/Train…)
-                               ▼
-   ┌──────────────────── LogicThread (고정 dt 30Hz) ─────────────────────┐
-   │  CommandRouter.dispatch → GameLogicManager                          │
-   │     ├ MovementSystem (A* PathManager, 충돌, 진형/회피)              │
-   │     ├ CollisionSystem (유닛=원 / 건물·자원=사각 footprint)          │
-   │     ├ Combat (상성·FSM·투사체·스플래시)                             │
-   │     ├ Economy/Tech (Cost, TechTreeValidator)                        │
-   │     ├ Fog of War · WorldRuntimeServices(이펙트/사운드/공간 인덱스)  │
-   │     └ AI (빌드오더 상태머신)                                        │
-   │  GameWorld (EntityManager, 점유 그리드, fog, worldHash)             │
-   └────────────────────────────┬───────────────────────────────────────┘
-                                 │ ViewModel 동기화
-                                 ▼
-                 ┌────────────────────────────┐
-   화면 출력 ◀── │ RenderQueue → SfmlRenderMgr │  (월드 카메라 / UI 분리)
-                 └────────────────────────────┘
+```text
+Input / UI
+    │
+    ▼
+LogicCommand Bus → Router
+    │
+    ▼
+Logic Thread (Fixed 30Hz)
+    ├─ Movement / A* / Collision
+    ├─ Combat / Economy / Tech / AI
+    └─ GameWorld / Entity / Fog / WorldHash
+    │
+    ▼
+ViewModel / RenderQueue → SFML Render Thread
 ```
 
-- **입력과 시뮬레이션 분리**: 모든 플레이어 행동은 `LogicCommand`로 추상화되어 한 곳(Router)에서 처리 → 리플레이/세이브의 기반.
-- **로직과 렌더 분리**: 로직은 `RenderQueue`(DrawSprite/Rect/Circle/Text + HUD 갱신)만 채우고, 렌더러가 소비. 모델은 렌더를 모름.
-- **데이터 주도**: `data/*.json`, `data/maps/*.tmx` 만 바꾸면 유닛 스탯·초상화·맵·애니메이션 변경(재컴파일 불필요).
+게임 모델은 SFML draw call을 직접 호출하지 않습니다. Logic은 World State를 변경하고 `RenderQueue`를 만들며, 렌더 계층이 이를 소비합니다. 상세 클래스와 데이터 흐름은 [Architecture](docs/ARCHITECTURE.md)에서 확인할 수 있습니다.
 
----
+## Problem Solving
 
-## 🔬 Technical Highlights
+### 대형 TMX 맵의 A* Tick Stall
 
-엔지니어링 관점에서 특히 공들인 부분입니다.
+**Problem** 256×256 포트폴리오 맵에서 첫 적 웨이브가 길을 찾을 때 Logic Thread가 수 초 동안 World write lock을 점유했습니다.
 
-1. **결정론 시뮬레이션 + 리플레이 + WorldHash**
-   고정 dt·RNG 미사용·고정 반복 순서로 결정론을 확보하고, 플레이어 명령을 틱과 함께 로그로 남겨
-   `명령 로그만으로 경기를 재생`합니다. 매 N틱 `WorldHash`(엔티티 id/위치/HP/상태 + 경제 해시)를 비교해
-   재생 중 divergence를 즉시 검출 — 디버깅/네트워킹 동기화의 토대.
-   → [`core/replay/ReplayLog`](src/core/replay/ReplayLog.cpp), [`GameWorld::worldHash`](src/core/world/GameWorld.cpp)
+**Cause** A*의 동적 장애물 질의마다 모든 Entity를 선형 탐색했고, 한 Tick에 여러 cross-map 경로를 함께 계산했습니다.
 
-2. **데이터 주도 콘텐츠 파이프라인**
-   유닛/건물/자원/애니메이션/초상화/맵을 코드에서 분리. 팩토리 기본값을 시드한 뒤 JSON으로 오버레이하고,
-   Tiled `.tmx`(오브젝트 레이어 = 스폰, 충돌 타일 레이어, 맵 프로퍼티 = 경제)를 그대로 임포트.
-   → [`core/data/DataRegistry`](src/core/data/DataRegistry.cpp), [`core/map/MapLoader`](src/core/map/MapLoader.cpp)
+**Solution** 유닛 점유 grid를 캐시해 질의를 O(1)로 바꾸고, 요청 수를 Tick에 분산했습니다. 이후 독립 A* 계산은 thread pool에서 수행하되 적용 순서는 고정했습니다.
 
-3. **패스파인딩 + 사각 footprint 충돌의 일관성**
-   A*(캐시·동적 점유)로 경로를 찾고, 건물/자원은 **타일 footprint 사각형**으로 점유·충돌을 통일.
-   유닛은 원형, 구조물은 원-AABB 판정 + 점유 그리드 O(1) 조회. 건물에 박힌 유닛은 최소 침투 축으로 탈출.
-   → [`MovementSystem`](src/game/game/systems/MovementSystem.cpp), [`CollisionSystem`](src/game/game/systems/CollisionSystem.cpp)
+**Verification** `rts_headless_smoke`에 포트폴리오 맵 90 Tick 실행을 추가했습니다. 기록상 최대 Tick은 수정 전 약 3.1초에서 수정 후 30ms 미만으로 줄었고, 현재 smoke도 통과합니다.
 
----
+### Fog of War 밖 정보 노출
 
-## 🚀 Build & Run
+**Problem** 시야 밖 전투의 소리와 월드 이펙트가 재생되면 보이지 않는 적의 위치를 추측할 수 있었습니다.
 
-```bash
-cmake -S . -B build
-cmake --build build --target RTS
+**Cause** Entity 렌더는 Fog 상태를 확인했지만 전투 feedback 경로는 같은 visibility 규칙을 사용하지 않았습니다.
+
+**Solution** 위치가 있는 공격·피격·사망·폭발 feedback만 `FogOfWar::Visible`일 때 출력하고, 선택·생산·자원·승패 같은 UI cue는 유지했습니다.
+
+**Verification** RTS와 headless target을 다시 빌드하고 전체 smoke를 통과시켰습니다. 시각·청각 결과는 [QA Checklist](docs/QA_CHECKLIST.md)의 수동 항목으로 분리했습니다.
+
+## Testing / Verification
+
+2026-08-31 현재 `master`에서 CTest `rts_headless_smoke` **1/1 통과**와 `RTS.exe` 5초 실행 유지를 확인했습니다. 이 테스트는 다음 범위를 다룹니다.
+
+- Runtime JSON과 JSON/TMX 맵 로딩
+- Tech Tree 선행 조건과 데이터 ID 해석
+- Replay 명령 직렬화, metadata와 hash checkpoint 저장/복원
+- Fixed-point 이동 kernel
+- 포트폴리오 맵 60 Tick 실행, 카메라·맵 경계·구조물 clearance
+
+```powershell
+& 'C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe' --build cmake-build-debug --target RTS rts_headless_smoke -- -j 4
+& 'C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe' --build cmake-build-debug --target test
 ```
 
-- 요구: C++23 컴파일러, SFML 3, CMake. (의존성은 `external/`에 vendoring: imgui, tmxlite, json)
-- 실행: 빌드 후 산출된 `RTS` 실행. 게임 데이터는 `data/`, 아트는 Tiny Swords 에셋을 사용.
+Headless Smoke는 실제 화면 조작을 대신하지 않습니다. 선택, 채집, 건설, 전투, Fog, Save/Load, Replay는 [Manual QA Checklist](docs/QA_CHECKLIST.md)로 별도 확인합니다.
 
-**조작 / 디버그 키**
+## AI-assisted Development
 
-| 키 | 동작 |
-|----|------|
-| 좌클릭 드래그 | 선택 / A | 어택무브 / 우클릭 | 이동·공격·채집 |
-| 1~9 (+Ctrl/Shift) | 컨트롤 그룹 | F3 | 틱·WorldHash 오버레이 |
-| F5 / F9 | 퀵세이브 / 로드 | F6 / F7 | 리플레이 기록 토글 / 재생 |
+생성형 AI는 코드 탐색, 구현 초안, 반복 코드와 테스트 작성 보조에 활용했습니다. 요구사항, 시스템 경계, 게임 규칙과 검증 기준은 개발자가 정의하고 생성 코드를 직접 검토·수정했습니다. 최종 판단은 빌드, headless test, 짧은 실행과 수동 게임플레이 결과를 기준으로 했습니다.
 
----
+## Technical Documentation
 
-## 📑 개발 기록
+- [Architecture](docs/ARCHITECTURE.md) — Thread, Command, World, Replay, Data 흐름
+- [Source Structure](SOURCE_STRUCTURE.md) — 폴더와 주요 entry point
+- [Development Plan](DEVELOPMENT_PLAN.md) — 구현 범위와 남은 작업
+- [Development Log](DEVELOPMENT_LOG.md) — 문제 원인, 변경, 검증 기록
+- [QA Checklist](docs/QA_CHECKLIST.md) — 실제 플레이 수동 검증 항목
 
-- [`DEVELOPMENT_PLAN.md`](DEVELOPMENT_PLAN.md) — Phase/Epic 단위 로드맵과 완료 기준
-- [`DEVELOPMENT_LOG.md`](DEVELOPMENT_LOG.md) — 에픽별 구현 내역·결정·검증 기록
+## Build & Run
 
-> 본 프로젝트는 상용 출시가 아닌 **학습/포트폴리오용 수직 슬라이스**입니다.
-> 아트는 [Tiny Swords](https://pixelfrog-assets.itch.io/tiny-swords) (Pixel Frog) 에셋을 사용했습니다.
+현재 CMake 설정은 Windows에서 SFML 3.0.2와 Dear ImGui의 로컬 경로를 사용합니다. `tmxlite`와 `nlohmann/json`은 저장소에 포함되어 있습니다.
+
+```powershell
+& 'C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe' -S . -B cmake-build-debug -G Ninja
+& 'C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe' --build cmake-build-debug --target RTS -- -j 4
+.\cmake-build-debug\RTS.exe
+```
+
+| 입력 | 동작 |
+|---|---|
+| 좌클릭 / Drag / Shift | 선택 / 다중 선택 |
+| 우클릭 / A | 상황 명령 / Attack Move |
+| 1–9 + Ctrl/Shift | Control Group |
+| F3 | Tick / WorldHash Overlay |
+| F5 / F9 | Quick Save / Load |
+| F6 / F7 | Replay Record / Play |
+
+## Current Scope
+
+- 동일 실행 환경의 고정 Tick·안정적 순서와 WorldHash 검출은 구현했지만, float 기반 충돌·사거리·투사체가 남아 있어 **cross-platform bit-level determinism 완료를 주장하지 않습니다**.
+- Multiplayer networking과 실제 Upgrade 콘텐츠는 제출 기능에 포함하지 않습니다.
+- Gameplay GIF와 Video, 전체 Manual QA 재실행은 아직 필요합니다.
+- 아트는 [Tiny Swords](https://pixelfrog-assets.itch.io/tiny-swords) (Pixel Frog) 에셋을 사용했습니다.
