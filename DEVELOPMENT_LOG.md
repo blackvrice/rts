@@ -1,5 +1,12 @@
 # Development Log
 
+## 2026-09-01 - README Gameplay Video
+
+- Replaced the README's gameplay-video placeholder with the published `RTS Portfolio Gameplay Edit` YouTube link and a clickable YouTube thumbnail.
+- Updated the current-scope note so only the still-missing gameplay GIF remains listed as a media follow-up.
+- Verification: confirmed the public YouTube page title, checked that the `maxresdefault.jpg` thumbnail returns HTTP 200 as `image/jpeg`, and reviewed the README Markdown links and scoped diff.
+- Build/run was not repeated because this change only updates documentation and external media links; no source, build configuration, or runtime asset changed.
+
 ## 2026-08-31 - Portfolio README Landing Page
 
 - Reworked the root README from a broad feature inventory into a recruiter-first portfolio landing page: game identity, stack, core loop, four technical highlights, architecture, two code-backed problem-solving cases, verification, documentation, and run instructions.

@@ -4,7 +4,9 @@ C++23과 SFML로 고정 틱 시뮬레이션, 명령 리플레이, A* 이동을 �
 
 **Gameplay GIF:** To be added
 
-**Gameplay Video:** To be added
+[![RTS Portfolio Gameplay Video](https://img.youtube.com/vi/g9drIxSF76o/maxresdefault.jpg)](https://youtu.be/g9drIxSF76o)
+
+**Gameplay Video:** [RTS Portfolio Gameplay Edit (YouTube)](https://youtu.be/g9drIxSF76o)
 
 | 개발 | Engine / Framework | Language | 핵심 | 검증 |
 |---|---|---|---|---|
@@ -121,5 +123,5 @@ Headless Smoke는 실제 화면 조작을 대신하지 않습니다. 선택, 채
 
 - 동일 실행 환경의 고정 Tick·안정적 순서와 WorldHash 검출은 구현했지만, float 기반 충돌·사거리·투사체가 남아 있어 **cross-platform bit-level determinism 완료를 주장하지 않습니다**.
 - Multiplayer networking과 실제 Upgrade 콘텐츠는 제출 기능에 포함하지 않습니다.
-- Gameplay GIF와 Video, 전체 Manual QA 재실행은 아직 필요합니다.
+- Gameplay GIF와 전체 Manual QA 재실행은 아직 필요합니다.
 - 아트는 [Tiny Swords](https://pixelfrog-assets.itch.io/tiny-swords) (Pixel Frog) 에셋을 사용했습니다.
