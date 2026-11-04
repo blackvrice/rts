@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-#include <core/Manager/IUIManager.hpp>
+#include <core/manager/IUIManager.hpp>
 
 #include "core/model/Rect.hpp"
 #include "core/model/Vector2D.hpp"

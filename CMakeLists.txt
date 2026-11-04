@@ -6,6 +6,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(CTest)
 
+# Headless-only builds skip SFML, OpenGL, ImGui and the RTS executable so the
+# SFML-free simulation tests can be configured on any machine (Linux CI, cloud
+# agents). The normal Windows/CLion build leaves this OFF.
+option(RTS_HEADLESS_ONLY "Build only the SFML-free headless test targets" OFF)
+
 if(CMAKE_GENERATOR MATCHES "Ninja")
         # GCC 16 UCRT debug builds can fail with temp-file/ICE errors under high CLion -j values.
         set_property(GLOBAL PROPERTY JOB_POOLS rts_compile_pool=4)
@@ -21,8 +26,10 @@ set(RTS_DATA_ROOT "${CMAKE_SOURCE_DIR}/data")
 # Runtime audio assets (sfx/music) loaded by SfmlAudioManager.
 set(RTS_AUDIO_ROOT "${CMAKE_SOURCE_DIR}/assets/audio")
 
-find_package(SFML 3 REQUIRED COMPONENTS System Window Graphics Audio)
-find_package(OpenGL REQUIRED)
+if(NOT RTS_HEADLESS_ONLY)
+        find_package(SFML 3 REQUIRED COMPONENTS System Window Graphics Audio)
+        find_package(OpenGL REQUIRED)
+endif()
 
 configure_file(
         "${CMAKE_SOURCE_DIR}/include/platform/sfml/SfmlAssetPaths.hpp.in"
@@ -56,6 +63,7 @@ if(MINGW AND NOT RTS_CRT_HEADERS_COMPILE)
         endif()
 endif()
 
+if(NOT RTS_HEADLESS_ONLY)
 # =========================
 # ImGui 설정
 # =========================
@@ -110,7 +118,7 @@ add_executable(RTS
         include/platform/sfml/sfmlWindow.hpp
         src/platform/sfml/SfmlWindow.cpp
         include/core/model/Vector2D.hpp
-        include/core/Manager/IUIManager.hpp
+        include/core/manager/IUIManager.hpp
         include/core/type/SceneType.hpp
         include/core/factory/UnitFactory.hpp
         include/core/prototype/UnitPrototypeLoader.hpp
@@ -133,7 +141,7 @@ add_executable(RTS
         include/core/command/CommandRouterBase.hpp
         include/core/manager/CameraManager.hpp
         src/core/manager/CameraManager.cpp
-        include/core/Manager/SceneManager.hpp
+        include/core/manager/SceneManager.hpp
         src/core/manager/SceneManager.cpp
         include/core/scene/IScene.hpp
         include/game/game/GameScene.hpp
@@ -243,6 +251,8 @@ add_executable(RTS
         include/core/manager/IAudioManager.hpp
 )
 
+endif() # NOT RTS_HEADLESS_ONLY (ImGui + RTS executable sources)
+
 # tmxlite
 add_subdirectory(external/tmxlite/tmxlite)
 
@@ -250,6 +260,7 @@ if(MINGW AND TARGET tmxlite)
         target_compile_definitions(tmxlite PRIVATE __NO_MINGW_LFS)
 endif()
 
+if(TARGET RTS)
 target_include_directories(RTS PRIVATE
         include
         "${CMAKE_BINARY_DIR}/generated"
@@ -265,10 +276,11 @@ target_link_libraries(RTS PRIVATE
         tmxlite
         imgui
 )
+endif()
 
 if(BUILD_TESTING)
-        add_executable(rts_headless_smoke
-                tests/rts_headless_smoke.cpp
+        # SFML-free simulation sources shared by every headless test target.
+        set(RTS_SIM_SOURCES
                 src/core/data/DataRegistry.cpp
                 src/core/manager/CameraManager.cpp
                 src/core/manager/PathManager.cpp
@@ -297,19 +309,27 @@ if(BUILD_TESTING)
                 src/game/game/systems/SelectionSystem.cpp
         )
 
-        target_include_directories(rts_headless_smoke PRIVATE
+        # Compiled once, linked into each test executable.
+        add_library(rts_sim STATIC ${RTS_SIM_SOURCES})
+        target_include_directories(rts_sim PUBLIC
                 include
                 "${CMAKE_BINARY_DIR}/generated"
                 external/json
         )
+        # Core/game code is SFML-free, so the simulation links only tmxlite.
+        target_link_libraries(rts_sim PUBLIC tmxlite)
 
-        target_link_libraries(rts_headless_smoke PRIVATE
-                SFML::System
-                SFML::Window
-                tmxlite
-        )
-
+        add_executable(rts_headless_smoke tests/rts_headless_smoke.cpp)
+        target_link_libraries(rts_headless_smoke PRIVATE rts_sim)
         add_test(NAME rts_headless_smoke COMMAND rts_headless_smoke)
+
+        # Gameplay scenario tests driven through SimHarness (tests/sim).
+        add_executable(rts_sim_scenarios tests/rts_sim_scenarios.cpp)
+        target_include_directories(rts_sim_scenarios PRIVATE tests)
+        target_compile_definitions(rts_sim_scenarios PRIVATE
+                RTS_TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/tests/data")
+        target_link_libraries(rts_sim_scenarios PRIVATE rts_sim)
+        add_test(NAME rts_sim_scenarios COMMAND rts_sim_scenarios)
 endif()
 
 if(MINGW)
@@ -322,50 +342,44 @@ if(MINGW)
         endif()
 endif()
 
-add_custom_command(TARGET RTS POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "D:/Libs/SFML-3.0.2/bin"
-        $<TARGET_FILE_DIR:RTS>
-)
-if(TARGET rts_headless_smoke)
-        add_custom_command(TARGET rts_headless_smoke POST_BUILD
+if(TARGET RTS)
+        add_custom_command(TARGET RTS POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy_directory
                 "D:/Libs/SFML-3.0.2/bin"
-                $<TARGET_FILE_DIR:rts_headless_smoke>
+                $<TARGET_FILE_DIR:RTS>
         )
 endif()
 
+# Windows runtime DLLs (tmxlite when shared, MinGW runtime) must sit beside
+# every executable that links them: the game and each headless test.
+set(RTS_RUNTIME_TARGETS)
+foreach(RTS_EXE_TARGET RTS rts_headless_smoke rts_sim_scenarios)
+        if(TARGET ${RTS_EXE_TARGET})
+                list(APPEND RTS_RUNTIME_TARGETS ${RTS_EXE_TARGET})
+        endif()
+endforeach()
+
 get_target_property(RTS_TMXLITE_TYPE tmxlite TYPE)
 if(WIN32 AND RTS_TMXLITE_TYPE STREQUAL "SHARED_LIBRARY")
-        add_custom_command(TARGET RTS POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                $<TARGET_FILE:tmxlite>
-                $<TARGET_FILE_DIR:RTS>
-        )
-        if(TARGET rts_headless_smoke)
-                add_custom_command(TARGET rts_headless_smoke POST_BUILD
+        foreach(RTS_EXE_TARGET ${RTS_RUNTIME_TARGETS})
+                add_custom_command(TARGET ${RTS_EXE_TARGET} POST_BUILD
                         COMMAND ${CMAKE_COMMAND} -E copy_if_different
                         $<TARGET_FILE:tmxlite>
-                        $<TARGET_FILE_DIR:rts_headless_smoke>
+                        $<TARGET_FILE_DIR:${RTS_EXE_TARGET}>
                 )
-        endif()
+        endforeach()
 endif()
 
 if(MINGW)
         foreach(RTS_RUNTIME_DLL libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll)
                 if(EXISTS "${RTS_MINGW_RUNTIME_DIR}/${RTS_RUNTIME_DLL}")
-                        add_custom_command(TARGET RTS POST_BUILD
-                                COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                                "${RTS_MINGW_RUNTIME_DIR}/${RTS_RUNTIME_DLL}"
-                                $<TARGET_FILE_DIR:RTS>
-                        )
-                        if(TARGET rts_headless_smoke)
-                                add_custom_command(TARGET rts_headless_smoke POST_BUILD
+                        foreach(RTS_EXE_TARGET ${RTS_RUNTIME_TARGETS})
+                                add_custom_command(TARGET ${RTS_EXE_TARGET} POST_BUILD
                                         COMMAND ${CMAKE_COMMAND} -E copy_if_different
                                         "${RTS_MINGW_RUNTIME_DIR}/${RTS_RUNTIME_DLL}"
-                                        $<TARGET_FILE_DIR:rts_headless_smoke>
+                                        $<TARGET_FILE_DIR:${RTS_EXE_TARGET}>
                                 )
-                        endif()
+                        endforeach()
                 endif()
         endforeach()
 endif()

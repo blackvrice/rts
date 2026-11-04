@@ -1,0 +1,22 @@
+{
+  "_comment": "Headless simulation scenario (tests/rts_sim_scenarios.cpp): one player worker next to gold and wood. The enemy has no economy so the passive AI stays idle. Positions are world pixels; tiles are 32px.",
+  "width": 64,
+  "height": 64,
+  "tileSize": 32,
+  "startResources": {
+    "player": { "gold": 500, "wood": 300 },
+    "enemy": { "gold": 0, "wood": 0 }
+  },
+  "buildings": [
+    { "type": "town_hall", "team": "player", "x": 320, "y": 320 },
+    { "type": "town_hall", "team": "enemy", "x": 1700, "y": 1700 }
+  ],
+  "units": [
+    { "type": "worker", "team": "player", "x": 320, "y": 480 }
+  ],
+  "resources": [
+    { "type": "gold", "x": 320, "y": 640 },
+    { "type": "wood", "x": 560, "y": 320 }
+  ],
+  "blockedTiles": []
+}

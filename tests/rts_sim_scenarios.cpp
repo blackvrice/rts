@@ -1,0 +1,294 @@
+// Headless gameplay scenario tests (roadmap M0-E4-02). Each test loads a small
+// map from tests/data/maps, issues the same LogicCommands the UI would send, and
+// checks the simulation outcome. No SFML/window is involved.
+
+#include <filesystem>
+#include <iostream>
+#include <string>
+
+#include "core/command/LogicCommand.hpp"
+#include "core/data/CombatTypes.hpp"
+#include "core/data/DataPaths.hpp"
+#include "core/data/DataRegistry.hpp"
+#include "core/model/Building.hpp"
+#include "core/model/ResourceNode.hpp"
+#include "core/model/Unit.hpp"
+#include "core/world/GameWorld.hpp"
+#include "sim/SimHarness.hpp"
+
+namespace {
+    using rts::test::SimHarness;
+    using rts::core::model::BuildingType;
+    using rts::core::model::ResourceNode;
+    namespace TeamId = rts::core::model::TeamId;
+    namespace command = rts::core::command;
+
+    int g_failures = 0;
+
+    void expect(const bool condition, const std::string& message) {
+        if (!condition) {
+            std::cerr << "[rts_sim_scenarios] FAIL: " << message << '\n';
+            ++g_failures;
+        }
+    }
+
+    std::string testMap(const char* name) {
+        return (std::filesystem::path(RTS_TEST_DATA_DIR) / "maps" / name).string();
+    }
+
+    // A worker ordered onto gold completes trips and the gold lands in the
+    // player's bank while the mine depletes by the same amount.
+    void testGatherDeliversGold() {
+        SimHarness sim(testMap("sim_economy.json"));
+        int startGold = 0;
+        int startMine = 0;
+        rts::core::ecs::EntityId workerId {};
+        rts::core::model::Vector2D goldPos {};
+        {
+            const auto lock = sim.world().acquireReadLock();
+            const auto workers = sim.units(TeamId::Player, rts::UnitType::Worker);
+            const auto gold = sim.resources(ResourceNode::ResourceType::Gold);
+            expect(workers.size() == 1 && gold.size() == 1, "economy map has 1 worker and 1 gold mine");
+            if (workers.empty() || gold.empty()) return;
+            startGold = sim.economy(TeamId::Player).gold;
+            startMine = gold.front()->remaining();
+            workerId = workers.front()->entityId();
+            goldPos = gold.front()->getPosition();
+        }
+        // Commands are sent outside the lock: handlers take the write lock.
+        sim.select(workerId);
+        sim.send(command::GatherCommand(goldPos));
+
+        // Generous window: travel + 1.5s gather per 10-gold trip.
+        const bool delivered = sim.tickUntil([&] {
+            return sim.economy(TeamId::Player).gold >= startGold + 30;
+        }, SimHarness::secondsToTicks(45.0f));
+
+        const auto lock = sim.world().acquireReadLock();
+        const int gained = sim.economy(TeamId::Player).gold - startGold;
+        const auto gold = sim.resources(ResourceNode::ResourceType::Gold);
+        expect(delivered, "worker delivers at least 30 gold within 45s (gained " + std::to_string(gained) + ")");
+        if (!gold.empty()) {
+            const int mined = startMine - gold.front()->remaining();
+            // The worker may be carrying one undelivered trip when we stop.
+            expect(mined >= gained && mined <= gained + 10,
+                   "gold mine depletes by the delivered amount (mined " + std::to_string(mined) +
+                   ", delivered " + std::to_string(gained) + ")");
+        }
+    }
+
+    // Training a worker charges its cost up front and spawns it after the
+    // build time; supply usage follows.
+    void testTrainWorker() {
+        SimHarness sim(testMap("sim_economy.json"));
+        int startGold = 0;
+        rts::core::ecs::EntityId hallId {};
+        {
+            const auto lock = sim.world().acquireReadLock();
+            const auto halls = sim.buildings(TeamId::Player, BuildingType::TownHall);
+            expect(halls.size() == 1, "economy map has the player town hall");
+            if (halls.empty()) return;
+            startGold = sim.economy(TeamId::Player).gold;
+            hallId = halls.front()->entityId();
+        }
+        sim.select(hallId);
+        sim.send(command::TrainUnitCommand(-1, static_cast<int>(rts::UnitType::Worker)));
+
+        {
+            const auto lock = sim.world().acquireReadLock();
+            const auto cost = rts::core::data::unitStaticDataFor(rts::UnitType::Worker).cost();
+            expect(sim.economy(TeamId::Player).gold == startGold - cost.gold,
+                   "training a worker charges its gold cost immediately");
+        }
+
+        const float buildSeconds =
+            rts::core::data::unitStaticDataFor(rts::UnitType::Worker).buildTimeSeconds;
+        const bool spawned = sim.tickUntil([&] {
+            return sim.units(TeamId::Player, rts::UnitType::Worker).size() == 2;
+        }, SimHarness::secondsToTicks(buildSeconds + 3.0f));
+        expect(spawned, "trained worker spawns within build time + 3s");
+
+        const auto lock = sim.world().acquireReadLock();
+        expect(sim.economy(TeamId::Player).foodUsed == 2,
+               "supply usage counts both workers (foodUsed " +
+               std::to_string(sim.economy(TeamId::Player).foodUsed) + ")");
+    }
+
+    // A worker places a barracks: cost is paid, the site appears incomplete,
+    // and the worker finishes it.
+    void testBuildBarracks() {
+        SimHarness sim(testMap("sim_economy.json"));
+        int startGold = 0;
+        rts::core::ecs::EntityId workerId {};
+        {
+            const auto lock = sim.world().acquireReadLock();
+            const auto workers = sim.units(TeamId::Player, rts::UnitType::Worker);
+            if (workers.empty()) {
+                expect(false, "economy map has a worker");
+                return;
+            }
+            startGold = sim.economy(TeamId::Player).gold;
+            workerId = workers.front()->entityId();
+        }
+        sim.select(workerId);
+        sim.send(command::BuildCommand(static_cast<int>(BuildingType::Barracks), { 640.0f, 640.0f }));
+
+        // Construction starts once the worker reaches the site.
+        const bool placed = sim.tickUntil([&] {
+            return !sim.buildings(TeamId::Player, BuildingType::Barracks).empty();
+        }, SimHarness::secondsToTicks(15.0f));
+        expect(placed, "barracks construction site appears");
+        if (!placed) return;
+
+        {
+            const auto lock = sim.world().acquireReadLock();
+            const auto cost = rts::core::data::buildingStaticDataFor(BuildingType::Barracks).cost();
+            expect(sim.economy(TeamId::Player).gold == startGold - cost.gold,
+                   "barracks gold cost is paid");
+            const auto barracks = sim.buildings(TeamId::Player, BuildingType::Barracks);
+            expect(!barracks.empty() && !barracks.front()->isComplete(),
+                   "new barracks starts incomplete");
+        }
+
+        const float buildSeconds =
+            rts::core::data::buildingStaticDataFor(BuildingType::Barracks).buildTimeSeconds;
+        const bool completed = sim.tickUntil([&] {
+            const auto barracks = sim.buildings(TeamId::Player, BuildingType::Barracks);
+            return !barracks.empty() && barracks.front()->isComplete();
+        }, SimHarness::secondsToTicks(buildSeconds + 10.0f));
+        expect(completed, "worker completes the barracks");
+    }
+
+    // A mixed army attack-moves onto the enemy base: the lone enemy warrior dies
+    // first, then destroying the town hall ends the match in victory.
+    void testCombatToVictory() {
+        SimHarness sim(testMap("sim_combat.json"));
+        rts::core::model::Vector2D hallPos {};
+        {
+            const auto lock = sim.world().acquireReadLock();
+            const auto warriors = sim.units(TeamId::Player, rts::UnitType::Warrior);
+            const auto archers = sim.units(TeamId::Player, rts::UnitType::Archer);
+            const auto halls = sim.buildings(TeamId::Enemy, BuildingType::TownHall);
+            expect(warriors.size() == 2 && archers.size() == 6 && halls.size() == 1,
+                   "combat map spawns 2 warriors, 6 archers and the enemy hall");
+            if (halls.empty()) return;
+            hallPos = halls.front()->getPosition();
+        }
+        // Box-select the army block, then attack-move onto the hall.
+        sim.send(command::SelectCommand({ 960.0f, 960.0f }, { 1120.0f, 1120.0f }));
+        sim.send(command::AttackMoveCommand(-1, hallPos));
+
+        const bool enemyWarriorDead = sim.tickUntil([&] {
+            return sim.units(TeamId::Enemy, rts::UnitType::Warrior).empty();
+        }, SimHarness::secondsToTicks(30.0f));
+        expect(enemyWarriorDead, "attack-move kills the enemy warrior within 30s");
+
+        const bool won = sim.tickUntil([&] {
+            return sim.world().gameResult() == rts::core::world::GameResult::Victory;
+        }, SimHarness::secondsToTicks(120.0f));
+
+        const auto lock = sim.world().acquireReadLock();
+        expect(won, "destroying the enemy town hall wins the match within 120s");
+        expect(sim.units(TeamId::Player, rts::UnitType::Archer).size() == 6,
+               "no archer is lost against a single warrior");
+    }
+
+    // KNOWN BUG (roadmap M1-E9-01): building path clearance keeps melee units
+    // about two tiles off the footprint, but range against buildings is measured
+    // center-to-center with the footprint half-diagonal, so most of a melee
+    // group around a Town Hall never comes into range. Until the fix lands this
+    // check only reports; set kMeleeBuildingReachFixed = true to enforce it.
+    constexpr bool kMeleeBuildingReachFixed = false;
+
+    void testMeleeReachesBuilding() {
+        SimHarness sim(testMap("sim_melee_vs_building.json"));
+        rts::core::ecs::EntityId hallId {};
+        rts::core::model::Vector2D hallPos {};
+        float startHp = 0.0f;
+        {
+            const auto lock = sim.world().acquireReadLock();
+            const auto halls = sim.buildings(TeamId::Enemy, BuildingType::TownHall);
+            if (halls.empty()) {
+                expect(false, "melee map has the enemy hall");
+                return;
+            }
+            hallId = halls.front()->entityId();
+            hallPos = halls.front()->getPosition();
+            startHp = halls.front()->getHp();
+        }
+        sim.send(command::SelectCommand({ 960.0f, 960.0f }, { 1120.0f, 1080.0f }));
+        sim.send(command::AttackCommand(hallPos, false, hallId));
+
+        // Let the group arrive, then measure damage over a fixed window.
+        sim.tick(SimHarness::secondsToTicks(10.0f));
+        float hpBefore = startHp;
+        {
+            const auto lock = sim.world().acquireReadLock();
+            const auto halls = sim.buildings(TeamId::Enemy, BuildingType::TownHall);
+            hpBefore = halls.empty() ? 0.0f : halls.front()->getHp();
+        }
+        constexpr float windowSeconds = 20.0f;
+        sim.tick(SimHarness::secondsToTicks(windowSeconds));
+
+        const auto lock = sim.world().acquireReadLock();
+        const auto halls = sim.buildings(TeamId::Enemy, BuildingType::TownHall);
+        const float hpAfter = halls.empty() ? 0.0f : halls.front()->getHp();
+        const auto warrior = rts::core::data::unitStaticDataFor(rts::UnitType::Warrior);
+        const float perWarriorDps = warrior.attackDamage *
+            rts::core::data::damageMultiplier(warrior.weaponType, rts::core::data::ArmorType::Fortified) /
+            warrior.attackCooldown;
+        const float attackers = (hpBefore - hpAfter) / windowSeconds / perWarriorDps;
+        std::cout << "[rts_sim_scenarios] melee vs Town Hall: ~" << attackers
+                  << " of 6 warriors deal damage\n";
+        if (kMeleeBuildingReachFixed) {
+            expect(attackers >= 5.0f, "at least 5 of 6 warriors reach the Town Hall");
+        } else if (attackers < 5.0f) {
+            std::cout << "[rts_sim_scenarios] KNOWN BUG M1-E9-01: melee units cannot reach "
+                         "building footprints (not failing the run)\n";
+        }
+    }
+
+    // Same scenario and commands twice must give the same WorldHash (same
+    // build, same machine), which replays rely on.
+    void testDeterministicReplayOfScenario() {
+        const auto run = [] {
+            SimHarness sim(testMap("sim_combat.json"));
+            rts::core::model::Vector2D hallPos {};
+            {
+                const auto lock = sim.world().acquireReadLock();
+                const auto halls = sim.buildings(TeamId::Enemy, BuildingType::TownHall);
+                if (halls.empty()) return std::uint64_t { 0 };
+                hallPos = halls.front()->getPosition();
+            }
+            sim.send(command::SelectCommand({ 960.0f, 960.0f }, { 1120.0f, 1120.0f }));
+            sim.send(command::AttackMoveCommand(-1, hallPos));
+            sim.tick(SimHarness::secondsToTicks(20.0f));
+            const auto lock = sim.world().acquireReadLock();
+            return sim.world().worldHash();
+        };
+        const auto first = run();
+        const auto second = run();
+        expect(first != 0 && first == second, "identical scenario runs produce identical WorldHash");
+    }
+}
+
+int main() {
+    if (!rts::core::data::DataRegistry::global().loadFromDirectory(rts::core::data::DataRoot)) {
+        std::cerr << "[rts_sim_scenarios] FAIL: DataRegistry could not load data/\n";
+        return 1;
+    }
+
+    testGatherDeliversGold();
+    testTrainWorker();
+    testBuildBarracks();
+    testCombatToVictory();
+    testMeleeReachesBuilding();
+    testDeterministicReplayOfScenario();
+
+    if (g_failures != 0) {
+        std::cerr << "[rts_sim_scenarios] " << g_failures << " check(s) failed\n";
+        return 1;
+    }
+    std::cout << "[rts_sim_scenarios] all scenarios passed\n";
+    return 0;
+}

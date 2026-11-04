@@ -590,10 +590,12 @@ namespace {
         }
     }
 
+    // Takes the target by value: applyPathPlan() stops the unit first, and a
+    // caller-supplied reference into the unit's own order state would be cleared.
     bool issuePathOrder(
         GameWorld& world,
         Unit& unit,
-        const Vector2D& target,
+        const Vector2D target,
         PathOrderKind kind,
         std::optional<Vector2D> patrolStart = std::nullopt,
         bool refresh = false) {
@@ -858,6 +860,11 @@ namespace rts::core::manager {
             return;
         }
 
+        // Copy before stop(): callers may pass a reference to the unit's own order
+        // state (e.g. attackMoveTarget() when resuming attack-move), which stop()
+        // clears. Reading it afterwards sent resumed units to world (0,0).
+        const model::Vector2D requestedTarget = target;
+
         const auto id = m_nextPathRequestId++;
         m_latestPathRequestByUnit[unit.get()] = id;
 
@@ -869,7 +876,7 @@ namespace rts::core::manager {
         m_pathRequests.push_back(PathRequest {
             .id = id,
             .unit = unit,
-            .target = target,
+            .target = requestedTarget,
             .kind = kind,
             .patrolStart = patrolStart
         });

@@ -1,0 +1,88 @@
+{
+  "_comment": "Headless simulation scenario (tests/rts_sim_scenarios.cpp): a mixed player army (2 warriors + 6 archers) next to a lone enemy warrior and the enemy town hall. Attack-move must kill the warrior, then destroying the hall ends the match in victory. Positions are world pixels; tiles are 32px.",
+  "width": 64,
+  "height": 64,
+  "tileSize": 32,
+  "startResources": {
+    "player": {
+      "gold": 0,
+      "wood": 0
+    },
+    "enemy": {
+      "gold": 0,
+      "wood": 0
+    }
+  },
+  "buildings": [
+    {
+      "type": "town_hall",
+      "team": "player",
+      "x": 320,
+      "y": 320
+    },
+    {
+      "type": "town_hall",
+      "team": "enemy",
+      "x": 1400,
+      "y": 1400
+    }
+  ],
+  "units": [
+    {
+      "type": "warrior",
+      "team": "player",
+      "x": 1000,
+      "y": 1000
+    },
+    {
+      "type": "warrior",
+      "team": "player",
+      "x": 1040,
+      "y": 1000
+    },
+    {
+      "type": "archer",
+      "team": "player",
+      "x": 1080,
+      "y": 1000
+    },
+    {
+      "type": "archer",
+      "team": "player",
+      "x": 1000,
+      "y": 1040
+    },
+    {
+      "type": "archer",
+      "team": "player",
+      "x": 1040,
+      "y": 1040
+    },
+    {
+      "type": "archer",
+      "team": "player",
+      "x": 1080,
+      "y": 1040
+    },
+    {
+      "type": "archer",
+      "team": "player",
+      "x": 1000,
+      "y": 1080
+    },
+    {
+      "type": "archer",
+      "team": "player",
+      "x": 1040,
+      "y": 1080
+    },
+    {
+      "type": "warrior",
+      "team": "enemy",
+      "x": 1200,
+      "y": 1200
+    }
+  ],
+  "resources": [],
+  "blockedTiles": []
+}

@@ -82,7 +82,7 @@ ViewModel / RenderQueue → SFML Render Thread
 - 포트폴리오 맵 60 Tick 실행, 카메라·맵 경계·구조물 clearance
 
 ```powershell
-& 'C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe' --build cmake-build-debug --target RTS rts_headless_smoke -- -j 4
+& 'C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe' --build cmake-build-debug --target RTS rts_headless_smoke rts_sim_scenarios -- -j 4
 & 'C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe' --build cmake-build-debug --target test
 ```
 

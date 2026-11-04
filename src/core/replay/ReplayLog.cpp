@@ -14,6 +14,7 @@ namespace rts::core::replay {
         m_checkpoints.clear();
         m_lastTick = 0;
         m_mapPath.clear();
+        m_enemyAiPassive = false;
         m_result = "in_progress";
         m_durationTicks = 0;
     }
@@ -58,6 +59,7 @@ namespace rts::core::replay {
         doc["metadata"] = {
             { "map", m_mapPath },
             { "result", m_result },
+            { "enemyAiPassive", m_enemyAiPassive },
             { "durationTicks", m_durationTicks > 0 ? m_durationTicks : m_lastTick }
         };
         json cmds = json::array();
@@ -99,6 +101,7 @@ namespace rts::core::replay {
         if (const auto meta = doc.value("metadata", json::object()); !meta.empty()) {
             m_mapPath = meta.value("map", m_mapPath);
             m_result = meta.value("result", m_result);
+            m_enemyAiPassive = meta.value("enemyAiPassive", false);
             m_durationTicks = meta.value("durationTicks", 0ull);
         }
         for (const auto& e : doc.value("commands", json::array())) {
@@ -107,7 +110,7 @@ namespace rts::core::replay {
         for (const auto& c : doc.value("checkpoints", json::array())) {
             checkpoint(c.value("tick", 0ull), c.value("hash", 0ull));
         }
-        m_lastTick = std::max(m_lastTick, doc.value("lastTick", 0ull));
+        m_lastTick = std::max(m_lastTick, doc.value<std::uint64_t>("lastTick", 0));
         m_lastTick = std::max(m_lastTick, m_durationTicks);
         std::cout << "[Replay] loaded " << path << " (" << m_entries.size() << " commands)\n";
         return true;

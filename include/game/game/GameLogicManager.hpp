@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "core/app/MatchConfig.hpp"
 #include "core/manager/ILogicManager.hpp"
 #include "core/model/PlayerResourceState.hpp"
 #include "core/model/ResourceNode.hpp"
@@ -43,8 +44,11 @@ namespace rts::core::manager {
     public:
         GameLogicManager(command::LogicCommandBus &bus,
                          command::LogicCommandRouter &router,
-                        core::world::GameWorld &world
+                        core::world::GameWorld &world,
+                        core::app::MatchConfig config = {}
                          );
+
+        const core::app::MatchConfig& matchConfig() const noexcept { return m_config; }
 
         void update() override;
 
@@ -206,6 +210,9 @@ namespace rts::core::manager {
         void captureFeedbackSnapshots();
 
         core::world::GameWorld& m_world;
+        // Rules for this match (map, AI mode, replay recording). Replay playback
+        // and save loading overwrite the AI mode with the recorded value.
+        core::app::MatchConfig m_config;
         SelectionSystem m_selection;
         ControlGroupSystem m_controlGroups;
         CollisionSystem m_collision;

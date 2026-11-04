@@ -23,6 +23,10 @@ namespace rts::core::replay {
         void clear();
         void setMapPath(const std::string& path) { m_mapPath = path; }
         const std::string& mapPath() const noexcept { return m_mapPath; }
+        // Match rule recorded with the stream so playback runs the same enemy AI
+        // mode. Replays written before this field existed load as false.
+        void setEnemyAiPassive(bool passive) { m_enemyAiPassive = passive; }
+        bool enemyAiPassive() const noexcept { return m_enemyAiPassive; }
         void setMetadata(std::string result, std::uint64_t durationTicks);
         const std::string& result() const noexcept { return m_result; }
         std::uint64_t durationTicks() const noexcept { return m_durationTicks; }
@@ -43,6 +47,7 @@ namespace rts::core::replay {
 
     private:
         std::string m_mapPath;
+        bool m_enemyAiPassive { false };
         std::string m_result { "in_progress" };
         std::vector<ReplayEntry> m_entries;
         std::vector<std::pair<std::uint64_t, std::uint64_t>> m_checkpoints;

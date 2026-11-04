@@ -5,6 +5,7 @@
 #include <queue>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 #include <optional>
 #include <cmath>
 #include <cstdint>   // uintptr_t
@@ -194,62 +195,102 @@ namespace rts::core::manager {
             return static_cast<float>((mx - mn) + mn * 1.41421356f);
         }
 
+        // Dense per-search bookkeeping indexed by tile (y * width + x). A stamp
+        // marks which entries belong to the current search, so the buffers are
+        // reused across searches without clearing 65k entries each time. The
+        // buffers are thread_local because path batches run on worker threads.
+        struct SearchScratch {
+            std::vector<float> gScore;
+            std::vector<int> cameFrom;            // linear index of the parent tile
+            std::vector<std::uint32_t> seenStamp;  // == stamp: gScore/cameFrom valid
+            std::vector<std::uint32_t> closedStamp; // == stamp: tile is closed
+            std::uint32_t stamp { 0 };
+
+            void begin(std::size_t cellCount) {
+                if (gScore.size() != cellCount) {
+                    gScore.assign(cellCount, 0.0f);
+                    cameFrom.assign(cellCount, -1);
+                    seenStamp.assign(cellCount, 0);
+                    closedStamp.assign(cellCount, 0);
+                    stamp = 0;
+                }
+                if (++stamp == 0) {
+                    // Stamp wrapped: invalidate everything once and restart at 1.
+                    std::fill(seenStamp.begin(), seenStamp.end(), 0u);
+                    std::fill(closedStamp.begin(), closedStamp.end(), 0u);
+                    stamp = 1;
+                }
+            }
+        };
+
+        static SearchScratch& searchScratch() {
+            thread_local SearchScratch scratch;
+            return scratch;
+        }
+
+        // Same expansion order and tie-breaking as the original hash-map A*, so
+        // paths (and therefore replays/WorldHash) are unchanged; only the
+        // bookkeeping storage differs.
         static std::optional<path::Path> aStar(
             const path::IGridQuery& grid,
             path::GridPos start,
             path::GridPos goal,
             const path::PathOptions& opt
         ) {
+            const int width = grid.width();
+            const int height = grid.height();
+            if (width <= 0 || height <= 0) return std::nullopt;
+
+            auto& scratch = searchScratch();
+            scratch.begin(static_cast<std::size_t>(width) * static_cast<std::size_t>(height));
+            const std::uint32_t stamp = scratch.stamp;
+            const auto indexOf = [width](path::GridPos p) {
+                return p.y * width + p.x;
+            };
+
             std::priority_queue<Node, std::vector<Node>, NodeCmp> open;
 
-            std::unordered_map<path::GridPos, float, path::GridPosHash> gScore;
-            std::unordered_map<path::GridPos, path::GridPos, path::GridPosHash> cameFrom;
-            std::unordered_set<path::GridPos, path::GridPosHash> closed;
-
-            gScore[start] = 0.0f;
+            const int startIndex = indexOf(start);
+            scratch.gScore[startIndex] = 0.0f;
+            scratch.cameFrom[startIndex] = -1;
+            scratch.seenStamp[startIndex] = stamp;
             open.push(Node{ start, 0.0f, heuristic(start, goal, opt.allowDiagonal) });
 
             int expanded = 0;
-
-            auto neighbors = [&](path::GridPos p, std::vector<path::GridPos>& out) {
-                out.clear();
-                out.reserve(opt.allowDiagonal ? 8 : 4);
-
-                static constexpr int d4[4][2] = { {1,0},{-1,0},{0,1},{0,-1} };
-                for (auto& d : d4) out.push_back({ p.x + d[0], p.y + d[1] });
-
-                if (opt.allowDiagonal) {
-                    static constexpr int d4d[4][2] = { {1,1},{1,-1},{-1,1},{-1,-1} };
-                    for (auto& d : d4d) out.push_back({ p.x + d[0], p.y + d[1] });
-                }
+            static constexpr int kOffsets[8][2] = {
+                {1,0},{-1,0},{0,1},{0,-1},     // orthogonal first (original order)
+                {1,1},{1,-1},{-1,1},{-1,-1}    // then diagonals
             };
+            const int neighborCount = opt.allowDiagonal ? 8 : 4;
 
-            std::vector<path::GridPos> neigh;
             while (!open.empty()) {
                 Node cur = open.top();
                 open.pop();
 
-                if (closed.contains(cur.p)) continue;
-                closed.insert(cur.p);
+                const int curIndex = indexOf(cur.p);
+                if (scratch.closedStamp[curIndex] == stamp) continue;
+                scratch.closedStamp[curIndex] = stamp;
 
                 if (++expanded > opt.maxExpand) return std::nullopt;
 
                 if (cur.p == goal) {
-                    return reconstructPath(cameFrom, start, goal);
+                    return reconstructPath(scratch, width, start, goal);
                 }
 
-                neighbors(cur.p, neigh);
-                for (auto n : neigh) {
+                const float curG = scratch.gScore[curIndex];
+                for (int i = 0; i < neighborCount; ++i) {
+                    const path::GridPos n{ cur.p.x + kOffsets[i][0], cur.p.y + kOffsets[i][1] };
                     if (!canEnterNeighbor(grid, cur.p, n, opt)) continue;
-                    if (closed.contains(n)) continue;
+                    const int nIndex = indexOf(n);
+                    if (scratch.closedStamp[nIndex] == stamp) continue;
 
-                    const float tentativeG = gScore[cur.p] + stepCost(grid, cur.p, n, opt);
-
-                    auto it = gScore.find(n);
-                    if (it == gScore.end() || tentativeG < it->second) {
-                        cameFrom[n] = cur.p;
-                        gScore[n] = tentativeG;
-                        float f = tentativeG + heuristic(n, goal, opt.allowDiagonal);
+                    const float tentativeG = curG + stepCost(grid, cur.p, n, opt);
+                    const bool seen = scratch.seenStamp[nIndex] == stamp;
+                    if (!seen || tentativeG < scratch.gScore[nIndex]) {
+                        scratch.seenStamp[nIndex] = stamp;
+                        scratch.cameFrom[nIndex] = curIndex;
+                        scratch.gScore[nIndex] = tentativeG;
+                        const float f = tentativeG + heuristic(n, goal, opt.allowDiagonal);
                         open.push(Node{ n, tentativeG, f });
                     }
                 }
@@ -259,19 +300,21 @@ namespace rts::core::manager {
         }
 
         static std::optional<path::Path> reconstructPath(
-            const std::unordered_map<path::GridPos, path::GridPos, path::GridPosHash>& cameFrom,
+            const SearchScratch& scratch,
+            int width,
             path::GridPos start,
             path::GridPos goal
         ) {
             path::Path path;
-            path::GridPos cur = goal;
-            path.push_back(cur);
+            const int startIndex = start.y * width + start.x;
+            int cur = goal.y * width + goal.x;
+            path.push_back(goal);
 
-            while (cur != start) {
-                auto it = cameFrom.find(cur);
-                if (it == cameFrom.end()) return std::nullopt;
-                cur = it->second;
-                path.push_back(cur);
+            while (cur != startIndex) {
+                if (scratch.seenStamp[cur] != scratch.stamp) return std::nullopt;
+                cur = scratch.cameFrom[cur];
+                if (cur < 0) return std::nullopt;
+                path.push_back(path::GridPos{ cur % width, cur / width });
             }
 
             std::reverse(path.begin(), path.end());

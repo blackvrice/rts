@@ -130,11 +130,12 @@ M0 기반 정비
 > 목적: 콘텐츠와 플레이어 수가 늘어나도 `GameLogicManager` 하나가 무너지지 않게 만든다.
 
 #### M0-E1 저장소·모드 정리
-- **M0-E1-01** `S` `P0` 빌드 부산물 제거: `Building.o`, `build_log.txt`, `cmake_log.txt`, `cmake_version.txt`, `compile_out.txt`, `scratch_test.cpp`를 `git rm --cached`하고 `.gitignore`에 패턴 추가.
+- [x] **M0-E1-01** `S` `P0` 빌드 부산물 제거: `Building.o`, `build_log.txt`, `cmake_log.txt`, `cmake_version.txt`, `compile_out.txt`, `scratch_test.cpp`를 `git rm --cached`하고 `.gitignore`에 패턴 추가.
   - 완료: `git ls-files`에 빌드 산출물이 없다.
-- **M0-E1-02** `S` `P0` `Tiny Swords (Free Pack).zip`을 제거한다(압축 해제 폴더가 이미 있음). 에셋 라이선스 문서 `assets/LICENSES.md`를 추가한다.
-- **M0-E1-03** `S` `P0` 포트폴리오 모드 해제: `kAiPassive`, 기본 맵 경로를 컴파일 상수에서 **매치 설정(MatchConfig)** 값으로 옮긴다(AI 공격 여부, 맵 경로, 시작 자원).
+- [x] **M0-E1-02** `S` `P0` `Tiny Swords (Free Pack).zip`을 제거한다(압축 해제 폴더가 이미 있음). 에셋 라이선스 문서 `assets/LICENSES.md`를 추가한다. (`__MACOSX` 메타데이터 465개도 함께 제거)
+- [x] **M0-E1-03** `S` `P0` 포트폴리오 모드 해제: `kAiPassive`, 기본 맵 경로를 컴파일 상수에서 **매치 설정(MatchConfig)** 값으로 옮긴다(AI 공격 여부, 맵 경로, 시작 자원).
   - 완료: 기본 실행에서 적 AI가 다시 공격하고, 패시브 모드는 디버그 옵션으로만 켤 수 있다.
+  - 구현: `core/app/MatchConfig.hpp`. 패시브 모드는 `RTS_PASSIVE_AI=1`, 맵은 `RTS_MAP=<path>` 환경 변수로 켠다. AI 모드는 리플레이와 세이브에 기록된다.
 - [x] **M0-E1-04** `S` `P1` `DEVELOPMENT_PLAN.md` 상단에 "현행 계획은 이 문서" 안내를 둔다(로드맵 작성 커밋에서 처리).
 
 #### M0-E2 `GameLogicManager` 분리
@@ -154,10 +155,10 @@ M0 기반 정비
 - 완료: 맵에 시작 위치 3~4개를 두고 AI 3명을 넣어도 크래시 없이 각자 자원과 시야를 따로 가진다.
 
 #### M0-E4 헤드리스 시뮬레이션 테스트
-- **M0-E4-01** `M` `P0` SFML 없이 `GameWorld` + 시뮬레이션 시스템을 만들고 N틱 진행할 수 있는 `SimHarness`를 추가한다.
-- **M0-E4-02** `M` `P0` 시나리오 테스트: 채집(N틱 후 자원 증가), 생산(비용 차감 후 스폰), 건설(완료 후 인구 증가), 전투(한쪽 전멸), 승패 판정.
-- **M0-E4-03** `S` `P0` Save → Load → WorldHash 동일성 테스트, 같은 리플레이 2회 재생 hash 동일성 테스트.
-- **M0-E4-04** `M` `P1` CI: GitHub Actions(Windows, MinGW + SFML)에서 빌드 + CTest. 어렵다면 Linux 빌드로 헤드리스 타깃만이라도 돌린다.
+- [x] **M0-E4-01** `M` `P0` SFML 없이 `GameWorld` + 시뮬레이션 시스템을 만들고 N틱 진행할 수 있는 `SimHarness`를 추가한다.
+- [x] **M0-E4-02** `M` `P0` 시나리오 테스트: 채집(N틱 후 자원 증가), 생산(비용 차감 후 스폰), 건설(완료 후 인구 증가), 전투(한쪽 전멸), 승패 판정.
+- **M0-E4-03** `S` `P0` Save → Load → WorldHash 동일성 테스트, 같은 리플레이 2회 재생 hash 동일성 테스트. (같은 시나리오·같은 명령 2회 실행 hash 동일성은 S1에서 추가됨. Save/Load와 ReplayLog 재생 경로는 남음)
+- **M0-E4-04** `M` `P1` CI: GitHub Actions(Windows, MinGW + SFML)에서 빌드 + CTest. 어렵다면 Linux 빌드로 헤드리스 타깃만이라도 돌린다. (S1에서 `RTS_HEADLESS_ONLY=ON` 옵션으로 Linux 헤드리스 빌드·테스트가 가능해짐)
 - 완료: `ctest` 하나로 핵심 루프 회귀가 자동 검출된다.
 
 ---
@@ -208,6 +209,12 @@ M0 기반 정비
 - **M1-E8-01** `M` `P0` 리플레이 재생 컨트롤: 일시정지 / 1x / 2x / 4x / 8x / 틱 스텝, 진행 바.
 - **M1-E8-02** `S` `P0` 리플레이 목록에 맵, 결과, 길이, 날짜, 참가자 표시(메타데이터는 이미 저장 중).
 - **M1-E8-03** `S` `P1` 리플레이 시점 전환: 플레이어별 시야 / 전체 공개.
+
+#### M1-E9 S1 헤드리스 테스트가 찾은 버그
+- [x] **M1-E9-00** `S` `P0` 공격 이동(attack-move) 중 적을 처치한 유닛이 맵 좌상단 (0,0)으로 걸어가던 버그. 원인: `MovementSystem::enqueuePathRequest`가 `unit->stop()`을 먼저 호출한 뒤 `target`을 복사했는데, 호출자가 넘긴 `target`이 그 유닛의 `attackMoveTarget()` 참조라 `stop()`이 (0,0)으로 지워 버렸다. 목표를 먼저 복사하도록 수정(S1).
+- **M1-E9-01** `M` `P0` 근접 유닛이 건물을 공격하지 못함. Warrior 6기로 Town Hall을 공격하면 약 1.9기만 피해를 준다. 원인: 경로 탐색이 건물 footprint 주변 2타일을 막아 유닛이 가장자리에서 약 64px 떨어져 서는데, 건물 대상 사거리는 중심 간 거리 + footprint 반대각선(90.5px)으로 잰다. 그래서 모서리 쪽이나 두 번째 줄에 선 유닛은 사거리 밖에 머문다. 수정 방향: 건물 대상 사거리를 "공격자 중심 ↔ footprint 사각형 최단 거리 − 공격자 반경"으로 바꾸고, 경로 clearance와의 관계를 정한다. 완료: `tests/rts_sim_scenarios.cpp`의 `kMeleeBuildingReachFixed = true`에서 통과.
+- **M1-E9-02** `S` `P1` 유닛이 촘촘히 붙어 시작하면 출발 셀이 주변 유닛(동적 장애물)에 둘러싸여 첫 경로가 `no_path`로 실패하고 그 유닛은 명령을 버린 채 Idle로 남는다(`sim_combat.json` 궁수 1기). 수정 방향: 출발 셀 주변의 동적 차단 무시 또는 재시도.
+- **M1-E9-03** `M` `P1` 공격형 AI가 켜지면 256×256 포트폴리오 맵에서 긴 A* 탐색(평균 약 11,000 노드)이 한 틱에 몰려 틱 스파이크가 생긴다. A* 내부 저장소를 해시맵에서 밀집 배열로 바꿔 최적화 빌드 최대 틱을 33ms → 약 14ms로 줄였다(S1). 근본 해결은 M7-E2-02(계층형 경로 / flow field).
 
 ---
 
@@ -436,10 +443,10 @@ M0 기반 정비
 
 | 스프린트 | 내용 | 끝났을 때 상태 |
 |---|---|---|
-| S1 | M0-E1 전부, M0-E4-01·02 | 깨끗한 저장소, 적 AI 복구, 헤드리스 시나리오 테스트 |
+| S1 ✅ | M0-E1 전부, M0-E4-01·02 | 깨끗한 저장소, 적 AI 복구, 헤드리스 시나리오 테스트 (2026-11-04 완료) |
 | S2 | M0-E2 (시스템 분리) | `GameLogicManager` 슬림화, hash 회귀 통과 |
 | S3 | M0-E3, M0-E4-03 | N-플레이어 모델, save v3 |
-| S4 | M1-E1, M1-E2, M1-E3 | 피드백·랠리·수리 |
+| S4 | M1-E9-01·02, M1-E1, M1-E2, M1-E3 | 근접 공격 버그 수정, 피드백·랠리·수리 |
 | S5 | M1-E4, M1-E5 | 일시정지/ESC 메뉴, 경보, 편의 기능 |
 | S6 | M1-E6, M1-E8, M1-E7(P1) | 탈락 규칙, 리플레이 UX |
 | S7 | M2-E1 | 데이터 id 기반 콘텐츠 파이프라인 |

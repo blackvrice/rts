@@ -4,7 +4,9 @@ This document is a quick orientation map for future AI agents working in this re
 
 ## Build And Entry Points
 
-- `CMakeLists.txt` defines the `RTS` executable target, the optional `rts_headless_smoke` CTest target, and the source lists used by the build.
+- `CMakeLists.txt` defines the `RTS` executable target and, with `BUILD_TESTING`, the `rts_sim` static library (every SFML-free simulation source, listed in `RTS_SIM_SOURCES`) plus the `rts_headless_smoke` and `rts_sim_scenarios` CTest executables that link it.
+- `RTS_HEADLESS_ONLY` (CMake option, default OFF) skips SFML, OpenGL, ImGui and the `RTS` target so the headless tests configure and run on any machine, including Linux (`cmake -S . -B build-headless -G Ninja -DRTS_HEADLESS_ONLY=ON`). It needs the `external/tmxlite` submodule checked out.
+- Core and game code (`include/core`, `include/game`, `src/core`, `src/game`) must stay SFML-free: only `src/platform/sfml` and `src/core/thread/LogicThread.cpp` include SFML. `core/command/UICommand.hpp` uses engine-neutral key/event types for this reason.
 - `src/main.cpp` is the application entry point.
 - The project currently targets C++23 in CMake and links SFML 3, SFML Audio, OpenGL, tmxlite, and ImGui.
 - `include/platform/sfml/SfmlAssetPaths.hpp.in` is configured into the build directory so SFML platform code can locate packaged assets.
@@ -12,7 +14,7 @@ This document is a quick orientation map for future AI agents working in this re
 
 ```powershell
 & "C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe" -S . -B cmake-build-debug
-& "C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe" --build cmake-build-debug --target RTS -- -j 4
+& "C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe" --build cmake-build-debug --target RTS rts_headless_smoke rts_sim_scenarios -- -j 4
 & "C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\ctest.exe" --test-dir cmake-build-debug --output-on-failure
 ```
 
@@ -23,16 +25,21 @@ This document is a quick orientation map for future AI agents working in this re
 - `external/tmxlite/` is the tmxlite dependency used for map loading. Treat it as third-party code unless the task explicitly targets it.
 - `external/json/` vendors the nlohmann/json single header (`nlohmann/json.hpp`) used by the DataRegistry. Third-party code.
 - `data/` holds runtime JSON design data (`units.json`, `buildings.json`, `resources.json`, `animations.json`) loaded by `DataRegistry`, plus `data/maps/*.json` scenario maps loaded by `core/map/MapLoader`; edit these to retune stats, change sprites/animations, or lay out the starting map without recompiling.
-- `tests/` contains headless test executables. `tests/rts_headless_smoke.cpp` is wired through CTest and checks graphics-free runtime contracts such as data loading, map loading, tech-tree prerequisites, replay log round-trip, fixed math, and the default `portfolio.tmx` logic tick budget.
+- `tests/` contains headless test executables, all wired through CTest:
+  - `tests/rts_headless_smoke.cpp` checks graphics-free runtime contracts such as data loading, map loading, tech-tree prerequisites, replay log round-trip, fixed math, and the default `portfolio.tmx` logic tick budget (passive-AI budget plus an aggressive-AI freeze guard).
+  - `tests/sim/SimHarness.hpp` builds a `GameWorld` + `GameLogicManager` from a scenario map, sends `LogicCommand`s straight into the router, and ticks the simulation. Never call its `send`/`tick` while holding a world lock (handlers take the write lock).
+  - `tests/rts_sim_scenarios.cpp` runs gameplay scenarios through `SimHarness`: gathering, training, construction, attack-move combat to victory, a melee-vs-building reach report, and same-input WorldHash determinism.
+  - `tests/data/maps/*.json` are small test-only scenario maps (not shown in the game).
 - `scripts/` contains offline helper scripts. `scripts/gen_portfolio_map.py` authors walls in tile space and emits the showcase scenario as both `data/maps/portfolio.json` and `data/maps/portfolio.tmx` (the latter with a CSV "collision" tile layer + point-object group), validating entity/footprint placement against the blocked tiles before writing.
 - `GAME_COMPLETION_ROADMAP.md` (root) is the current development plan toward a complete single-player RTS v1.0 (milestones, epics, tickets, sprint order). `DEVELOPMENT_PLAN.md` is the earlier Phase 0-8 implementation history.
+- `assets/LICENSES.md` lists third-party asset sources and their license status; add a row for every new asset.
 - `docs/` contains human-facing project notes such as architecture orientation and the manual QA checklist.
 - `Tiny Swords (Free Pack)/` contains art assets used by the game.
 - `cmake-build-debug/` is a local build output folder and should not be treated as source.
 
 ## Core Layer
 
-- `include/core/app` and `src/core/di` hold application startup and dependency wiring, including `GameApp`.
+- `include/core/app` and `src/core/di` hold application startup and dependency wiring, including `GameApp`. `core/app/MatchConfig.hpp` carries per-match rules (map path, `enemyAiPassive` debug switch, replay recording); `SessionContext::matchConfig()` holds the value for the next Game scene (env overrides `RTS_PASSIVE_AI=1`, `RTS_MAP=<path>`), and `GameApp` passes it to `GameLogicManager`.
 - `include/core/command` defines command types and command buses used between UI and logic. Each domain follows a two-part pattern: a `*CommandBus` (thread-safe queue for cross-thread hand-off) plus a `*CommandRouter` (type-indexed dispatcher from `CommandRouterBase`). Logic, UI, and Audio each have their own bus/router pair.
 - `include/core/thread` and `src/core/thread` contain off-thread workers: `LogicThread` drives the fixed-step simulation and `AudioThread` drains `AudioCommandBus` to drive an `IAudioManager` on its own ~60Hz poll. Both swap their managed manager via a `Change*ManagerCommand`.
 - `include/core/manager` and `src/core/manager` contain cross-scene managers such as scene, camera, and path management.

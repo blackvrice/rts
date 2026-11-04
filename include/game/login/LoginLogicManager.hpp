@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <core/Manager/IUIManager.hpp>
+#include <core/manager/IUIManager.hpp>
 #include <core/command/CommandRouterBase.hpp>
 
 #include "core/manager/ILogicManager.hpp"

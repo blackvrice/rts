@@ -16,6 +16,10 @@
 #include <utility>
 #include <vector>
 
+// SFML System/Window umbrellas used to arrive via core/command/UICommand.hpp;
+// platform code now includes them itself so core/game stay SFML-free.
+#include <SFML/System.hpp>
+#include <SFML/Window.hpp>
 #include <SFML/Graphics/Image.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/Texture.hpp>

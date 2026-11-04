@@ -40,11 +40,6 @@ namespace {
     // diagonal) used to widen acquisition queries before per-target edge gating.
     constexpr float kMaxTargetHitRadius = 200.0f;
 
-    // Portfolio mode: keep the enemy passive (no waves, no defensive sorties, no
-    // idle auto-acquire) so it never marches on the player. The economy (workers/
-    // production) still runs. Set false to restore the aggressive AI.
-    constexpr bool kAiPassive = true;
-
     float distanceSq(
         const rts::core::model::Vector2D& a,
         const rts::core::model::Vector2D& b) {
@@ -251,20 +246,21 @@ namespace rts::core::manager {
     GameLogicManager::GameLogicManager(
         command::LogicCommandBus &bus,
         command::LogicCommandRouter &router,
-        core::world::GameWorld &world)
-        : m_world(world), ILogicManager(bus, router) {
+        core::world::GameWorld &world,
+        core::app::MatchConfig config)
+        : m_world(world), ILogicManager(bus, router), m_config(std::move(config)) {
         // Populate the initial match state. Extracted into setupInitialWorld so a
         // restart can rebuild the same starting position.
         {
             auto lock = m_world.acquireWriteLock();
-            setupInitialWorld(defaultMapPath());
+            setupInitialWorld(m_config.mapPath.empty() ? defaultMapPath() : m_config.mapPath);
         }
 
         // If the lobby asked us to play back a specific replay, load it now;
         // otherwise record this live match so it can be reviewed afterwards.
         if (auto replay = core::app::SessionContext::instance().takeReplayToPlay()) {
             startReplayFrom(*replay);
-        } else {
+        } else if (m_config.recordReplay) {
             beginRecording();
         }
 
@@ -288,7 +284,9 @@ namespace rts::core::manager {
         m_router.on<command::RestartCommand>([this](const command::RestartCommand &) {
             if (m_world.gameResult() != core::world::GameResult::InProgress) {
                 restartMatch();
-                beginRecording();  // a fresh match records from the start again
+                if (m_config.recordReplay) {
+                    beginRecording();  // a fresh match records from the start again
+                }
             }
         });
 
@@ -894,9 +892,9 @@ namespace rts::core::manager {
                 unit->hasQueuedOrders()) {
                 continue;
             }
-            // Passive (portfolio) mode: the enemy never engages on its own; only
-            // the player's idle units auto-acquire nearby threats.
-            if (kAiPassive && unit->getTeamId() == model::TeamId::Enemy) {
+            // Passive mode (MatchConfig debug switch): the enemy never engages on
+            // its own; only the player's idle units auto-acquire nearby threats.
+            if (m_config.enemyAiPassive && unit->getTeamId() == model::TeamId::Enemy) {
                 continue;
             }
 
@@ -1594,6 +1592,7 @@ namespace rts::core::manager {
             auto lock = m_world.acquireReadLock();
             doc["version"] = 2;
             doc["map"] = m_currentMapPath.empty() ? defaultMapPath() : m_currentMapPath;
+            doc["enemyAiPassive"] = m_config.enemyAiPassive;
             doc["tick"] = static_cast<std::uint64_t>(m_world.currentTick());
             doc["worldHash"] = m_world.worldHash();
             doc["gameResult"] = static_cast<int>(m_world.gameResult());
@@ -1698,6 +1697,8 @@ namespace rts::core::manager {
         world::resetRuntimeServices(m_world);
 
         m_currentMapPath = doc.value("map", m_currentMapPath.empty() ? defaultMapPath() : m_currentMapPath);
+        // Saves without the field keep the running match's AI mode.
+        m_config.enemyAiPassive = doc.value("enemyAiPassive", m_config.enemyAiPassive);
         const auto map = core::map::loadMap(m_currentMapPath);
         applyMapTerrain(m_world, map);
 
@@ -1863,6 +1864,7 @@ namespace rts::core::manager {
         // Caller has already set up the starting world; capture the stream from tick 0.
         m_replay.clear();
         m_replay.setMapPath(m_currentMapPath.empty() ? defaultMapPath() : m_currentMapPath);
+        m_replay.setEnemyAiPassive(m_config.enemyAiPassive);
         m_replay.setMetadata("in_progress", 0);
         m_replayMode = ReplayMode::Record;
         m_replaySaved = false;
@@ -1877,6 +1879,8 @@ namespace rts::core::manager {
         }
         m_replay = std::move(loaded);
         m_currentMapPath = m_replay.mapPath().empty() ? defaultMapPath() : m_replay.mapPath();
+        // Playback must run the AI rules the replay was recorded under.
+        m_config.enemyAiPassive = m_replay.enemyAiPassive();
         restartMatch();  // rewind to the initial state the replay was recorded from
         m_replayMode = ReplayMode::Play;
         m_replaySaved = true;  // a replayed match is never re-saved
@@ -1895,6 +1899,8 @@ namespace rts::core::manager {
         }
         m_replay = std::move(loaded);
         m_currentMapPath = m_replay.mapPath().empty() ? defaultMapPath() : m_replay.mapPath();
+        // Playback must run the AI rules the replay was recorded under.
+        m_config.enemyAiPassive = m_replay.enemyAiPassive();
         restartMatch();  // replay files own their map path
         m_replayMode = ReplayMode::Play;
         m_replaySaved = true;  // a replayed match is never re-saved
@@ -2130,9 +2136,9 @@ namespace rts::core::manager {
         updateAiBuildOrder();
         updateAiProduction(dt);
         updateAiWorkers(dt);
-        // Passive (portfolio) mode skips the offensive passes so the enemy never
-        // sorties or waves against the player.
-        if (!kAiPassive) {
+        // Passive mode (MatchConfig debug switch) skips the offensive passes so
+        // the enemy never sorties or waves against the player.
+        if (!m_config.enemyAiPassive) {
             updateAiDefense(dt);
             updateAiWaves(dt);
         }

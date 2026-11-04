@@ -1,0 +1,26 @@
+# Build output (CLion/CMake profiles and ad-hoc builds)
+cmake-build-*/
+build/
+out/
+
+# Compiler / linker artifacts
+*.o
+*.obj
+*.a
+*.lib
+*.exe
+*.pdb
+*.ilk
+
+# Ad-hoc build/compile logs and scratch files
+*_log.txt
+compile_out.txt
+cmake_version.txt
+scratch_*.cpp
+
+# Asset pack archives (the extracted folder is the tracked source)
+*.zip
+
+# macOS archive metadata
+__MACOSX/
+.DS_Store
