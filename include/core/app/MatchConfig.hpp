@@ -21,6 +21,11 @@ namespace rts::core::app {
         // Headless tests turn this off so they never write files.
         bool recordReplay { true };
 
+        // Folder for the F5/F9 quick-save and the F6/F7 replay slot. Empty means
+        // <data>/saves. Tests point it at a temp folder so they never overwrite a
+        // developer's own save files.
+        std::string saveDirectory;
+
         // Defaults overridden by environment variables (developer convenience):
         //   RTS_PASSIVE_AI=1      -> enemyAiPassive = true
         //   RTS_MAP=<path>        -> mapPath = <path>

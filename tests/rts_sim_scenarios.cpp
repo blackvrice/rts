@@ -2,9 +2,11 @@
 // map from tests/data/maps, issues the same LogicCommands the UI would send, and
 // checks the simulation outcome. No SFML/window is involved.
 
+#include <cstdint>
 #include <filesystem>
 #include <iostream>
 #include <string>
+#include <vector>
 
 #include "core/command/LogicCommand.hpp"
 #include "core/data/CombatTypes.hpp"
@@ -270,6 +272,116 @@ namespace {
         const auto second = run();
         expect(first != 0 && first == second, "identical scenario runs produce identical WorldHash");
     }
+
+    // Per-run temp folder for save/replay files, so tests never touch data/saves.
+    std::string tempSaveDir(const char* name) {
+        const auto dir = std::filesystem::temp_directory_path() /
+            ("rts_sim_scenarios_" + std::string(name));
+        std::error_code ec;
+        std::filesystem::remove_all(dir, ec);
+        std::filesystem::create_directories(dir, ec);
+        return dir.string();
+    }
+
+    rts::core::app::MatchConfig combatConfig(const std::string& saveDir) {
+        rts::core::app::MatchConfig config;
+        config.mapPath = testMap("sim_combat.json");
+        config.enemyAiPassive = false;
+        config.recordReplay = false;
+        config.saveDirectory = saveDir;
+        return config;
+    }
+
+    void startCombat(SimHarness& sim) {
+        sim.send(command::SelectCommand({ 960.0f, 960.0f }, { 1120.0f, 1120.0f }));
+        sim.send(command::AttackMoveCommand(-1, { 1400.0f, 1400.0f }));
+    }
+
+    // Quick-save while the army is moving under attack-move orders, play on,
+    // then quick-load: the world must match the saved one exactly. Saved 3s in,
+    // before anything dies or fires: lingering dead entities and in-flight
+    // projectiles are not saved yet (known gap, roadmap M0-E4-05), see
+    // reportSaveLoadContinuation().
+    void testSaveLoadRestoresWorldHash() {
+        const auto saveDir = tempSaveDir("save");
+        SimHarness sim(combatConfig(saveDir));
+        startCombat(sim);
+        sim.tick(SimHarness::secondsToTicks(3.0f));
+        const auto savedHash = sim.worldHash();
+        sim.send(command::SaveGameCommand());
+        expect(std::filesystem::exists(std::filesystem::path(saveDir) / "quicksave.json"),
+               "quick-save writes to MatchConfig::saveDirectory");
+
+        sim.tick(SimHarness::secondsToTicks(4.0f));
+        expect(sim.worldHash() != savedHash, "simulation advanced after the save");
+        sim.send(command::LoadGameCommand());
+        expect(sim.worldHash() == savedHash, "quick-load restores the saved WorldHash");
+
+        std::error_code ec;
+        std::filesystem::remove_all(saveDir, ec);
+    }
+
+    // F6 record -> F6 stop -> F7 play: playback must reproduce the recorded
+    // WorldHash at every sampled tick until the recording ends.
+    void testReplayPlaybackMatchesRecording() {
+        const auto saveDir = tempSaveDir("replay");
+        SimHarness sim(combatConfig(saveDir));
+        sim.send(command::ToggleRecordCommand());  // restarts the match and records
+        startCombat(sim);
+
+        constexpr int kTicks = 900;
+        constexpr int kSample = 60;
+        std::vector<std::uint64_t> recorded;
+        for (int t = 1; t <= kTicks; ++t) {
+            sim.tick();
+            if (t % kSample == 0) recorded.push_back(sim.worldHash());
+        }
+        sim.send(command::ToggleRecordCommand());  // stop + save replay.json
+        expect(std::filesystem::exists(std::filesystem::path(saveDir) / "replay.json"),
+               "F6 replay slot writes to MatchConfig::saveDirectory");
+
+        sim.send(command::PlayReplayCommand());
+        int mismatches = 0;
+        for (int t = 1; t <= kTicks; ++t) {
+            sim.tick();
+            if (t % kSample == 0 && sim.worldHash() != recorded[static_cast<std::size_t>(t / kSample - 1)]) {
+                ++mismatches;
+            }
+        }
+        expect(mismatches == 0, "replay playback matches the recording at every sample (" +
+               std::to_string(mismatches) + " mismatches)");
+
+        std::error_code ec;
+        std::filesystem::remove_all(saveDir, ec);
+    }
+
+    // Diagnostic: save 10s into the fight (a dead unit lingers, arrows in
+    // flight), load, and continue. Does the match continue exactly as an
+    // uninterrupted run would? Reports only (known gap, roadmap M0-E4-05).
+    void reportSaveLoadContinuation() {
+        constexpr float kBefore = 10.0f;
+        constexpr float kAfter = 20.0f;
+        std::uint64_t reference = 0;
+        {
+            SimHarness sim(combatConfig(tempSaveDir("ref")));
+            startCombat(sim);
+            sim.tick(SimHarness::secondsToTicks(kBefore + kAfter));
+            reference = sim.worldHash();
+        }
+        const auto saveDir = tempSaveDir("continue");
+        SimHarness sim(combatConfig(saveDir));
+        startCombat(sim);
+        sim.tick(SimHarness::secondsToTicks(kBefore));
+        sim.send(command::SaveGameCommand());
+        sim.send(command::LoadGameCommand());
+        sim.tick(SimHarness::secondsToTicks(kAfter));
+        const bool same = sim.worldHash() == reference;
+        std::cout << "[rts_sim_scenarios] save/load continuation "
+                  << (same ? "matches" : "DIVERGES from")
+                  << " an uninterrupted run\n";
+        std::error_code ec;
+        std::filesystem::remove_all(saveDir, ec);
+    }
 }
 
 int main() {
@@ -284,6 +396,9 @@ int main() {
     testCombatToVictory();
     testMeleeReachesBuilding();
     testDeterministicReplayOfScenario();
+    testSaveLoadRestoresWorldHash();
+    testReplayPlaybackMatchesRecording();
+    reportSaveLoadContinuation();
 
     if (g_failures != 0) {
         std::cerr << "[rts_sim_scenarios] " << g_failures << " check(s) failed\n";

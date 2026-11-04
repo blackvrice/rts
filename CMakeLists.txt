@@ -155,6 +155,26 @@ add_executable(RTS
         src/game/game/systems/MovementSystem.cpp
         include/game/game/systems/SelectionSystem.hpp
         src/game/game/systems/SelectionSystem.cpp
+        include/game/game/systems/GameplayQueries.hpp
+        src/game/game/systems/GameplayQueries.cpp
+        include/game/game/systems/EconomySystem.hpp
+        src/game/game/systems/EconomySystem.cpp
+        include/game/game/systems/ProductionSystem.hpp
+        src/game/game/systems/ProductionSystem.cpp
+        include/game/game/systems/ConstructionSystem.hpp
+        src/game/game/systems/ConstructionSystem.cpp
+        include/game/game/systems/CombatSystem.hpp
+        src/game/game/systems/CombatSystem.cpp
+        include/game/game/systems/UnitOrderSystem.hpp
+        src/game/game/systems/UnitOrderSystem.cpp
+        include/game/game/systems/EnemyAiController.hpp
+        src/game/game/systems/EnemyAiController.cpp
+        include/game/game/systems/MatchRules.hpp
+        src/game/game/systems/MatchRules.cpp
+        include/game/game/systems/FeedbackSystem.hpp
+        src/game/game/systems/FeedbackSystem.cpp
+        include/game/game/systems/MatchSnapshot.hpp
+        src/game/game/systems/MatchSnapshot.cpp
         include/game/game/GameUIManager.hpp
         include/game/login/LoginScene.hpp
         src/game/login/LoginScene.cpp
@@ -307,6 +327,16 @@ if(BUILD_TESTING)
                 src/game/game/systems/ControlGroupSystem.cpp
                 src/game/game/systems/MovementSystem.cpp
                 src/game/game/systems/SelectionSystem.cpp
+                src/game/game/systems/GameplayQueries.cpp
+                src/game/game/systems/EconomySystem.cpp
+                src/game/game/systems/ProductionSystem.cpp
+                src/game/game/systems/ConstructionSystem.cpp
+                src/game/game/systems/CombatSystem.cpp
+                src/game/game/systems/UnitOrderSystem.cpp
+                src/game/game/systems/EnemyAiController.cpp
+                src/game/game/systems/MatchRules.cpp
+                src/game/game/systems/FeedbackSystem.cpp
+                src/game/game/systems/MatchSnapshot.cpp
         )
 
         # Compiled once, linked into each test executable.

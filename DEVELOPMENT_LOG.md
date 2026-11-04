@@ -1,5 +1,21 @@
 # Development Log
 
+## 2026-11-04 - Sprint S2: Split GameLogicManager Into Gameplay Systems
+
+Roadmap tickets: M0-E2-01..06, M0-E4-03 (`GAME_COMPLETION_ROADMAP.md`).
+
+- **Why**: `GameLogicManager.cpp` (2,425 lines) owned command handling, combat passes, economy, production, construction, the enemy AI, victory rules, feedback events, save/load serialization and replay. Every upcoming milestone (N players, new content, AI) would have grown it further.
+- **What moved** (all under `include|src/game/game/systems/`, namespace `rts::core::manager`):
+  - `GameplayQueries`: shared read-only lookups. `findClosestAttackMoveTarget` and `findClosestPatrolTarget` were byte-identical and are now one `CombatSystem::findClosestAcquireTarget`; `findTownHall`/`findBarracks`/`countTownHalls` became `findBuilding`/`countBuildings`.
+  - `UnitOrderSystem` (player unit orders + Shift queues), `CombatSystem` (5 engagement passes, same order), `EconomySystem` (gather/deliveries/supply), `ProductionSystem` (train/cancel/spawn/rally), `ConstructionSystem` (placement, site search, build orders; the footprint-center math is shared instead of duplicated), `EnemyAiController` (AI state + `toJson`/`fromJson`), `MatchRules`, `FeedbackSystem`, `MatchSnapshot` (save JSON format).
+  - `GameLogicManager.cpp` is now 596 lines: `registerCommandHandlers()`, the fixed `tick()` order, lifecycle (`resetMatchState()` replaces two copies of the reset sequence), save/load orchestration, replay (`beginPlayback()` and `updateReplayCheckpoint()` replace duplicated code). Unused public methods (`selectElement`, `addSelectedElement`, `clearSelection`, `canMoveUnitTo`, `handle*Command`) were removed; nothing outside the class called them.
+- **Behavior is unchanged**, verified by a golden comparison against the pre-refactor commit (built in a temporary worktree): 123 WorldHash checkpoints across portfolio.tmx / tiled_skirmish.tmx / skirmish.json AI matches (3-4 minutes each), an economy command script and an attack-move victory, plus byte digests of the quick-save file and the auto-saved replay file; and a second set of 74 checkpoints covering patrol, hold, stop, Shift-queued move/attack/gather, control groups, building rally + production, and replay record -> playback. All identical.
+- Two small intentional changes: `startReplayFrom` falls back to recording only when `MatchConfig::recordReplay` is on, and the base class is initialized first in the constructor (fixes a `-Wreorder` order).
+- **MatchConfig::saveDirectory**: the F5/F9 quick-save and F6/F7 replay slot can be redirected (default stays `data/saves`, now gitignored) so tests never overwrite a developer's files.
+- **New tests** (`rts_sim_scenarios`): quick-save/load restores the saved WorldHash exactly (saved 3s into an attack-move); F6 record -> F7 playback matches the recording at all 15 samples. A report-only check shows that saving later in a fight (a dead unit still in the world, arrows in flight) and loading makes the match diverge from an uninterrupted run. Cause: dead entities and projectiles are not saved (new ticket M0-E4-05).
+- Verification (Linux, GCC 13.3, `-DRTS_HEADLESS_ONLY=ON`): Debug and RelWithDebInfo `ctest` 2/2 passed; new files compile clean with `-Wall -Wextra -Wpedantic` (remaining warnings are in existing `LogicCommand.hpp` / `IElement.hpp`); `GameApp.cpp`, `GameScene.cpp` syntax-checked against SFML 3.0.2 headers. **Not run here:** Windows CLion build of `RTS` and launching `RTS.exe` (no Windows toolchain/display in this session). Run on Windows: `cmake.exe --build cmake-build-debug --target RTS rts_headless_smoke rts_sim_scenarios`, `ctest --test-dir cmake-build-debug --output-on-failure`, then play a match (gather, build, train, fight, F5/F9, F6/F7).
+- Follow-up: M0-E3 N-player model (next sprint, S3) now touches far fewer places: `EnemyAiController`, `EconomySystem::recomputeSupply`, `MatchRules`, `MatchSnapshot`, `GameplayQueries::isOpposingTeam`. M0-E4-05 save fidelity.
+
 ## 2026-11-04 - Sprint S1: Repo Cleanup, MatchConfig, Headless Simulation Scenarios
 
 Roadmap tickets: M0-E1-01/02/03, M0-E4-01/02 (`GAME_COMPLETION_ROADMAP.md`).

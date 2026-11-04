@@ -28,7 +28,8 @@ This document is a quick orientation map for future AI agents working in this re
 - `tests/` contains headless test executables, all wired through CTest:
   - `tests/rts_headless_smoke.cpp` checks graphics-free runtime contracts such as data loading, map loading, tech-tree prerequisites, replay log round-trip, fixed math, and the default `portfolio.tmx` logic tick budget (passive-AI budget plus an aggressive-AI freeze guard).
   - `tests/sim/SimHarness.hpp` builds a `GameWorld` + `GameLogicManager` from a scenario map, sends `LogicCommand`s straight into the router, and ticks the simulation. Never call its `send`/`tick` while holding a world lock (handlers take the write lock).
-  - `tests/rts_sim_scenarios.cpp` runs gameplay scenarios through `SimHarness`: gathering, training, construction, attack-move combat to victory, a melee-vs-building reach report, and same-input WorldHash determinism.
+  - `tests/rts_sim_scenarios.cpp` runs gameplay scenarios through `SimHarness`: gathering, training, construction, attack-move combat to victory, same-input WorldHash determinism, quick-save/load WorldHash round-trip, F6/F7 replay playback vs recording, plus report-only checks for known bugs (melee vs building reach, save/load continuation).
+- `core/app/MatchConfig::saveDirectory` redirects the F5/F9 quick-save and F6/F7 replay slot (default `data/saves`, gitignored); tests point it at a temp folder.
   - `tests/data/maps/*.json` are small test-only scenario maps (not shown in the game).
 - `scripts/` contains offline helper scripts. `scripts/gen_portfolio_map.py` authors walls in tile space and emits the showcase scenario as both `data/maps/portfolio.json` and `data/maps/portfolio.tmx` (the latter with a CSV "collision" tile layer + point-object group), validating entity/footprint placement against the blocked tiles before writing.
 - `GAME_COMPLETION_ROADMAP.md` (root) is the current development plan toward a complete single-player RTS v1.0 (milestones, epics, tickets, sprint order). `DEVELOPMENT_PLAN.md` is the earlier Phase 0-8 implementation history.
@@ -63,7 +64,17 @@ This document is a quick orientation map for future AI agents working in this re
 - `include/game/login` and `src/game/login` contain the login scene, UI manager, and logic manager.
 - `include/game/lobby` and `src/game/lobby` contain the lobby scene, UI manager, and logic manager.
 - `include/game/game` and `src/game/game` contain the main gameplay scene, UI manager, and logic manager.
-- `include/game/game/systems` and `src/game/game/systems` contain gameplay systems such as collision, control groups, movement, and selection. `MovementSystem` throttles A* (fresh orders and periodic replans each have their own per-tick budget) and periodically re-plans traveling units to their current final target (`kRepathInterval`) so paths adapt to the changing world.
+- `include/game/game/systems` and `src/game/game/systems` contain the gameplay systems. `GameLogicManager` only coordinates them: it routes `LogicCommand`s (`registerCommandHandlers`), runs them in a fixed per-tick order (`tick`), and owns match lifecycle, save/load orchestration and replay. Reordering systems in `tick` changes replay hashes.
+  - `SelectionSystem`, `ControlGroupSystem`, `CollisionSystem`, `MovementSystem`: selection, control groups, unit/structure collision, path orders.
+  - `GameplayQueries`: shared read-only lookups (command target under the cursor, closest drop-off/resource, buildings by type, tech state, first selected building/worker).
+  - `UnitOrderSystem`: player orders for selected units (move/rally, smart right-click, attack-move, patrol, gather, stop, hold) and Shift-queued order chains.
+  - `CombatSystem`: automatic engagement passes (post-kill retarget, attack-move, patrol, hold, idle auto-acquire).
+  - `EconomySystem`: gather orders/redirects, resource deliveries, per-tick supply recount.
+  - `ProductionSystem`: train/cancel, buffered unit spawns, rally handling.
+  - `ConstructionSystem`: footprint placement checks, AI site search, player build orders.
+  - `EnemyAiController`: the scripted enemy (build order, production, workers, defense, waves) and its save state.
+  - `MatchRules`: victory/defeat. `FeedbackSystem`: hit/death/completion sound and effect events. `MatchSnapshot`: save-file JSON format (capture/restore).
+- `MovementSystem` throttles A* (fresh orders and periodic replans each have their own per-tick budget) and periodically re-plans traveling units to their current final target (`kRepathInterval`) so paths adapt to the changing world.
 
 ## Platform Layer
 

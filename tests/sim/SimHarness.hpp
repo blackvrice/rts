@@ -38,7 +38,19 @@ namespace rts::test {
                 m_bus, m_router, m_world, config);
         }
 
+        // Full control over the match rules (e.g. a temp saveDirectory for
+        // save/load and F6/F7 replay tests).
+        explicit SimHarness(core::app::MatchConfig config) {
+            m_logic = std::make_unique<core::manager::GameLogicManager>(
+                m_bus, m_router, m_world, std::move(config));
+        }
+
         core::world::GameWorld& world() { return m_world; }
+
+        std::uint64_t worldHash() const {
+            const auto lock = m_world.acquireReadLock();
+            return m_world.worldHash();
+        }
 
         // Delivers a command synchronously, as LogicThread would between ticks.
         // Must be called without holding a world lock (see query helpers).

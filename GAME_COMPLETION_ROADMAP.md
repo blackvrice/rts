@@ -139,13 +139,14 @@ M0 기반 정비
 - [x] **M0-E1-04** `S` `P1` `DEVELOPMENT_PLAN.md` 상단에 "현행 계획은 이 문서" 안내를 둔다(로드맵 작성 커밋에서 처리).
 
 #### M0-E2 `GameLogicManager` 분리
-- **M0-E2-01** `M` `P0` `EconomySystem` 분리: 자원 풀, 인구 재계산(`recomputeSupply`), 비용 지불/환불.
-- **M0-E2-02** `M` `P0` `ProductionSystem` 분리: 생산 큐, 스폰 위치, 랠리 적용, 취소.
-- **M0-E2-03** `M` `P0` `CombatSystem` 분리: 교전 패스(attack-move/patrol/hold/idle auto-acquire/retarget), 데미지 적용.
-- **M0-E2-04** `M` `P0` `ConstructionSystem` 분리: 배치 검증(`canPlaceBuilding`), 건설 진행, 일꾼 배정.
-- **M0-E2-05** `M` `P0` `AiController` 분리: 현재 AI 빌드오더 상태 머신을 플레이어별 인스턴스로 옮긴다.
-- **M0-E2-06** `M` `P0` `MatchRules`(승패/탈락)와 `SaveLoadService`(스냅샷 직렬화) 분리.
+- [x] **M0-E2-01** `M` `P0` `EconomySystem` 분리: 자원 풀, 인구 재계산(`recomputeSupply`), 비용 지불/환불.
+- [x] **M0-E2-02** `M` `P0` `ProductionSystem` 분리: 생산 큐, 스폰 위치, 랠리 적용, 취소.
+- [x] **M0-E2-03** `M` `P0` `CombatSystem` 분리: 교전 패스(attack-move/patrol/hold/idle auto-acquire/retarget), 데미지 적용.
+- [x] **M0-E2-04** `M` `P0` `ConstructionSystem` 분리: 배치 검증(`canPlaceBuilding`), 건설 진행, 일꾼 배정.
+- [x] **M0-E2-05** `M` `P0` `AiController` 분리: 현재 AI 빌드오더 상태 머신을 플레이어별 인스턴스로 옮긴다. (S2: `EnemyAiController`로 분리. 플레이어별 인스턴스화는 M0-E3 N-플레이어 모델과 함께)
+- [x] **M0-E2-06** `M` `P0` `MatchRules`(승패/탈락)와 `SaveLoadService`(스냅샷 직렬화) 분리. (S2: `MatchRules`, `MatchSnapshot`. 추가로 `UnitOrderSystem`, `FeedbackSystem`, `GameplayQueries` 분리)
 - 공통 완료: 동작 변화 없음. 분리 전후로 같은 리플레이를 재생했을 때 WorldHash 체크포인트가 일치한다. `GameLogicManager`는 명령 라우팅과 시스템 호출 순서만 남는다(목표 600줄 이하).
+  - S2 결과: `GameLogicManager.cpp` 2,425줄 → 596줄. 분리 전 커밋과 비교해 197개 WorldHash 체크포인트(포트폴리오·스커미시 맵 AI 대전, 경제/전투/순찰/홀드/Shift 큐/랠리/리플레이 시나리오)와 세이브·리플레이 파일 내용이 모두 일치.
 
 #### M0-E3 N-플레이어 모델
 - **M0-E3-01** `L` `P0` `PlayerSlot { id, teamId(동맹 그룹), color, controller(Human/AI/Closed), aiDifficulty, startLocation }` 도입. 고정된 `TeamId::Player/Enemy` 사용처를 `PlayerId`와 `isEnemy(a, b)` / `isAlly(a, b)` 질의로 바꾼다.
@@ -157,7 +158,8 @@ M0 기반 정비
 #### M0-E4 헤드리스 시뮬레이션 테스트
 - [x] **M0-E4-01** `M` `P0` SFML 없이 `GameWorld` + 시뮬레이션 시스템을 만들고 N틱 진행할 수 있는 `SimHarness`를 추가한다.
 - [x] **M0-E4-02** `M` `P0` 시나리오 테스트: 채집(N틱 후 자원 증가), 생산(비용 차감 후 스폰), 건설(완료 후 인구 증가), 전투(한쪽 전멸), 승패 판정.
-- **M0-E4-03** `S` `P0` Save → Load → WorldHash 동일성 테스트, 같은 리플레이 2회 재생 hash 동일성 테스트. (같은 시나리오·같은 명령 2회 실행 hash 동일성은 S1에서 추가됨. Save/Load와 ReplayLog 재생 경로는 남음)
+- [x] **M0-E4-03** `S` `P0` Save → Load → WorldHash 동일성 테스트, 같은 리플레이 2회 재생 hash 동일성 테스트. (S1: 같은 입력 2회 실행. S2: F6/F7 리플레이 재생이 녹화와 모든 샘플에서 일치, 퀵세이브/로드 직후 hash 일치(사망 유닛·투사체가 없는 시점))
+- **M0-E4-05** `M` `P1` Save/Load 충실도 보강. 현재 (1) 죽어서 월드에 남아 있는 엔티티가 저장되지 않아 로드 후 EntityId 슬롯/세대가 달라지고, (2) 비행 중인 투사체가 저장되지 않으며, (3) 0틱 저장도 hash가 다르다. 그래서 전투 중 저장·로드하면 이후 진행이 중단 없는 실행과 갈라진다. 완료: `tests/rts_sim_scenarios.cpp`의 `reportSaveLoadContinuation`이 "matches"를 출력하고 엄격 검사로 전환.
 - **M0-E4-04** `M` `P1` CI: GitHub Actions(Windows, MinGW + SFML)에서 빌드 + CTest. 어렵다면 Linux 빌드로 헤드리스 타깃만이라도 돌린다. (S1에서 `RTS_HEADLESS_ONLY=ON` 옵션으로 Linux 헤드리스 빌드·테스트가 가능해짐)
 - 완료: `ctest` 하나로 핵심 루프 회귀가 자동 검출된다.
 
@@ -444,8 +446,8 @@ M0 기반 정비
 | 스프린트 | 내용 | 끝났을 때 상태 |
 |---|---|---|
 | S1 ✅ | M0-E1 전부, M0-E4-01·02 | 깨끗한 저장소, 적 AI 복구, 헤드리스 시나리오 테스트 (2026-11-04 완료) |
-| S2 | M0-E2 (시스템 분리) | `GameLogicManager` 슬림화, hash 회귀 통과 |
-| S3 | M0-E3, M0-E4-03 | N-플레이어 모델, save v3 |
+| S2 ✅ | M0-E2 (시스템 분리), M0-E4-03 | `GameLogicManager` 슬림화, hash 회귀 통과, 세이브·리플레이 테스트 (2026-11-04 완료) |
+| S3 | M0-E3, M0-E4-05 | N-플레이어 모델, save v3(충실도 보강 포함) |
 | S4 | M1-E9-01·02, M1-E1, M1-E2, M1-E3 | 근접 공격 버그 수정, 피드백·랠리·수리 |
 | S5 | M1-E4, M1-E5 | 일시정지/ESC 메뉴, 경보, 편의 기능 |
 | S6 | M1-E6, M1-E8, M1-E7(P1) | 탈락 규칙, 리플레이 UX |

@@ -24,3 +24,6 @@ scratch_*.cpp
 # macOS archive metadata
 __MACOSX/
 .DS_Store
+
+# Runtime save output (F5 quick-save, F6 replay slot)
+data/saves/
