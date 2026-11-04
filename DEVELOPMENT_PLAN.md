@@ -1,5 +1,8 @@
 # RTS 개발 마스터 로드맵 상세 분할안
 
+> **2026-11-04 안내:** 현재 기준 개발 계획은 [`GAME_COMPLETION_ROADMAP.md`](GAME_COMPLETION_ROADMAP.md)(완성형 싱글플레이 RTS v1.0, 포트폴리오 마감 제외)이다.
+> 이 문서는 Phase 0~8 구현 이력과 세부 근거로 유지한다.
+
 > 본 문서는 `RTS_GAME_BLUEPRINT.md` 아키텍처를 기준으로 RTS 게임 개발 로드맵을 실제 개발 티켓 단위까지 세분화한 문서입니다.  
 > 각 항목은 GitHub Issue, GitHub Project, Notion, Jira 등에 바로 옮길 수 있도록 **Epic → Feature → Task → 완료 기준** 형태로 구성합니다.
 

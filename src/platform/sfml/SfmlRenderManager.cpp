@@ -2,6 +2,10 @@
 // Created by black on 25. 12. 27..
 //
 #include <platform/sfml/SfmlRenderManager.hpp>
+// SFML System/Window umbrellas used to arrive via core/command/UICommand.hpp;
+// platform code now includes them itself so core/game stay SFML-free.
+#include <SFML/System.hpp>
+#include <SFML/Window.hpp>
 #include <SFML/Graphics/Font.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
 #include <SFML/Graphics/CircleShape.hpp>

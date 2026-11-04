@@ -10,6 +10,7 @@
 #include "core/command/LogicCommandBus.hpp"
 #include "core/command/UICommandBus.hpp"
 #include "core/command/AudioCommandBus.hpp"
+#include "core/app/SessionContext.hpp"
 #include "core/di/DIContainer.hpp"
 #include "core/manager/CameraManager.hpp"
 #include "game/game/GameLogicManager.hpp"
@@ -133,7 +134,10 @@ namespace rts::core {
                 auto &bus    = *di.resolve<command::LogicCommandBus>();
                 auto &router = *di.resolve<command::LogicCommandRouter>();
                 auto &world  = *di.resolve<world::GameWorld>();      // ✅ 같은 스코프의 world
-                return std::make_shared<manager::GameLogicManager>(bus, router, world);
+                // Match rules come from the session (env overrides today, the
+                // skirmish lobby later).
+                return std::make_shared<manager::GameLogicManager>(
+                    bus, router, world, app::SessionContext::instance().matchConfig());
             }
         );
 

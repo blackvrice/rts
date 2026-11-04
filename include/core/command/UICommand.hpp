@@ -2,8 +2,9 @@
 
 #include <cstdint>
 #include <memory>
-#include <SFML/System.hpp>
-#include <SFML/Window.hpp>
+#include <utility>
+// No SFML includes here: UI commands carry engine-neutral key/event types
+// (core/model/Key.hpp, Event.hpp) so core and game code builds without SFML.
 
 #include <core/command/Command.hpp>
 

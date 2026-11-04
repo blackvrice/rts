@@ -5,6 +5,8 @@
 #include <optional>
 #include <string>
 
+#include "core/app/MatchConfig.hpp"
+
 namespace rts::core::app {
     // Process-wide handoff between scenes (the DI scopes are torn down on scene
     // change, so a few cross-scene values live here instead). Currently: the replay
@@ -15,6 +17,12 @@ namespace rts::core::app {
             static SessionContext ctx;
             return ctx;
         }
+
+        // Settings for the next Game scene. Persists across scene changes so a
+        // restart or lobby round-trip keeps the same rules until something
+        // (the future skirmish lobby) overwrites it.
+        MatchConfig& matchConfig() { return m_matchConfig; }
+        void setMatchConfig(MatchConfig config) { m_matchConfig = std::move(config); }
 
         void setReplayToPlay(std::string path) { m_replayToPlay = std::move(path); }
         // Returns the requested replay path once, then clears it (so the next live
@@ -43,5 +51,6 @@ namespace rts::core::app {
 
     private:
         std::optional<std::string> m_replayToPlay;
+        MatchConfig m_matchConfig { MatchConfig::fromEnvironment() };
     };
 }

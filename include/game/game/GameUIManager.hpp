@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <core/Manager/IUIManager.hpp>
+#include <core/manager/IUIManager.hpp>
 #include "core/model/Building.hpp"  // BuildingType (member by value)
 #include "core/model/Vector2D.hpp"
 

@@ -4,6 +4,8 @@
 
 #include <string>
 
+#include "core/model/PlayerSlot.hpp"
+
 namespace {
     const char* actionKey(const rts::core::model::ActionType action) {
         using A = rts::core::model::ActionType;
@@ -130,7 +132,8 @@ namespace rts::core::viewmodel {
         // to the unit's idle clip when the action-specific one is missing.
         auto& registry = core::data::DataRegistry::global();
         const std::string set = registry.unitSpriteSet(unitIdStr(unit->unitType()));
-        const std::string team = unit->getTeamId() == model::TeamId::Enemy ? "red" : "blue";
+        // Placeholder colors until per-player sprite sets exist (roadmap M2-E6).
+        const std::string team = model::usesBlueSprites(unit->getTeamId()) ? "blue" : "red";
         const std::string base = "unit." + set + "." + team + ".";
         const core::data::SpriteClip* clip = findClipWithFallback(
             registry, base, unit->spriteActionKey(), m_action);

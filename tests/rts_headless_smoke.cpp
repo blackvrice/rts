@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 
+#include "core/app/MatchConfig.hpp"
 #include "core/command/CommandRouterBase.hpp"
 #include "core/command/LogicCommand.hpp"
 #include "core/command/LogicCommandBus.hpp"
@@ -195,13 +196,18 @@ namespace {
                "Fixed stepToward advances deterministically");
     }
 
-    void testPortfolioGameTicks() {
+    // Runs the default portfolio.tmx match for 90 ticks and returns the slowest
+    // tick in milliseconds.
+    double runPortfolioTicks(const bool enemyAiPassive, const char* label) {
         using clock = std::chrono::steady_clock;
 
         rts::core::command::LogicCommandBus bus;
         rts::core::command::LogicCommandRouter router;
         rts::core::world::GameWorld world;
-        rts::core::manager::GameLogicManager logic(bus, router, world);
+        rts::core::app::MatchConfig config;
+        config.enemyAiPassive = enemyAiPassive;
+        config.recordReplay = false;  // tests never write replay files
+        rts::core::manager::GameLogicManager logic(bus, router, world, config);
 
         {
             const auto lock = world.acquireReadLock();
@@ -229,20 +235,33 @@ namespace {
                    "portfolio.tmx default match advances simulation ticks");
         }
 
-        std::cout << "[rts_headless_smoke] portfolio.tmx " << ticks
+        std::cout << "[rts_headless_smoke] portfolio.tmx (" << label << ") " << ticks
                   << " ticks max=" << maxTickMs
                   << "ms total=" << totalTickMs << "ms\n";
+        return maxTickMs;
+    }
 
+    void testPortfolioGameTicks() {
         // The old portfolio freeze held the write lock for multiple seconds inside
-        // one logic tick, which made GameScene's read lock look deadlocked.
-        expect(maxTickMs < 100.0, "portfolio.tmx tick stays under 100ms");
+        // one logic tick, which made GameScene's read lock look deadlocked. This
+        // budget was set with the passive enemy AI, so it is checked in that mode.
+        const double passiveMax = runPortfolioTicks(true, "passive AI");
+        expect(passiveMax < 100.0, "portfolio.tmx passive-AI tick stays under 100ms");
+
+        // Aggressive AI sends units on long cross-map A* paths; a single tick can
+        // spike while those resolve (known issue, roadmap M7-E2-02). Guard only
+        // against freezes here, not the 30Hz budget.
+        const double aggressiveMax = runPortfolioTicks(false, "aggressive AI");
+        expect(aggressiveMax < 500.0, "portfolio.tmx aggressive-AI tick never freezes (<500ms)");
     }
 
     void testCameraBoundsFollowPortfolioMap() {
         rts::core::command::LogicCommandBus logicBus;
         rts::core::command::LogicCommandRouter logicRouter;
         rts::core::world::GameWorld world;
-        rts::core::manager::GameLogicManager logic(logicBus, logicRouter, world);
+        rts::core::app::MatchConfig config;
+        config.recordReplay = false;
+        rts::core::manager::GameLogicManager logic(logicBus, logicRouter, world, config);
 
         rts::core::command::UICommandRouter uiRouter;
         rts::core::render::RenderQueue renderQueue;

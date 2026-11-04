@@ -23,9 +23,31 @@ namespace rts::core::map {
     using json = nlohmann::json;
 
     namespace {
+        // Owner id from a map string: "player" = 1, "enemy" = 2, "pN"/"playerN"
+        // or a bare number = N, anything else (e.g. "neutral") = 0.
         int teamFromString(const std::string& s) {
             if (s == "player") return model::TeamId::Player;
             if (s == "enemy")  return model::TeamId::Enemy;
+            std::string digits = s;
+            if (digits.rfind("player", 0) == 0) {
+                digits = digits.substr(6);
+            } else if (!digits.empty() && (digits[0] == 'p' || digits[0] == 'P')) {
+                digits = digits.substr(1);
+            }
+            if (!digits.empty() &&
+                std::all_of(digits.begin(), digits.end(),
+                            [](unsigned char c) { return std::isdigit(c) != 0; })) {
+                return std::stoi(digits);
+            }
+            return model::TeamId::Neutral;
+        }
+
+        // JSON "team" may be a string ("player", "p3") or an integer id.
+        int teamFromJson(const json& e) {
+            if (!e.contains("team")) return model::TeamId::Neutral;
+            const auto& t = e["team"];
+            if (t.is_number_integer()) return t.get<int>();
+            if (t.is_string()) return teamFromString(t.get<std::string>());
             return model::TeamId::Neutral;
         }
 
@@ -85,10 +107,23 @@ namespace rts::core::map {
         if (tileSize.x > 0) m.tileSize = static_cast<float>(tileSize.x);
 
         const auto& mapProps = map.getProperties();
-        m.playerGold = tmxPropInt(mapProps, "playerGold", m.playerGold);
-        m.playerWood = tmxPropInt(mapProps, "playerWood", m.playerWood);
-        m.enemyGold  = tmxPropInt(mapProps, "enemyGold",  m.enemyGold);
-        m.enemyWood  = tmxPropInt(mapProps, "enemyWood",  m.enemyWood);
+        // playerGold/playerWood (id 1), enemyGold/enemyWood (id 2), pNGold/pNWood.
+        const auto readTmxStart = [&](const int id, const std::string& prefix) {
+            const MapData::StartResources defaults {};
+            const int gold = tmxPropInt(mapProps, prefix + "Gold", -1);
+            const int wood = tmxPropInt(mapProps, prefix + "Wood", -1);
+            if (gold >= 0 || wood >= 0) {
+                m.startResources[id] = MapData::StartResources {
+                    gold >= 0 ? gold : defaults.gold,
+                    wood >= 0 ? wood : defaults.wood
+                };
+            }
+        };
+        readTmxStart(model::TeamId::Player, "player");
+        readTmxStart(model::TeamId::Enemy, "enemy");
+        for (int id = 1; id <= 8; ++id) {
+            readTmxStart(id, "p" + std::to_string(id));
+        }
 
         for (const auto& layer : map.getLayers()) {
             if (layer->getType() == tmx::Layer::Type::Tile) {
@@ -200,15 +235,16 @@ namespace rts::core::map {
         m.height = doc.value("height", m.height);
         m.tileSize = doc.value("tileSize", m.tileSize);
 
-        if (doc.contains("startResources")) {
-            const auto& sr = doc["startResources"];
-            if (sr.contains("player")) {
-                m.playerGold = sr["player"].value("gold", m.playerGold);
-                m.playerWood = sr["player"].value("wood", m.playerWood);
-            }
-            if (sr.contains("enemy")) {
-                m.enemyGold = sr["enemy"].value("gold", m.enemyGold);
-                m.enemyWood = sr["enemy"].value("wood", m.enemyWood);
+        // Keys are owner names/ids ("player", "enemy", "p3", "4").
+        if (doc.contains("startResources") && doc["startResources"].is_object()) {
+            for (const auto& [key, value] : doc["startResources"].items()) {
+                const int id = teamFromString(key);
+                if (id == model::TeamId::Neutral || !value.is_object()) continue;
+                const MapData::StartResources defaults {};
+                m.startResources[id] = MapData::StartResources {
+                    value.value("gold", defaults.gold),
+                    value.value("wood", defaults.wood)
+                };
             }
         }
 
@@ -218,7 +254,7 @@ namespace rts::core::map {
                 std::cerr << "[MapLoader] unknown building '" << e.value("type", std::string{}) << "'\n";
                 continue;
             }
-            m.buildings.push_back({ data->buildingType, teamFromString(e.value("team", std::string{})), readPos(e) });
+            m.buildings.push_back({ data->buildingType, teamFromJson(e), readPos(e) });
         }
 
         for (const auto& e : doc.value("units", json::array())) {
@@ -227,7 +263,7 @@ namespace rts::core::map {
                 std::cerr << "[MapLoader] unknown unit '" << e.value("type", std::string{}) << "'\n";
                 continue;
             }
-            m.units.push_back({ data->unitType, teamFromString(e.value("team", std::string{})), readPos(e) });
+            m.units.push_back({ data->unitType, teamFromJson(e), readPos(e) });
         }
 
         for (const auto& e : doc.value("resources", json::array())) {
@@ -250,5 +286,25 @@ namespace rts::core::map {
                   << ", " << m.buildings.size() << " buildings, " << m.units.size()
                   << " units, " << m.resources.size() << " resources)" << std::endl;
         return m;
+    }
+
+    MapData::StartResources MapData::startResourcesFor(const int playerId) const {
+        const auto it = startResources.find(playerId);
+        return it != startResources.end() ? it->second : StartResources {};
+    }
+
+    std::vector<int> MapData::playerIds() const {
+        std::vector<int> ids { model::TeamId::Player, model::TeamId::Enemy };
+        const auto add = [&ids](const int id) {
+            if (id != model::TeamId::Neutral &&
+                std::find(ids.begin(), ids.end(), id) == ids.end()) {
+                ids.push_back(id);
+            }
+        };
+        for (const auto& [id, start] : startResources) add(id);
+        for (const auto& b : buildings) add(b.teamId);
+        for (const auto& u : units) add(u.teamId);
+        std::sort(ids.begin(), ids.end());
+        return ids;
     }
 }

@@ -39,13 +39,16 @@
                                         ▼
    ┌──────────────────── LogicThread (고정 dt 30Hz) ───────────────────┐
    │ 1) bus 드레인 → LogicCommandRouter.dispatch                       │
-   │ 2) GameLogicManager.tick(dt):                                     │
-   │      MovementSystem  (PathManager A*, 진형, 지역 회피)            │
-   │      CollisionSystem (유닛=원 / 구조물=사각 footprint)            │
-   │      Combat          (상성·공격 FSM·투사체·스플래시)             │
-   │      Economy/Tech     (Cost, TechTreeValidator, 인구 집계)        │
-   │      FogOfWar / WorldRuntimeServices (이펙트·사운드·공간 인덱스)  │
-   │      AI              (빌드오더 상태머신)                          │
+   │ 2) GameLogicManager.tick(dt)  (조정자: 고정 순서로 시스템 호출)    │
+   │      MovementSystem    (PathManager A*, 진형, 지역 회피)          │
+   │      CollisionSystem   (유닛=원 / 구조물=사각 footprint)          │
+   │      CombatSystem      (재타겟·공격이동·순찰·홀드·유휴 자동교전)  │
+   │      UnitOrderSystem   (예약 명령 큐 진행)                         │
+   │      EconomySystem     (자원 반납·채집 재지정·인구 집계)           │
+   │      ProductionSystem  (생산 완료 유닛 스폰·랠리)                  │
+   │      FogOfWar / FeedbackSystem (피격·사망·완공 연출 이벤트)        │
+   │      EnemyAiController (빌드오더 상태머신·웨이브)                  │
+   │      MatchRules        (승패 판정)                                 │
    │    GameWorld: EntityManager, 점유 그리드, fog, worldHash          │
    └───────────────────────────────┬──────────────────────────────────┘
                                     │ syncWithWorld (모델 → ViewModel)
@@ -203,7 +206,8 @@ loop:
 | 유닛 스탯/초상화 | `data/units.json` 항목 수정 (무재컴파일) |
 | 새 유닛/건물 **타입** | `UnitType`/`BuildingType` enum + 팩토리 기본값 + JSON id 매핑 |
 | 맵 | Tiled로 `.tmx` 제작(오브젝트=스폰) → 시나리오 경로 지정 |
-| 새 명령 | `LogicCommand` 파생 + `GameLogicManager`에서 `router.on<T>` 등록 |
+| 새 명령 | `LogicCommand` 파생 + `GameLogicManager::registerCommandHandlers`에서 `router.on<T>` 등록, 실제 처리는 해당 시스템(`game/game/systems`)에 구현 |
+| 새 게임 규칙/시스템 | `game/game/systems`에 시스템 추가 후 `GameLogicManager::tick`의 고정 순서에 끼워 넣기. 순서 변경은 리플레이 hash를 바꾸는 게임플레이 변경으로 취급 |
 | 새 이펙트 | `EffectType` + `emitEffect` 호출 + HUD의 스프라이트 매핑 |
 
 ---

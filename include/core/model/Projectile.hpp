@@ -27,6 +27,13 @@ namespace rts::core::model {
                    std::string texturePath = {});
         void tick(float dt);
 
+        // Save/load: reset() aims at the target's current position; a restored shot
+        // needs the saved aim point and heading instead.
+        void restoreFlight(Vector2D lastKnownTargetPosition, float angleDeg) noexcept {
+            m_lastKnownTargetPos = lastKnownTargetPosition;
+            m_angleDeg = angleDeg;
+        }
+
         bool     expired()   const noexcept { return m_expired; }
         Vector2D position()  const noexcept { return m_position; }
         Vector2D lastKnownTargetPosition() const noexcept { return m_lastKnownTargetPos; }

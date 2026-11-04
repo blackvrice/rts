@@ -628,7 +628,7 @@ namespace rts::core::manager {
             core::render::RenderLayer::UI,
             -100,
             core::render::UpdateHudResources {
-                m_world.playerResources(core::model::PlayerId::Local)
+                m_world.playerResources(m_world.localPlayerId())
             }
         );
 
@@ -751,7 +751,7 @@ namespace rts::core::manager {
         // Worker build submenu options: every building type with a lock flag for
         // unmet prerequisites or unaffordable cost (mirrors the build-command gates).
         if (selection.kind == core::render::HudSelectionKind::Worker) {
-            const int team = core::model::TeamId::Player;
+            const int team = m_world.localPlayerId();
             const auto& res = m_world.playerResources(team);
             const auto hasCompleted = [&](core::model::BuildingType bt) {
                 for (const auto& el : m_world.getElements()) {
@@ -847,7 +847,8 @@ namespace rts::core::manager {
             core::model::Vector2D worldPos = m_camera.screenToWorld(m_mousePos);
             for (const auto& element : m_world.getElements()) {
                 auto unit = std::dynamic_pointer_cast<core::model::Unit>(element);
-                if (unit && unit->getTeamId() != core::model::TeamId::Player && unit->getAction() != core::model::ActionType::Dead) {
+                if (unit && m_world.areEnemies(m_world.localPlayerId(), unit->getTeamId()) &&
+                    unit->getAction() != core::model::ActionType::Dead) {
                     if (unit->getPosition().distanceTo(worldPos) < 32.0f) {
                         cursorKey = "attack";
                         break;
@@ -921,8 +922,8 @@ namespace rts::core::manager {
         std::unordered_set<const void*> hiddenByFog;
         for (const auto& element : m_world.getElements()) {
             auto ge = std::dynamic_pointer_cast<core::model::IGameElement>(element);
-            if (!ge || ge->getTeamId() != core::model::TeamId::Enemy) {
-                continue;  // own and neutral elements are always drawn
+            if (!ge || !m_world.areEnemies(m_world.localPlayerId(), ge->getTeamId())) {
+                continue;  // own, allied and neutral elements are always drawn
             }
             const auto cell = tf.worldToGrid(ge->getPosition());
             if (fog.get(cell.x, cell.y) != core::map::FogOfWar::State::Visible) {
@@ -990,9 +991,11 @@ namespace rts::core::manager {
                         continue;  // don't reveal fogged enemies on the minimap
                     }
                     const int team = ge->getTeamId();
+                    // 0 = own/allied, 1 = enemy, 2 = neutral (resources).
+                    const int local = m_world.localPlayerId();
                     const std::uint8_t dotTeam =
-                        team == core::model::TeamId::Player ? 0
-                        : (team == core::model::TeamId::Enemy ? 1 : 2);
+                        m_world.areAllies(local, team) ? 0
+                        : (m_world.areEnemies(local, team) ? 1 : 2);
                     const auto p = ge->getPosition();
                     mm.dots.push_back({ p.x / worldW, p.y / worldH, dotTeam });
                 }
@@ -1060,7 +1063,7 @@ namespace rts::core::manager {
             bool found = false;
             for (const auto& element : m_world.getElements()) {
                 auto building = std::dynamic_pointer_cast<core::model::Building>(element);
-                if (building && building->getTeamId() == core::model::TeamId::Player &&
+                if (building && building->getTeamId() == m_world.localPlayerId() &&
                     building->buildingType() == core::model::BuildingType::TownHall) {
                     focus = building->getPosition();
                     found = true;
@@ -1070,7 +1073,7 @@ namespace rts::core::manager {
             if (!found) {
                 for (const auto& element : m_world.getElements()) {
                     auto ge = std::dynamic_pointer_cast<core::model::IGameElement>(element);
-                    if (ge && ge->getTeamId() == core::model::TeamId::Player &&
+                    if (ge && ge->getTeamId() == m_world.localPlayerId() &&
                         ge->getAction() != core::model::ActionType::Dead) {
                         focus = ge->getPosition();
                         found = true;

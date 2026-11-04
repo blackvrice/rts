@@ -8,6 +8,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include <nlohmann/json.hpp>
+
 #include "core/model/Vector2D.hpp"
 #include "core/thread/ThreadPool.hpp"
 #include "game/game/systems/SelectionSystem.hpp"
@@ -67,6 +69,13 @@ namespace rts::core::manager {
         void cancelQueuedPaths(const SelectionSystem::SelectedList& selected);
         // Drops all queued path state (for a match restart, when every unit is gone).
         void reset();
+
+        // Save/load of the queued path requests (fresh orders + replans), which
+        // units are waiting on, and the replan cadence. Units are referenced by
+        // EntityId; requests for units no longer alive are dropped (the batch
+        // would skip them anyway). Caller holds the world lock.
+        nlohmann::json saveState(const world::GameWorld& world) const;
+        void restoreState(world::GameWorld& world, const nlohmann::json& state);
 
     private:
         struct PathRequest {

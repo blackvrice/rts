@@ -113,7 +113,7 @@ namespace rts::core::manager {
                 }
                 if (isLiveUnit(element)) {
                     if (d < dUnit) { dUnit = d; bestUnit = ge; }
-                    if (ge->getTeamId() == model::TeamId::Player && d < dPlayer) {
+                    if (ge->getTeamId() == world.localPlayerId() && d < dPlayer) {
                         dPlayer = d;
                         bestPlayerUnit = ge;
                     }
@@ -141,7 +141,7 @@ namespace rts::core::manager {
             }
             if (isLiveUnit(element)) {
                 units.push_back(ge);
-                if (ge->getTeamId() == model::TeamId::Player) {
+                if (ge->getTeamId() == world.localPlayerId()) {
                     playerUnits.push_back(ge);
                 }
             } else {
@@ -173,7 +173,7 @@ namespace rts::core::manager {
                 continue;
             }
             if (d < dAny) { dAny = d; picked = unit; }
-            if (unit->getTeamId() == model::TeamId::Player && d < dPlayer) {
+            if (unit->getTeamId() == world.localPlayerId() && d < dPlayer) {
                 dPlayer = d;
                 pickedPlayer = unit;
             }

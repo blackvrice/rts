@@ -1,0 +1,73 @@
+{
+  "_comment": "Headless simulation scenario (tests/rts_sim_scenarios.cpp): alliances. Players 1 and 2 stand side by side (allies) next to one warrior of player 3 (enemy); player 4 only owns a far hall. Player 2 also has a scout far from everyone to check shared allied vision.",
+  "width": 64,
+  "height": 64,
+  "tileSize": 32,
+  "startResources": {},
+  "buildings": [
+    {
+      "type": "town_hall",
+      "team": "player",
+      "x": 200,
+      "y": 200
+    },
+    {
+      "type": "town_hall",
+      "team": "enemy",
+      "x": 1848,
+      "y": 200
+    },
+    {
+      "type": "town_hall",
+      "team": "p3",
+      "x": 200,
+      "y": 1848
+    },
+    {
+      "type": "town_hall",
+      "team": "p4",
+      "x": 1848,
+      "y": 1848
+    }
+  ],
+  "units": [
+    {
+      "type": "warrior",
+      "team": "player",
+      "x": 980,
+      "y": 1000
+    },
+    {
+      "type": "warrior",
+      "team": "player",
+      "x": 980,
+      "y": 1060
+    },
+    {
+      "type": "warrior",
+      "team": "enemy",
+      "x": 1040,
+      "y": 1000
+    },
+    {
+      "type": "warrior",
+      "team": "enemy",
+      "x": 1040,
+      "y": 1060
+    },
+    {
+      "type": "warrior",
+      "team": "p3",
+      "x": 1160,
+      "y": 1030
+    },
+    {
+      "type": "worker",
+      "team": "enemy",
+      "x": 1500,
+      "y": 600
+    }
+  ],
+  "resources": [],
+  "blockedTiles": []
+}

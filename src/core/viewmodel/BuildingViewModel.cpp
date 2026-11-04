@@ -6,13 +6,16 @@
 
 #include <string>
 
+#include "core/model/PlayerSlot.hpp"
+
 namespace {
     const char* buildingIdStr(rts::core::model::BuildingType type) {
         return type == rts::core::model::BuildingType::TownHall ? "town_hall" : "barracks";
     }
 
     std::string buildingSpriteKey(rts::core::model::BuildingType type, int teamId) {
-        const std::string team = teamId == rts::core::model::TeamId::Enemy ? "red" : "blue";
+        // Placeholder colors until per-player sprite sets exist (roadmap M2-E6).
+        const std::string team = rts::core::model::usesBlueSprites(teamId) ? "blue" : "red";
         return std::string("building.") + buildingIdStr(type) + "." + team;
     }
 }

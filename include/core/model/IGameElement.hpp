@@ -106,6 +106,11 @@ namespace rts::core::model {
             const std::string&)>;
         virtual void setProjectileSpawner(ProjectileSpawner) {}
 
+        // Injected by GameWorld: true when two owner ids are enemies (different
+        // alliances). Elements that never fight ignore it.
+        using RelationQuery = std::function<bool(int, int)>;
+        virtual void setRelationQuery(RelationQuery) {}
+
     protected:
         ecs::EntityId m_entityId { ecs::InvalidEntityId };
     };

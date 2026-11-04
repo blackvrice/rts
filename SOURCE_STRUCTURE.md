@@ -4,7 +4,9 @@ This document is a quick orientation map for future AI agents working in this re
 
 ## Build And Entry Points
 
-- `CMakeLists.txt` defines the `RTS` executable target, the optional `rts_headless_smoke` CTest target, and the source lists used by the build.
+- `CMakeLists.txt` defines the `RTS` executable target and, with `BUILD_TESTING`, the `rts_sim` static library (every SFML-free simulation source, listed in `RTS_SIM_SOURCES`) plus the `rts_headless_smoke` and `rts_sim_scenarios` CTest executables that link it.
+- `RTS_HEADLESS_ONLY` (CMake option, default OFF) skips SFML, OpenGL, ImGui and the `RTS` target so the headless tests configure and run on any machine, including Linux (`cmake -S . -B build-headless -G Ninja -DRTS_HEADLESS_ONLY=ON`). It needs the `external/tmxlite` submodule checked out.
+- Core and game code (`include/core`, `include/game`, `src/core`, `src/game`) must stay SFML-free: only `src/platform/sfml` and `src/core/thread/LogicThread.cpp` include SFML. `core/command/UICommand.hpp` uses engine-neutral key/event types for this reason.
 - `src/main.cpp` is the application entry point.
 - The project currently targets C++23 in CMake and links SFML 3, SFML Audio, OpenGL, tmxlite, and ImGui.
 - `include/platform/sfml/SfmlAssetPaths.hpp.in` is configured into the build directory so SFML platform code can locate packaged assets.
@@ -12,7 +14,7 @@ This document is a quick orientation map for future AI agents working in this re
 
 ```powershell
 & "C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe" -S . -B cmake-build-debug
-& "C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe" --build cmake-build-debug --target RTS -- -j 4
+& "C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\cmake.exe" --build cmake-build-debug --target RTS rts_headless_smoke rts_sim_scenarios -- -j 4
 & "C:\Program Files\JetBrains\CLion 2026.1.2\bin\cmake\win\x64\bin\ctest.exe" --test-dir cmake-build-debug --output-on-failure
 ```
 
@@ -23,15 +25,22 @@ This document is a quick orientation map for future AI agents working in this re
 - `external/tmxlite/` is the tmxlite dependency used for map loading. Treat it as third-party code unless the task explicitly targets it.
 - `external/json/` vendors the nlohmann/json single header (`nlohmann/json.hpp`) used by the DataRegistry. Third-party code.
 - `data/` holds runtime JSON design data (`units.json`, `buildings.json`, `resources.json`, `animations.json`) loaded by `DataRegistry`, plus `data/maps/*.json` scenario maps loaded by `core/map/MapLoader`; edit these to retune stats, change sprites/animations, or lay out the starting map without recompiling.
-- `tests/` contains headless test executables. `tests/rts_headless_smoke.cpp` is wired through CTest and checks graphics-free runtime contracts such as data loading, map loading, tech-tree prerequisites, replay log round-trip, fixed math, and the default `portfolio.tmx` logic tick budget.
+- `tests/` contains headless test executables, all wired through CTest:
+  - `tests/rts_headless_smoke.cpp` checks graphics-free runtime contracts such as data loading, map loading, tech-tree prerequisites, replay log round-trip, fixed math, and the default `portfolio.tmx` logic tick budget (passive-AI budget plus an aggressive-AI freeze guard).
+  - `tests/sim/SimHarness.hpp` builds a `GameWorld` + `GameLogicManager` from a scenario map, sends `LogicCommand`s straight into the router, and ticks the simulation. Never call its `send`/`tick` while holding a world lock (handlers take the write lock).
+  - `tests/rts_sim_scenarios.cpp` runs gameplay scenarios through `SimHarness`: gathering, training, construction, attack-move combat to victory, same-input WorldHash determinism, exact quick-save/load round-trip mid-fight and save/load continuation (1v1 and 4-AI FFA), F6/F7 replay playback vs recording, 4-player FFA and 2v2 alliance rules, plus a report-only check for the known melee-vs-building reach bug.
+- `core/app/MatchConfig::saveDirectory` redirects the F5/F9 quick-save and F6/F7 replay slot (default `data/saves`, gitignored); tests point it at a temp folder.
+  - `tests/data/maps/*.json` are small test-only scenario maps (not shown in the game).
 - `scripts/` contains offline helper scripts. `scripts/gen_portfolio_map.py` authors walls in tile space and emits the showcase scenario as both `data/maps/portfolio.json` and `data/maps/portfolio.tmx` (the latter with a CSV "collision" tile layer + point-object group), validating entity/footprint placement against the blocked tiles before writing.
+- `GAME_COMPLETION_ROADMAP.md` (root) is the current development plan toward a complete single-player RTS v1.0 (milestones, epics, tickets, sprint order). `DEVELOPMENT_PLAN.md` is the earlier Phase 0-8 implementation history.
+- `assets/LICENSES.md` lists third-party asset sources and their license status; add a row for every new asset.
 - `docs/` contains human-facing project notes such as architecture orientation and the manual QA checklist.
 - `Tiny Swords (Free Pack)/` contains art assets used by the game.
 - `cmake-build-debug/` is a local build output folder and should not be treated as source.
 
 ## Core Layer
 
-- `include/core/app` and `src/core/di` hold application startup and dependency wiring, including `GameApp`.
+- `include/core/app` and `src/core/di` hold application startup and dependency wiring, including `GameApp`. `core/app/MatchConfig.hpp` carries per-match rules (map path, `enemyAiPassive` debug switch, replay recording); `SessionContext::matchConfig()` holds the value for the next Game scene (env overrides `RTS_PASSIVE_AI=1`, `RTS_MAP=<path>`), and `GameApp` passes it to `GameLogicManager`.
 - `include/core/command` defines command types and command buses used between UI and logic. Each domain follows a two-part pattern: a `*CommandBus` (thread-safe queue for cross-thread hand-off) plus a `*CommandRouter` (type-indexed dispatcher from `CommandRouterBase`). Logic, UI, and Audio each have their own bus/router pair.
 - `include/core/thread` and `src/core/thread` contain off-thread workers: `LogicThread` drives the fixed-step simulation and `AudioThread` drains `AudioCommandBus` to drive an `IAudioManager` on its own ~60Hz poll. Both swap their managed manager via a `Change*ManagerCommand`.
 - `include/core/manager` and `src/core/manager` contain cross-scene managers such as scene, camera, and path management.
@@ -43,6 +52,7 @@ This document is a quick orientation map for future AI agents working in this re
 - `include/core/data` + `src/core/data/DataRegistry.cpp`: `DataRegistry` is the central authority for static unit/building/resource data and sprite/animation clips. It seeds built-in defaults, then `loadFromDirectory()` overlays JSON from `data/`. `unitStaticDataFor`/`buildingStaticDataFor`/`resourceStaticDataFor` delegate to the global registry; the `default*StaticDataFor` helpers in the `*StaticData.hpp` headers are the built-in fallbacks. `DataPaths.hpp` (generated from `.hpp.in`) provides the configured `data/` path.
 - Sprite/animation data: `SpriteData.hpp` defines `SpriteClip`; `DataRegistry` loads `data/animations.json` into a keyed clip map (`sprite(key)`) plus a unit→sprite-set map (`unitSpriteSet`). The view models look up clips by key and fill `DrawSprite.texturePath`; `SfmlRenderManager` loads textures by path (cached). A readable `animations.json` is authoritative (replaces seeds), so clips can be added/removed/changed via data alone.
 - `include/core/model/PlayerResourceState.hpp` defines the player resource snapshot stored by `GameWorld` and forwarded to the HUD.
+- `include/core/model/PlayerSlot.hpp` defines match participants (id, alliance, Human/AI, color, eliminated). Elements store their owner slot id in `getTeamId()`; `GameWorld` holds the slots, the local player id, alliance queries (`areEnemies`/`areAllies`) and one fog grid per player (allies share vision).
 - `include/core/factory` and `include/core/prototype` create game objects from static/prototype data.
 - `include/core/world`, `include/core/path`, and `src/core/world` contain grid/world representation, coordinate transforms, path queries, and map-facing logic. `WorldRuntimeServices` owns transient runtime feedback events, active effect lifetimes, and the per-tick spatial grid used for optimized radius queries.
 - `include/core/render` defines render commands, queues, context, and render-manager interfaces, including the `PlaySound` command used to forward simulation feedback to the platform renderer.
@@ -55,7 +65,17 @@ This document is a quick orientation map for future AI agents working in this re
 - `include/game/login` and `src/game/login` contain the login scene, UI manager, and logic manager.
 - `include/game/lobby` and `src/game/lobby` contain the lobby scene, UI manager, and logic manager.
 - `include/game/game` and `src/game/game` contain the main gameplay scene, UI manager, and logic manager.
-- `include/game/game/systems` and `src/game/game/systems` contain gameplay systems such as collision, control groups, movement, and selection. `MovementSystem` throttles A* (fresh orders and periodic replans each have their own per-tick budget) and periodically re-plans traveling units to their current final target (`kRepathInterval`) so paths adapt to the changing world.
+- `include/game/game/systems` and `src/game/game/systems` contain the gameplay systems. `GameLogicManager` only coordinates them: it routes `LogicCommand`s (`registerCommandHandlers`), runs them in a fixed per-tick order (`tick`), and owns match lifecycle, save/load orchestration and replay. Reordering systems in `tick` changes replay hashes.
+  - `SelectionSystem`, `ControlGroupSystem`, `CollisionSystem`, `MovementSystem`: selection, control groups, unit/structure collision, path orders.
+  - `GameplayQueries`: shared read-only lookups (command target under the cursor, closest drop-off/resource, buildings by type, tech state, first selected building/worker).
+  - `UnitOrderSystem`: player orders for selected units (move/rally, smart right-click, attack-move, patrol, gather, stop, hold) and Shift-queued order chains.
+  - `CombatSystem`: automatic engagement passes (post-kill retarget, attack-move, patrol, hold, idle auto-acquire).
+  - `EconomySystem`: gather orders/redirects, resource deliveries, per-tick supply recount.
+  - `ProductionSystem`: train/cancel, buffered unit spawns, rally handling.
+  - `ConstructionSystem`: footprint placement checks, AI site search, player build orders.
+  - `AiController`: the scripted AI for one AI player slot (build order, production, workers, defense, waves) and its save state. `GameLogicManager` creates one per AI slot.
+  - `MatchRules`: per-player elimination and victory/defeat for the local alliance. `FeedbackSystem`: hit/death/completion sound and effect events. `MatchSnapshot`: save-file JSON format (v4, capture/restore). Saves are exact: every element incl. dead ones with its EntityId, the EntityId allocator, projectiles, unit waypoints; `MovementSystem`/`ProductionSystem` add their queued state via `saveState`/`restoreState`. Any new simulation state must be added to the save (the save/load continuation tests catch omissions).
+- `MovementSystem` throttles A* (fresh orders and periodic replans each have their own per-tick budget) and periodically re-plans traveling units to their current final target (`kRepathInterval`) so paths adapt to the changing world.
 
 ## Platform Layer
 

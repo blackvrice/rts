@@ -1,0 +1,70 @@
+{
+  "_comment": "Headless simulation scenario (tests/rts_sim_scenarios.cpp): six player warriors ordered onto the enemy town hall. Used to measure how many melee attackers can actually reach a building footprint.",
+  "width": 64,
+  "height": 64,
+  "tileSize": 32,
+  "startResources": {
+    "player": {
+      "gold": 0,
+      "wood": 0
+    },
+    "enemy": {
+      "gold": 0,
+      "wood": 0
+    }
+  },
+  "buildings": [
+    {
+      "type": "town_hall",
+      "team": "player",
+      "x": 320,
+      "y": 320
+    },
+    {
+      "type": "town_hall",
+      "team": "enemy",
+      "x": 1400,
+      "y": 1400
+    }
+  ],
+  "units": [
+    {
+      "type": "warrior",
+      "team": "player",
+      "x": 1000,
+      "y": 1000
+    },
+    {
+      "type": "warrior",
+      "team": "player",
+      "x": 1040,
+      "y": 1000
+    },
+    {
+      "type": "warrior",
+      "team": "player",
+      "x": 1080,
+      "y": 1000
+    },
+    {
+      "type": "warrior",
+      "team": "player",
+      "x": 1000,
+      "y": 1040
+    },
+    {
+      "type": "warrior",
+      "team": "player",
+      "x": 1040,
+      "y": 1040
+    },
+    {
+      "type": "warrior",
+      "team": "player",
+      "x": 1080,
+      "y": 1040
+    }
+  ],
+  "resources": [],
+  "blockedTiles": []
+}

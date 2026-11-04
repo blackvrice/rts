@@ -1,0 +1,167 @@
+{
+  "_comment": "Headless simulation scenario (tests/rts_sim_scenarios.cpp): 4-player free-for-all, one base per corner (Town Hall, 3 workers, gold and wood). Owners use ids 1-4 (\"player\", \"enemy\", \"p3\", \"p4\"). Positions are world pixels; tiles are 32px.",
+  "width": 96,
+  "height": 96,
+  "tileSize": 32,
+  "startResources": {
+    "player": {
+      "gold": 500,
+      "wood": 300
+    },
+    "enemy": {
+      "gold": 500,
+      "wood": 300
+    },
+    "p3": {
+      "gold": 500,
+      "wood": 300
+    },
+    "p4": {
+      "gold": 500,
+      "wood": 300
+    }
+  },
+  "buildings": [
+    {
+      "type": "town_hall",
+      "team": "player",
+      "x": 420,
+      "y": 420
+    },
+    {
+      "type": "town_hall",
+      "team": "enemy",
+      "x": 2652,
+      "y": 420
+    },
+    {
+      "type": "town_hall",
+      "team": "p3",
+      "x": 420,
+      "y": 2652
+    },
+    {
+      "type": "town_hall",
+      "team": "p4",
+      "x": 2652,
+      "y": 2652
+    }
+  ],
+  "units": [
+    {
+      "type": "worker",
+      "team": "player",
+      "x": 570,
+      "y": 570
+    },
+    {
+      "type": "worker",
+      "team": "player",
+      "x": 610,
+      "y": 570
+    },
+    {
+      "type": "worker",
+      "team": "player",
+      "x": 650,
+      "y": 570
+    },
+    {
+      "type": "worker",
+      "team": "enemy",
+      "x": 2502,
+      "y": 570
+    },
+    {
+      "type": "worker",
+      "team": "enemy",
+      "x": 2462,
+      "y": 570
+    },
+    {
+      "type": "worker",
+      "team": "enemy",
+      "x": 2422,
+      "y": 570
+    },
+    {
+      "type": "worker",
+      "team": "p3",
+      "x": 570,
+      "y": 2502
+    },
+    {
+      "type": "worker",
+      "team": "p3",
+      "x": 610,
+      "y": 2502
+    },
+    {
+      "type": "worker",
+      "team": "p3",
+      "x": 650,
+      "y": 2502
+    },
+    {
+      "type": "worker",
+      "team": "p4",
+      "x": 2502,
+      "y": 2502
+    },
+    {
+      "type": "worker",
+      "team": "p4",
+      "x": 2462,
+      "y": 2502
+    },
+    {
+      "type": "worker",
+      "team": "p4",
+      "x": 2422,
+      "y": 2502
+    }
+  ],
+  "resources": [
+    {
+      "type": "gold",
+      "x": 680,
+      "y": 420
+    },
+    {
+      "type": "wood",
+      "x": 420,
+      "y": 680
+    },
+    {
+      "type": "gold",
+      "x": 2392,
+      "y": 420
+    },
+    {
+      "type": "wood",
+      "x": 2652,
+      "y": 680
+    },
+    {
+      "type": "gold",
+      "x": 680,
+      "y": 2652
+    },
+    {
+      "type": "wood",
+      "x": 420,
+      "y": 2392
+    },
+    {
+      "type": "gold",
+      "x": 2392,
+      "y": 2652
+    },
+    {
+      "type": "wood",
+      "x": 2652,
+      "y": 2392
+    }
+  ],
+  "blockedTiles": []
+}

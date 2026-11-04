@@ -5,6 +5,7 @@
 #include <utility>
 
 #include <core/model/Building.hpp>
+#include <core/model/PlayerSlot.hpp>
 #include <core/model/Unit.hpp>
 #include <core/sim/Fixed.hpp>
 #include <core/viewmodel/UnitViewModel.hpp>
@@ -207,18 +208,23 @@ namespace rts::core::model {
         if (m_unitType != ::rts::UnitType::Archer) {
             return {};
         }
-        const char* teamFolder = m_teamId == TeamId::Enemy ? "Red" : "Blue";
+        // Placeholder until per-color sprite sets exist (roadmap M2-E6).
+        const char* teamFolder = usesBlueSprites(m_teamId) ? "Blue" : "Red";
         return std::string("Units/") + teamFolder + " Units/Archer/Arrow.png";
+    }
+
+    bool Unit::isEnemyOwner(const int ownerId) const {
+        if (ownerId == TeamId::Neutral || ownerId == m_teamId) return false;
+        return !m_areEnemies || m_areEnemies(m_teamId, ownerId);
     }
 
     bool Unit::canAttackTarget(const IGameElement* target) const {
         if (!target || target == this) return false;
         if (target->getAction() == ActionType::Dead) return false;
-        // Neutral attackers don't fight, and only non-neutral opposing teams are
-        // valid victims (neutral resources are gathered, allies are never hit).
+        // Neutral attackers don't fight, and only enemy players are valid victims
+        // (neutral resources are gathered, own and allied units are never hit).
         if (m_teamId == TeamId::Neutral) return false;
-        const int targetTeam = target->getTeamId();
-        if (targetTeam == TeamId::Neutral || targetTeam == m_teamId) return false;
+        if (!isEnemyOwner(target->getTeamId())) return false;
         // Air/ground targeting capability must cover the target's layer.
         switch (target->movementDomain()) {
             case core::data::MovementDomain::Ground: return m_attacksGround;
@@ -557,12 +563,12 @@ namespace rts::core::model {
             return;
         }
 
-        if (attacker && m_action == ActionType::Hold && attacker->getTeamId() != m_teamId) {
+        if (attacker && m_action == ActionType::Hold && isEnemyOwner(attacker->getTeamId())) {
             holdEngage(attacker);
             return;
         }
 
-        if (attacker && m_action != ActionType::Attack && attacker->getTeamId() != m_teamId) {
+        if (attacker && m_action != ActionType::Attack && isEnemyOwner(attacker->getTeamId())) {
             beginAttack(attacker, m_attackMoveActive, m_patrolActive);
         }
     }
@@ -863,7 +869,8 @@ namespace rts::core::model {
             .targetResourceId = m_gatherState.targetResourceId,
             .targetDropOffId = m_gatherState.targetDropOffId,
             .attackPhase = m_attackPhase,
-            .attackTimer = attackTimer
+            .attackTimer = attackTimer,
+            .gridPath = std::vector<path::GridPos>(m_gridPath.begin(), m_gridPath.end())
         };
     }
 
@@ -895,7 +902,7 @@ namespace rts::core::model {
         };
         m_attackPhase = state.attackPhase;
         attackTimer = state.attackTimer;
-        m_gridPath.clear();
+        m_gridPath = std::deque<path::GridPos>(state.gridPath.begin(), state.gridPath.end());
 
         if (m_action == ActionType::Gather &&
             (m_gatherState.phase == GatherPhase::MoveToResource ||
