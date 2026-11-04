@@ -409,6 +409,10 @@ namespace rts::core::manager {
                 m_currentMapPath.empty() ? defaultMapPath() : m_currentMapPath,
                 m_config.enemyAiPassive,
                 aiStates);
+            // System state that lives outside the world: queued path requests and
+            // trained units still waiting for room to spawn.
+            doc["movement"] = m_movement.saveState(m_world);
+            doc["production"] = m_production.saveState();
         }
 
         std::error_code ec;
@@ -469,12 +473,23 @@ namespace rts::core::manager {
         } else if (const auto ai = doc.value("ai", json::object()); !ai.empty()) {
             restoreAi(core::model::TeamId::Enemy, ai);  // v2: the single enemy AI
         }
+        if (doc.contains("movement")) {
+            m_movement.restoreState(m_world, doc["movement"]);
+        }
+        if (doc.contains("production")) {
+            m_production.restoreState(doc["production"]);
+        }
 
         m_world.setGameResult(static_cast<core::world::GameResult>(
             doc.value("gameResult", static_cast<int>(core::world::GameResult::InProgress))));
         m_world.setCurrentTick(static_cast<core::sim::TickCount>(doc.value<std::uint64_t>("tick", 0)));
         world::rebuildSpatialIndex(m_world);
-        m_economy.recomputeSupply(m_world);
+        // v4 saves are exact, so the saved economy is authoritative (a tick-0 save
+        // still has the map's initial food values; the next tick recounts them).
+        // Older saves derive food/army from the restored entities.
+        if (doc.value("version", 0) < 4) {
+            m_economy.recomputeSupply(m_world);
+        }
         m_world.updateFog();
 
         if (doc.contains("worldHash")) {

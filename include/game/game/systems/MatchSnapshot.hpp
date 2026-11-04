@@ -17,7 +17,11 @@ namespace rts::core::manager::snapshot {
     // Save-file format version written by capture().
     // v3: player slots ("slots", "localPlayer"), every slot's economy, and one AI
     //     state per AI player ("ais"). v2 had a fixed 1v1 and a single "ai".
-    inline constexpr int kSaveVersion = 3;
+    // v4: exact round-trip: dead elements too, the EntityId allocator
+    //     ("entityManager"), in-flight "projectiles", unit path waypoints.
+    //     GameLogicManager adds "movement" (queued path requests) and
+    //     "production" (spawns waiting for room).
+    inline constexpr int kSaveVersion = 4;
 
     // Serializes the live match: header (map, AI mode, tick, result, hash), the
     // player slots, the AI states (opaque array from the AI controllers), each
@@ -29,9 +33,9 @@ namespace rts::core::manager::snapshot {
                            bool enemyAiPassive,
                            const nlohmann::json& aiStates);
 
-    // Restores player slots (v2 saves: the classic human 1 vs AI 2), economies
-    // and entities from a snapshot into a world that was already cleared and
-    // given its terrain. onBuilding runs for every building right after it is
+    // Restores player slots (v2 saves: the classic human 1 vs AI 2), economies,
+    // entities (v4: with their exact EntityIds) and projectiles from a snapshot
+    // into a world that was already cleared and given its terrain. onBuilding runs for every building right after it is
     // constructed (before it joins the world), so the caller can hook production
     // spawns. Also reads pre-v2 saves (flat buildings/units/resources lists).
     // Caller holds the world write lock.

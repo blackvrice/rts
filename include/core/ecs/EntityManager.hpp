@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 #include "core/ecs/EntityId.hpp"
@@ -49,6 +50,29 @@ namespace rts::core::ecs {
         }
 
         std::size_t aliveCount() const noexcept { return m_aliveCount; }
+
+        // Full allocator state, so a save can restore the exact same handles and
+        // the same future allocation order (free-list order matters).
+        struct State {
+            std::vector<std::uint32_t> generations;
+            std::vector<bool> alive;
+            std::vector<std::uint32_t> freeIndices;
+        };
+
+        State state() const {
+            return State { m_generations, m_alive, m_freeIndices };
+        }
+
+        void restore(State state) {
+            m_generations = std::move(state.generations);
+            m_alive = std::move(state.alive);
+            m_alive.resize(m_generations.size(), false);
+            m_freeIndices = std::move(state.freeIndices);
+            m_aliveCount = 0;
+            for (const bool a : m_alive) {
+                if (a) ++m_aliveCount;
+            }
+        }
 
     private:
         std::vector<std::uint32_t> m_generations;  // per slot index

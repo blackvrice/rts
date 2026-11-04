@@ -93,6 +93,9 @@ namespace rts::core::model {
             ecs::EntityId targetDropOffId { ecs::InvalidEntityId };
             AttackPhase attackPhase { AttackPhase::Ready };
             float attackTimer { 0.0f };
+            // Remaining path waypoints (next first). Saves before v4 lack them;
+            // such units resume without a path, as they used to.
+            std::vector<path::GridPos> gridPath;
         };
 
         ActionType getAction() const override;

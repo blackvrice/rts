@@ -299,16 +299,18 @@ namespace {
         sim.send(command::AttackMoveCommand(-1, { 1400.0f, 1400.0f }));
     }
 
-    // Quick-save while the army is moving under attack-move orders, play on,
-    // then quick-load: the world must match the saved one exactly. Saved 3s in,
-    // before anything dies or fires: lingering dead entities and in-flight
-    // projectiles are not saved yet (known gap, roadmap M0-E4-05), see
-    // reportSaveLoadContinuation().
+    // Quick-save mid-fight (a dead unit still in the world, arrows in flight,
+    // units walking paths), play on, then quick-load: the world must match the
+    // saved one exactly (save format v4).
     void testSaveLoadRestoresWorldHash() {
         const auto saveDir = tempSaveDir("save");
         SimHarness sim(combatConfig(saveDir));
         startCombat(sim);
-        sim.tick(SimHarness::secondsToTicks(3.0f));
+        sim.tick(SimHarness::secondsToTicks(10.0f));
+        {
+            const auto lock = sim.world().acquireReadLock();
+            expect(!sim.world().projectiles().empty(), "save point has arrows in flight");
+        }
         const auto savedHash = sim.worldHash();
         sim.send(command::SaveGameCommand());
         expect(std::filesystem::exists(std::filesystem::path(saveDir) / "quicksave.json"),
@@ -357,10 +359,9 @@ namespace {
         std::filesystem::remove_all(saveDir, ec);
     }
 
-    // Diagnostic: save 10s into the fight (a dead unit lingers, arrows in
-    // flight), load, and continue. Does the match continue exactly as an
-    // uninterrupted run would? Reports only (known gap, roadmap M0-E4-05).
-    void reportSaveLoadContinuation() {
+    // Save 10s into the fight (a dead unit lingers, arrows in flight), load,
+    // and continue: the match must play out exactly like an uninterrupted run.
+    void testSaveLoadContinuation() {
         constexpr float kBefore = 10.0f;
         constexpr float kAfter = 20.0f;
         std::uint64_t reference = 0;
@@ -377,10 +378,8 @@ namespace {
         sim.send(command::SaveGameCommand());
         sim.send(command::LoadGameCommand());
         sim.tick(SimHarness::secondsToTicks(kAfter));
-        const bool same = sim.worldHash() == reference;
-        std::cout << "[rts_sim_scenarios] save/load continuation "
-                  << (same ? "matches" : "DIVERGES from")
-                  << " an uninterrupted run\n";
+        expect(sim.worldHash() == reference,
+               "save/load mid-fight continues exactly like an uninterrupted run");
         std::error_code ec;
         std::filesystem::remove_all(saveDir, ec);
     }
@@ -537,6 +536,54 @@ namespace {
         expect(sim.world().gameResult() == rts::core::world::GameResult::Victory,
                "the local alliance wins once every enemy is eliminated");
     }
+
+    // 4 AI players, saved mid-match (AI build orders and timers, queued paths,
+    // training queues), loaded, and continued: must match the uninterrupted
+    // match at every sample.
+    void testFreeForAllSaveLoadContinuation() {
+        using rts::core::model::PlayerController;
+        const auto makeConfig = [](const std::string& saveDir) {
+            rts::core::app::MatchConfig config;
+            config.mapPath = testMap("sim_ffa4.json");
+            config.recordReplay = false;
+            config.saveDirectory = saveDir;
+            for (int id = 1; id <= 4; ++id) {
+                config.players.push_back(slot(id, id, PlayerController::Ai));
+            }
+            return config;
+        };
+        // 45s in: every AI has trained, gathered and is building; 30s after the
+        // load is long enough for divergence to show (kept short for CTest time).
+        const int before = SimHarness::secondsToTicks(45.0f);
+        const int after = SimHarness::secondsToTicks(30.0f);
+
+        std::vector<std::uint64_t> reference;
+        {
+            SimHarness sim(makeConfig(tempSaveDir("ffa_ref")));
+            sim.tick(before);
+            for (int t = 0; t < after; t += 300) {
+                sim.tick(300);
+                reference.push_back(sim.worldHash());
+            }
+        }
+
+        const auto saveDir = tempSaveDir("ffa_continue");
+        SimHarness sim(makeConfig(saveDir));
+        sim.tick(before);
+        sim.send(command::SaveGameCommand());
+        sim.tick(SimHarness::secondsToTicks(5.0f));  // drift away, then load back
+        sim.send(command::LoadGameCommand());
+        int mismatches = 0;
+        for (std::size_t i = 0; i < reference.size(); ++i) {
+            sim.tick(300);
+            if (sim.worldHash() != reference[i]) ++mismatches;
+        }
+        expect(mismatches == 0, "4-player FFA save/load continues identically (" +
+               std::to_string(mismatches) + "/" + std::to_string(reference.size()) +
+               " samples differ)");
+        std::error_code ec;
+        std::filesystem::remove_all(saveDir, ec);
+    }
 }
 
 int main() {
@@ -555,7 +602,8 @@ int main() {
     testReplayPlaybackMatchesRecording();
     testFourPlayerFreeForAll();
     testAlliances();
-    reportSaveLoadContinuation();
+    testSaveLoadContinuation();
+    testFreeForAllSaveLoadContinuation();
 
     if (g_failures != 0) {
         std::cerr << "[rts_sim_scenarios] " << g_failures << " check(s) failed\n";

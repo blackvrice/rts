@@ -28,7 +28,7 @@ This document is a quick orientation map for future AI agents working in this re
 - `tests/` contains headless test executables, all wired through CTest:
   - `tests/rts_headless_smoke.cpp` checks graphics-free runtime contracts such as data loading, map loading, tech-tree prerequisites, replay log round-trip, fixed math, and the default `portfolio.tmx` logic tick budget (passive-AI budget plus an aggressive-AI freeze guard).
   - `tests/sim/SimHarness.hpp` builds a `GameWorld` + `GameLogicManager` from a scenario map, sends `LogicCommand`s straight into the router, and ticks the simulation. Never call its `send`/`tick` while holding a world lock (handlers take the write lock).
-  - `tests/rts_sim_scenarios.cpp` runs gameplay scenarios through `SimHarness`: gathering, training, construction, attack-move combat to victory, same-input WorldHash determinism, quick-save/load WorldHash round-trip, F6/F7 replay playback vs recording, plus report-only checks for known bugs (melee vs building reach, save/load continuation).
+  - `tests/rts_sim_scenarios.cpp` runs gameplay scenarios through `SimHarness`: gathering, training, construction, attack-move combat to victory, same-input WorldHash determinism, exact quick-save/load round-trip mid-fight and save/load continuation (1v1 and 4-AI FFA), F6/F7 replay playback vs recording, 4-player FFA and 2v2 alliance rules, plus a report-only check for the known melee-vs-building reach bug.
 - `core/app/MatchConfig::saveDirectory` redirects the F5/F9 quick-save and F6/F7 replay slot (default `data/saves`, gitignored); tests point it at a temp folder.
   - `tests/data/maps/*.json` are small test-only scenario maps (not shown in the game).
 - `scripts/` contains offline helper scripts. `scripts/gen_portfolio_map.py` authors walls in tile space and emits the showcase scenario as both `data/maps/portfolio.json` and `data/maps/portfolio.tmx` (the latter with a CSV "collision" tile layer + point-object group), validating entity/footprint placement against the blocked tiles before writing.
@@ -74,7 +74,7 @@ This document is a quick orientation map for future AI agents working in this re
   - `ProductionSystem`: train/cancel, buffered unit spawns, rally handling.
   - `ConstructionSystem`: footprint placement checks, AI site search, player build orders.
   - `AiController`: the scripted AI for one AI player slot (build order, production, workers, defense, waves) and its save state. `GameLogicManager` creates one per AI slot.
-  - `MatchRules`: victory/defeat. `FeedbackSystem`: hit/death/completion sound and effect events. `MatchSnapshot`: save-file JSON format (capture/restore).
+  - `MatchRules`: per-player elimination and victory/defeat for the local alliance. `FeedbackSystem`: hit/death/completion sound and effect events. `MatchSnapshot`: save-file JSON format (v4, capture/restore). Saves are exact: every element incl. dead ones with its EntityId, the EntityId allocator, projectiles, unit waypoints; `MovementSystem`/`ProductionSystem` add their queued state via `saveState`/`restoreState`. Any new simulation state must be added to the save (the save/load continuation tests catch omissions).
 - `MovementSystem` throttles A* (fresh orders and periodic replans each have their own per-tick budget) and periodically re-plans traveling units to their current final target (`kRepathInterval`) so paths adapt to the changing world.
 
 ## Platform Layer

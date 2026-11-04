@@ -10,6 +10,7 @@
 #include "core/data/ResourceStaticData.hpp"
 #include "core/ecs/EntityId.hpp"
 #include "core/model/Building.hpp"
+#include "core/model/Projectile.hpp"
 #include "core/model/ResourceNode.hpp"
 #include "core/model/Unit.hpp"
 #include "core/world/GameWorld.hpp"
@@ -105,7 +106,14 @@ namespace {
             { "targetResourceId", entityRef(state.targetResourceId) },
             { "targetDropOffId", entityRef(state.targetDropOffId) },
             { "attackPhase", static_cast<int>(state.attackPhase) },
-            { "attackTimer", state.attackTimer }
+            { "attackTimer", state.attackTimer },
+            { "gridPath", [&state] {
+                nlohmann::json path = nlohmann::json::array();
+                for (const auto& cell : state.gridPath) {
+                    path.push_back({ cell.x, cell.y });
+                }
+                return path;
+            }() }
         };
     }
 
@@ -140,6 +148,11 @@ namespace {
         state.targetDropOffId = remapEntityId(entityIdFromJson(j.value("targetDropOffId", nlohmann::json::object())), remap);
         state.attackPhase = static_cast<rts::core::model::Unit::AttackPhase>(j.value("attackPhase", 0));
         state.attackTimer = j.value("attackTimer", 0.0f);
+        for (const auto& cell : j.value("gridPath", nlohmann::json::array())) {
+            if (cell.is_array() && cell.size() == 2) {
+                state.gridPath.push_back({ cell[0].get<int>(), cell[1].get<int>() });
+            }
+        }
         return state;
     }
 
@@ -215,8 +228,11 @@ namespace rts::core::manager::snapshot {
 
         json entities = json::array();
         for (const auto& el : world.getElements()) {
+            // Dead elements are saved too: they stay in the live world (hash order,
+            // corpses, projectile targets), so dropping them would shift the
+            // restored match.
             auto ge = std::dynamic_pointer_cast<model::IGameElement>(el);
-            if (!ge || ge->getAction() == model::ActionType::Dead) {
+            if (!ge) {
                 continue;
             }
             const auto pos = ge->getPosition();
@@ -249,6 +265,41 @@ namespace rts::core::manager::snapshot {
             entities.push_back(std::move(entity));
         }
         doc["entities"] = entities;
+
+        // EntityId allocator (generations, alive flags, free-list order), so the
+        // load restores identical handles and future spawns get identical ids.
+        const auto ids = world.entityState();
+        json alive = json::array();
+        for (const bool a : ids.alive) alive.push_back(a);
+        doc["entityManager"] = {
+            { "generations", ids.generations },
+            { "alive", alive },
+            { "free", ids.freeIndices }
+        };
+
+        // In-flight projectiles (targets by EntityId; dead targets stay resolvable
+        // through the saved element list).
+        json projectiles = json::array();
+        for (const auto& projectile : world.projectiles()) {
+            if (!projectile || projectile->expired()) continue;
+            projectiles.push_back({
+                { "position", vecJson(projectile->position()) },
+                { "target", entityRef(projectile->target()
+                                          ? projectile->target()->entityId()
+                                          : ecs::InvalidEntityId) },
+                { "lastKnownTarget", vecJson(projectile->lastKnownTargetPosition()) },
+                { "angle", projectile->angleDeg() },
+                { "damage", projectile->damage() },
+                { "owner", projectile->ownerTeamId() },
+                { "speed", projectile->speed() },
+                { "weapon", static_cast<int>(projectile->weaponType()) },
+                { "splash", { { "inner", projectile->splash().inner },
+                              { "mid", projectile->splash().mid },
+                              { "outer", projectile->splash().outer } } },
+                { "texture", projectile->texturePath() }
+            });
+        }
+        doc["projectiles"] = projectiles;
         return doc;
     }
 
@@ -294,6 +345,18 @@ namespace rts::core::manager::snapshot {
         std::vector<std::pair<std::shared_ptr<model::Unit>, json>> pendingUnitRuntime;
         std::vector<std::pair<std::shared_ptr<model::Building>, json>> pendingBuildingRuntime;
 
+        // v4 saves carry the allocator: restore exact ids instead of remapping.
+        const bool exactIds = doc.contains("entityManager");
+        if (exactIds) {
+            const auto& em = doc["entityManager"];
+            ecs::EntityManager::State ids;
+            ids.generations = em.value("generations", std::vector<std::uint32_t> {});
+            for (const auto& a : em.value("alive", json::array())) ids.alive.push_back(a.get<bool>());
+            ids.freeIndices = em.value("free", std::vector<std::uint32_t> {});
+            world.restoreEntityState(std::move(ids));
+        }
+        std::unordered_map<std::uint64_t, model::IGameElement*> elementById;
+
         if (doc.contains("entities")) {
             for (const auto& e : doc.value("entities", json::array())) {
                 const std::string kind = e.value("kind", std::string {});
@@ -332,9 +395,14 @@ namespace rts::core::manager::snapshot {
                 }
 
                 if (created) {
-                    world.addElement(created);
+                    if (exactIds) {
+                        world.restoreElement(created, oldId);
+                    } else {
+                        world.addElement(created);
+                    }
                     if (ecs::isValid(oldId)) {
                         entityRemap[entityKey(oldId)] = created->entityId();
+                        elementById[entityKey(oldId)] = created.get();
                     }
                 }
             }
@@ -346,6 +414,30 @@ namespace rts::core::manager::snapshot {
             }
             for (const auto& [unit, runtime] : pendingUnitRuntime) {
                 unit->restoreRuntimeState(unitRuntimeFromJson(runtime, entityRemap));
+            }
+
+            for (const auto& p : doc.value("projectiles", json::array())) {
+                const auto targetId = entityIdFromJson(p.value("target", json::object()));
+                model::IGameElement* target = nullptr;
+                if (ecs::isValid(targetId)) {
+                    if (const auto it = elementById.find(entityKey(targetId)); it != elementById.end()) {
+                        target = it->second;
+                    }
+                }
+                const auto splash = p.value("splash", json::object());
+                world.restoreProjectile(
+                    vecFromJson(p.value("position", json::object())),
+                    target,
+                    vecFromJson(p.value("lastKnownTarget", json::object())),
+                    p.value("angle", 0.0f),
+                    p.value("damage", 0.0f),
+                    p.value("owner", model::TeamId::Neutral),
+                    p.value("speed", 0.0f),
+                    static_cast<data::WeaponType>(p.value("weapon", 0)),
+                    data::SplashRadii { splash.value("inner", 0.0f),
+                                        splash.value("mid", 0.0f),
+                                        splash.value("outer", 0.0f) },
+                    p.value("texture", std::string {}));
             }
             return;
         }

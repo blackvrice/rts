@@ -59,31 +59,75 @@ namespace rts::core::world {
             const ecs::EntityId id = m_entities.create();
             gameElement->setEntityId(id);
             m_entityByIndex[id.index] = gameElement;
-            gameElement->setEntityResolver(
-                [this](const ecs::EntityId target) -> model::IGameElement* {
-                    return resolve(target).get();
-                });
-            gameElement->setRelationQuery(
-                [this](const int a, const int b) { return areEnemies(a, b); });
-            gameElement->setProjectileSpawner(
-                [this](const model::Vector2D& origin, model::IGameElement* target,
-                       float damage, data::WeaponType weapon, int team,
-                       data::SplashRadii splash, const std::string& texturePath) {
-                    spawnProjectile(origin, target, damage, weapon, team, splash, texturePath);
-                });
-
-            // Buildings are blocked at their footprint rectangle, so attackers need
-            // the footprint half-diagonal added to their range to hit from any edge.
-            if (const auto building = std::dynamic_pointer_cast<model::Building>(gameElement)) {
-                const auto& d = data::DataRegistry::global().building(building->buildingType());
-                const float tile = m_gridTransform.tileSize > 0.f ? m_gridTransform.tileSize : 32.f;
-                const float hx = static_cast<float>(d.footprintWidth) * tile * 0.5f;
-                const float hy = static_cast<float>(d.footprintHeight) * tile * 0.5f;
-                building->setAttackHitRadius(std::sqrt(hx * hx + hy * hy));
-            }
+            attachGameElement(gameElement);
         }
 
         onCollisionChanged();
+    }
+
+    void GameWorld::restoreEntityState(ecs::EntityManager::State state) {
+        m_entities.restore(std::move(state));
+        m_entityByIndex.clear();
+    }
+
+    void GameWorld::restoreElement(const std::shared_ptr<model::IElement>& element, const ecs::EntityId id) {
+        m_elements.push_back(element);
+        if (auto gameElement = std::dynamic_pointer_cast<model::IGameElement>(element)) {
+            gameElement->setEntityId(id);
+            // Only handles the restored allocator still considers alive resolve;
+            // dead elements stay in the list (hash/render) like in the live match.
+            if (m_entities.isAlive(id)) {
+                m_entityByIndex[id.index] = gameElement;
+            }
+            attachGameElement(gameElement);
+        }
+        onCollisionChanged();
+    }
+
+    void GameWorld::restoreProjectile(
+        const model::Vector2D position, model::IGameElement* target,
+        const model::Vector2D lastKnownTargetPosition, const float angleDeg,
+        const float damage, const int ownerTeam, const float speed,
+        const data::WeaponType weapon, const data::SplashRadii splash,
+        const std::string& texturePath) {
+        model::Projectile::SplashApplier applySplash;
+        if (splash.any()) {
+            applySplash = [this](const model::Vector2D& center, float dmg,
+                                 data::WeaponType wt, int team,
+                                 data::SplashRadii radii) {
+                applySplashDamage(center, dmg, wt, team, radii);
+            };
+        }
+        auto projectile = std::make_shared<model::Projectile>(
+            position, target, damage, ownerTeam, speed, weapon,
+            splash, std::move(applySplash), texturePath);
+        projectile->restoreFlight(lastKnownTargetPosition, angleDeg);
+        m_projectiles.push_back(std::move(projectile));
+    }
+
+    void GameWorld::attachGameElement(const std::shared_ptr<model::IGameElement>& gameElement) {
+        gameElement->setEntityResolver(
+            [this](const ecs::EntityId target) -> model::IGameElement* {
+                return resolve(target).get();
+            });
+        gameElement->setRelationQuery(
+            [this](const int a, const int b) { return areEnemies(a, b); });
+        gameElement->setProjectileSpawner(
+            [this](const model::Vector2D& origin, model::IGameElement* target,
+                   float damage, data::WeaponType weapon, int team,
+                   data::SplashRadii splash, const std::string& texturePath) {
+                spawnProjectile(origin, target, damage, weapon, team, splash, texturePath);
+            });
+
+        // Buildings are blocked at their footprint rectangle, so attackers need
+        // the footprint half-diagonal added to their range to hit from any edge.
+        if (const auto building = std::dynamic_pointer_cast<model::Building>(gameElement)) {
+            const auto& d = data::DataRegistry::global().building(building->buildingType());
+            const float tile = m_gridTransform.tileSize > 0.f ? m_gridTransform.tileSize : 32.f;
+            const float hx = static_cast<float>(d.footprintWidth) * tile * 0.5f;
+            const float hy = static_cast<float>(d.footprintHeight) * tile * 0.5f;
+            building->setAttackHitRadius(std::sqrt(hx * hx + hy * hy));
+        }
     }
 
     void GameWorld::resetForNewMatch() {

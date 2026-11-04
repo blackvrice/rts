@@ -1,5 +1,17 @@
 # Development Log
 
+## 2026-11-04 - Sprint S3 (part 2): Exact Save/Load Round-Trip (Save v4)
+
+Roadmap ticket: M0-E4-05.
+
+- **Problem**: a quick-save taken mid-fight did not restore the same match. The hash after load differed and the continued match diverged from an uninterrupted one. Causes found with a headless diagnostic: (1) dead units/buildings stay in the world's element list (hash order, corpses, projectile targets) but were not saved, so EntityIds were re-allocated differently; (2) in-flight projectiles were not saved; (3) unit path waypoints were cleared on load; (4) queued path requests and the replan timer, plus trained units waiting for room to spawn, were lost; (5) a tick-0 save failed because load recomputed supply over the saved economy.
+- **Save format v4** (`systems/MatchSnapshot`): every element is saved in world order, dead ones included, with its exact EntityId; `entityManager` stores the allocator (generations, alive flags, free-list order) and is restored first (`EntityManager::state/restore`, `GameWorld::restoreEntityState/restoreElement`). `projectiles` stores position, aim point, heading, damage, owner, speed, weapon, splash, texture and target id (`GameWorld::restoreProjectile`, `Projectile::restoreFlight`). `Unit::RuntimeState` gained `gridPath`. `GameLogicManager` adds `movement` (`MovementSystem::saveState/restoreState`: queued requests, which request each unit waits on, next request id, replan timer) and `production` (`ProductionSystem::saveState/restoreState`). v4 loads keep the saved economy instead of recomputing it. v2/v3 saves still load through the old id-remap path.
+- `GameWorld::addElement` now shares one `attachGameElement` helper (resolver, alliance query, projectile spawner, building hit radius) with the restore path.
+- **Tests now strict** (`rts_sim_scenarios`): quick-load 10 s into a fight (a dead unit, arrows in flight) restores the saved WorldHash exactly; save -> load -> 20 s matches an uninterrupted run; 4-AI FFA saved 45 s in, loaded after drifting 5 s, matches the uninterrupted match at every sample for 30 s. A diagnostic sweep (saves at 0/1/3/6/10 s, with and without orders) matched in all 10 cases.
+- Golden comparison against the part-1 baseline: all 74 order/rally/replay checkpoints and all AI-match checkpoints identical; only the save scenario changed: the save file is v4, the load now reports "world hash matched", and the post-load trail repeats the pre-load trail tick for tick (load at 1800 -> tick-1200 hash, then tick-1500 hash).
+- Verification: Linux Debug and RelWithDebInfo `ctest` 2/2 passed (`rts_sim_scenarios` ~62 s Debug / ~15 s optimized because of the 4-AI runs); changed files compile without new `-Wall -Wextra` warnings; platform/app files syntax-checked against SFML 3 headers. Windows `RTS.exe` build/run not possible in this session.
+- Follow-up: dead elements are never removed from the world, so long matches keep iterating corpses (memory/CPU growth); removing them after the death animation is a deliberate simulation change for later (M7-E1). Selection and control groups are not saved (UI state).
+
 ## 2026-11-04 - Sprint S3 (part 1): N-Player Slots, Alliances, Per-Player Fog
 
 Roadmap tickets: M0-E3-01..04.

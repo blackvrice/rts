@@ -837,6 +837,94 @@ namespace rts::core::manager {
         m_repathTimer = 0.0f;
     }
 
+    nlohmann::json MovementSystem::saveState(const world::GameWorld& world) const {
+        using json = nlohmann::json;
+        // Pointer -> EntityId for every live unit (requests hold weak pointers).
+        std::unordered_map<const model::Unit*, ecs::EntityId> ids;
+        for (const auto& element : world.getElements()) {
+            if (auto unit = std::dynamic_pointer_cast<model::Unit>(element);
+                unit && unit->getAction() != model::ActionType::Dead) {
+                ids[unit.get()] = unit->entityId();
+            }
+        }
+        const auto idJson = [](const ecs::EntityId id) {
+            return json { { "index", id.index }, { "generation", id.generation } };
+        };
+        const auto requestsJson = [&](const std::deque<PathRequest>& queue) {
+            json out = json::array();
+            for (const auto& request : queue) {
+                const auto unit = request.unit.lock();
+                const auto it = unit ? ids.find(unit.get()) : ids.end();
+                if (it == ids.end()) continue;  // dead/gone: the batch would skip it
+                json r {
+                    { "id", request.id },
+                    { "unit", idJson(it->second) },
+                    { "target", { { "x", request.target.x }, { "y", request.target.y } } },
+                    { "kind", static_cast<int>(request.kind) },
+                    { "refresh", request.refresh }
+                };
+                if (request.patrolStart) {
+                    r["patrolStart"] = { { "x", request.patrolStart->x }, { "y", request.patrolStart->y } };
+                }
+                out.push_back(std::move(r));
+            }
+            return out;
+        };
+        json latest = json::array();
+        for (const auto& [unit, requestId] : m_latestPathRequestByUnit) {
+            if (const auto it = ids.find(unit); it != ids.end()) {
+                latest.push_back({ { "unit", idJson(it->second) }, { "request", requestId } });
+            }
+        }
+        return json {
+            { "requests", requestsJson(m_pathRequests) },
+            { "repaths", requestsJson(m_repathRequests) },
+            { "latest", latest },
+            { "nextRequestId", m_nextPathRequestId },
+            { "repathTimer", m_repathTimer }
+        };
+    }
+
+    void MovementSystem::restoreState(world::GameWorld& world, const nlohmann::json& state) {
+        using json = nlohmann::json;
+        reset();
+        const auto unitFrom = [&world](const json& j) -> std::shared_ptr<model::Unit> {
+            const ecs::EntityId id {
+                j.value("index", ecs::InvalidEntityId.index),
+                j.value("generation", ecs::InvalidEntityId.generation)
+            };
+            return std::dynamic_pointer_cast<model::Unit>(world.resolve(id));
+        };
+        const auto vecFrom = [](const json& j) {
+            return model::Vector2D { j.value("x", 0.0f), j.value("y", 0.0f) };
+        };
+        const auto readQueue = [&](const json& list, std::deque<PathRequest>& queue) {
+            for (const auto& r : list) {
+                auto unit = unitFrom(r.value("unit", json::object()));
+                if (!unit) continue;
+                PathRequest request;
+                request.id = r.value<std::uint64_t>("id", 0);
+                request.unit = unit;
+                request.target = vecFrom(r.value("target", json::object()));
+                request.kind = static_cast<PathOrderKind>(r.value("kind", 0));
+                request.refresh = r.value("refresh", false);
+                if (r.contains("patrolStart")) {
+                    request.patrolStart = vecFrom(r["patrolStart"]);
+                }
+                queue.push_back(std::move(request));
+            }
+        };
+        readQueue(state.value("requests", json::array()), m_pathRequests);
+        readQueue(state.value("repaths", json::array()), m_repathRequests);
+        for (const auto& entry : state.value("latest", json::array())) {
+            if (auto unit = unitFrom(entry.value("unit", json::object()))) {
+                m_latestPathRequestByUnit[unit.get()] = entry.value<std::uint64_t>("request", 0);
+            }
+        }
+        m_nextPathRequestId = state.value<std::uint64_t>("nextRequestId", 1);
+        m_repathTimer = state.value("repathTimer", 0.0f);
+    }
+
     std::shared_ptr<model::Unit> MovementSystem::findUnitHandle(
         world::GameWorld& world,
         model::Unit& unit) const {

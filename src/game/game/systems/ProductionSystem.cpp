@@ -130,6 +130,37 @@ namespace rts::core::manager {
         }
     }
 
+    nlohmann::json ProductionSystem::saveState() const {
+        nlohmann::json spawns = nlohmann::json::array();
+        for (const auto& spawn : m_pendingSpawns) {
+            spawns.push_back({
+                { "type", static_cast<int>(spawn.type) },
+                { "anchor", { { "x", spawn.anchor.x }, { "y", spawn.anchor.y } } },
+                { "rally", { { "x", spawn.rally.x }, { "y", spawn.rally.y } } },
+                { "hasRally", spawn.hasRally },
+                { "team", spawn.team }
+            });
+        }
+        return spawns;
+    }
+
+    void ProductionSystem::restoreState(const nlohmann::json& state) {
+        m_pendingSpawns.clear();
+        if (!state.is_array()) return;
+        const auto vecFrom = [](const nlohmann::json& j) {
+            return model::Vector2D { j.value("x", 0.0f), j.value("y", 0.0f) };
+        };
+        for (const auto& s : state) {
+            m_pendingSpawns.push_back(PendingSpawn {
+                static_cast<::rts::UnitType>(s.value("type", 0)),
+                vecFrom(s.value("anchor", nlohmann::json::object())),
+                vecFrom(s.value("rally", nlohmann::json::object())),
+                s.value("hasRally", false),
+                s.value("team", 0)
+            });
+        }
+    }
+
     void ProductionSystem::train(
         world::GameWorld& world, model::Building& building, const int unitTypeId) const {
         const ::rts::UnitType unitType = unitTypeId < 0

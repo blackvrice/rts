@@ -869,7 +869,8 @@ namespace rts::core::model {
             .targetResourceId = m_gatherState.targetResourceId,
             .targetDropOffId = m_gatherState.targetDropOffId,
             .attackPhase = m_attackPhase,
-            .attackTimer = attackTimer
+            .attackTimer = attackTimer,
+            .gridPath = std::vector<path::GridPos>(m_gridPath.begin(), m_gridPath.end())
         };
     }
 
@@ -901,7 +902,7 @@ namespace rts::core::model {
         };
         m_attackPhase = state.attackPhase;
         attackTimer = state.attackTimer;
-        m_gridPath.clear();
+        m_gridPath = std::deque<path::GridPos>(state.gridPath.begin(), state.gridPath.end());
 
         if (m_action == ActionType::Gather &&
             (m_gatherState.phase == GatherPhase::MoveToResource ||

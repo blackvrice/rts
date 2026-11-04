@@ -60,6 +60,20 @@ namespace rts::core::world {
         [[nodiscard]] WriteLock acquireWriteLock();
 
         void addElement(const std::shared_ptr<model::IElement>& element);
+
+        // Save/load support: restore the entity allocator first, then re-add each
+        // saved element (dead ones included, in saved order) with its exact saved
+        // EntityId, so handles, hash order and future allocations match the
+        // saved match. Caller holds the write lock.
+        ecs::EntityManager::State entityState() const { return m_entities.state(); }
+        void restoreEntityState(ecs::EntityManager::State state);
+        void restoreElement(const std::shared_ptr<model::IElement>& element, ecs::EntityId id);
+        // Re-creates an in-flight projectile without the firing sound/effect.
+        void restoreProjectile(model::Vector2D position, model::IGameElement* target,
+                               model::Vector2D lastKnownTargetPosition, float angleDeg,
+                               float damage, int ownerTeam, float speed,
+                               data::WeaponType weapon, data::SplashRadii splash,
+                               const std::string& texturePath);
         // Clears all dynamic state (elements, entity handles, tick, result) so the
         // caller can repopulate a fresh match. Keeps the tile map. Caller holds the
         // write lock.
@@ -165,6 +179,10 @@ namespace rts::core::world {
         std::uint64_t worldHash() const;
 
     private:
+        // Injects the world services (entity resolver, projectile spawner, alliance
+        // query, building hit radius) into a game element joining the world.
+        void attachGameElement(const std::shared_ptr<model::IGameElement>& gameElement);
+
         // Area-of-effect damage around a splash impact; opposing team only, with
         // distance falloff and weapon/armor scaling. Used by splashing projectiles.
         void applySplashDamage(const model::Vector2D& center, float damage,

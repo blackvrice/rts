@@ -3,6 +3,8 @@
 #include <optional>
 #include <vector>
 
+#include <nlohmann/json.hpp>
+
 #include "core/model/UnitType.hpp"
 #include "core/model/Vector2D.hpp"
 
@@ -41,6 +43,11 @@ namespace rts::core::manager {
 
         // Drops buffered spawns (match restart / load).
         void clear() { m_pendingSpawns.clear(); }
+
+        // Save/load of units that finished training but are still waiting for a
+        // free tile next to their building.
+        nlohmann::json saveState() const;
+        void restoreState(const nlohmann::json& state);
 
         // First entry of the building's data-driven produces list.
         static ::rts::UnitType defaultUnitFor(model::BuildingType type);
