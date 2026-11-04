@@ -1,5 +1,6 @@
 #include "game/game/GameLogicManager.hpp"
 
+#include <algorithm>
 #include <ctime>
 #include <exception>
 #include <filesystem>
@@ -265,7 +266,9 @@ namespace rts::core::manager {
         // Destroy EntityIds of units/buildings that died this tick so handles to
         // them stop validating (and recycled slots bump generation).
         m_world.pruneDeadEntities();
-        m_enemyAi.update(m_world, m_movement, m_production, dt, m_config.enemyAiPassive);
+        for (auto& ai : m_ais) {
+            ai.update(m_world, m_movement, m_production, dt, m_config.enemyAiPassive);
+        }
         if (MatchRules::checkVictoryDefeat(m_world)) {
             saveReplayToAppData();
         }
@@ -287,6 +290,8 @@ namespace rts::core::manager {
         const auto map = core::map::loadMap(m_currentMapPath);
 
         applyMapTerrain(m_world, map);
+        m_world.setPlayers(buildPlayerSlots(map), m_config.localPlayerId);
+        createAiControllers();
 
         const auto makeResources = [](int gold, int wood) {
             core::model::PlayerResourceState r {};
@@ -297,10 +302,10 @@ namespace rts::core::manager {
             r.army = 0;
             return r;
         };
-        m_world.setPlayerResources(core::model::TeamId::Player,
-            makeResources(map.playerGold, map.playerWood));
-        m_world.setPlayerResources(core::model::TeamId::Enemy,
-            makeResources(map.enemyGold, map.enemyWood));
+        for (const auto& slot : m_world.players()) {
+            const auto start = map.startResourcesFor(slot.id);
+            m_world.setPlayerResources(slot.id, makeResources(start.gold, start.wood));
+        }
 
         for (const auto& b : map.buildings) {
             auto building = std::make_shared<core::model::Building>(b.type, b.position, b.teamId);
@@ -329,10 +334,38 @@ namespace rts::core::manager {
         m_selection.clear();
         m_movement.reset();
         m_production.clear();
-        m_enemyAi.reset();
+        m_ais.clear();
         m_feedback.clear();
         m_simFrozen = false;
         world::resetRuntimeServices(m_world);
+    }
+
+    std::vector<core::model::PlayerSlot> GameLogicManager::buildPlayerSlots(
+        const core::map::MapData& map) const {
+        std::vector<core::model::PlayerSlot> slots = m_config.players;
+        for (const int id : map.playerIds()) {
+            const bool configured = std::any_of(slots.begin(), slots.end(),
+                [id](const auto& slot) { return slot.id == id; });
+            if (configured) continue;
+            slots.push_back(core::model::PlayerSlot {
+                id,
+                id,  // own alliance: free-for-all by default
+                id == m_config.localPlayerId ? core::model::PlayerController::Human
+                                             : core::model::PlayerController::Ai,
+                core::model::defaultPlayerColor(id),
+                false
+            });
+        }
+        return slots;
+    }
+
+    void GameLogicManager::createAiControllers() {
+        m_ais.clear();
+        for (const auto& slot : m_world.players()) {
+            if (slot.controller == core::model::PlayerController::Ai) {
+                m_ais.emplace_back(slot.id);
+            }
+        }
     }
 
     void GameLogicManager::restartMatch() {
@@ -365,11 +398,17 @@ namespace rts::core::manager {
         nlohmann::json doc;
         {
             auto lock = m_world.acquireReadLock();
+            nlohmann::json aiStates = nlohmann::json::array();
+            for (const auto& ai : m_ais) {
+                auto state = ai.toJson();
+                state["player"] = ai.playerId();
+                aiStates.push_back(std::move(state));
+            }
             doc = snapshot::capture(
                 m_world,
                 m_currentMapPath.empty() ? defaultMapPath() : m_currentMapPath,
                 m_config.enemyAiPassive,
-                m_enemyAi.toJson());
+                aiStates);
         }
 
         std::error_code ec;
@@ -414,8 +453,21 @@ namespace rts::core::manager {
             m_production.registerBuildingSpawn(building);
         });
 
-        if (const auto ai = doc.value("ai", json::object()); !ai.empty()) {
-            m_enemyAi.fromJson(ai);
+        // Slots come from the snapshot, so the AI set is rebuilt from them.
+        createAiControllers();
+        const auto restoreAi = [this](const int playerId, const json& state) {
+            for (auto& ai : m_ais) {
+                if (ai.playerId() == playerId) {
+                    ai.fromJson(state);
+                }
+            }
+        };
+        if (doc.contains("ais")) {
+            for (const auto& state : doc.value("ais", json::array())) {
+                restoreAi(state.value("player", core::model::TeamId::Neutral), state);
+            }
+        } else if (const auto ai = doc.value("ai", json::object()); !ai.empty()) {
+            restoreAi(core::model::TeamId::Enemy, ai);  // v2: the single enemy AI
         }
 
         m_world.setGameResult(static_cast<core::world::GameResult>(

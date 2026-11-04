@@ -179,19 +179,32 @@ namespace rts::core::manager::snapshot {
         const world::GameWorld& world,
         const std::string& mapPath,
         const bool enemyAiPassive,
-        const nlohmann::json& aiState) {
+        const nlohmann::json& aiStates) {
         using json = nlohmann::json;
         json doc;
         doc["version"] = kSaveVersion;
+        doc["localPlayer"] = world.localPlayerId();
+        json slots = json::array();
+        for (const auto& slot : world.players()) {
+            slots.push_back({
+                { "id", slot.id },
+                { "alliance", slot.alliance },
+                { "controller", static_cast<int>(slot.controller) },
+                { "color", static_cast<int>(slot.color) },
+                { "eliminated", slot.eliminated }
+            });
+        }
+        doc["slots"] = slots;
         doc["map"] = mapPath;
         doc["enemyAiPassive"] = enemyAiPassive;
         doc["tick"] = static_cast<std::uint64_t>(world.currentTick());
         doc["worldHash"] = world.worldHash();
         doc["gameResult"] = static_cast<int>(world.gameResult());
-        doc["ai"] = aiState;
+        doc["ais"] = aiStates;
 
         json players = json::array();
-        for (const int team : { model::TeamId::Player, model::TeamId::Enemy }) {
+        for (const auto& slot : world.players()) {
+            const int team = slot.id;
             const auto& r = world.playerResources(team);
             players.push_back({
                 { "team", team }, { "gold", r.gold }, { "wood", r.wood },
@@ -244,6 +257,29 @@ namespace rts::core::manager::snapshot {
         const nlohmann::json& doc,
         const std::function<void(model::Building&)>& onBuilding) {
         using json = nlohmann::json;
+        if (doc.contains("slots")) {
+            std::vector<model::PlayerSlot> slots;
+            for (const auto& s : doc.value("slots", json::array())) {
+                model::PlayerSlot slot;
+                slot.id = s.value("id", model::TeamId::Neutral);
+                slot.alliance = s.value("alliance", slot.id);
+                slot.controller = static_cast<model::PlayerController>(s.value("controller", 1));
+                slot.color = static_cast<model::PlayerColor>(
+                    s.value("color", static_cast<int>(model::defaultPlayerColor(slot.id))));
+                slot.eliminated = s.value("eliminated", false);
+                slots.push_back(slot);
+            }
+            world.setPlayers(std::move(slots), doc.value("localPlayer", model::TeamId::Player));
+        } else {
+            // Pre-v3 saves were always human player 1 vs AI player 2.
+            world.setPlayers({
+                model::PlayerSlot { model::TeamId::Player, model::TeamId::Player,
+                                    model::PlayerController::Human, model::PlayerColor::Blue, false },
+                model::PlayerSlot { model::TeamId::Enemy, model::TeamId::Enemy,
+                                    model::PlayerController::Ai, model::PlayerColor::Red, false }
+            }, model::TeamId::Player);
+        }
+
         for (const auto& p : doc.value("players", json::array())) {
             model::PlayerResourceState r {};
             r.gold = p.value("gold", r.gold);

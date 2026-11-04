@@ -102,50 +102,55 @@ namespace rts::core::manager {
 
     void EconomySystem::recomputeSupply(world::GameWorld& world) {
         // Recompute population economy from live state each tick so it self-corrects
-        // for deaths, cancels and spawns (TeamId indexes 0=Neutral, 1=Player, 2=Enemy):
+        // for deaths, cancels and spawns, per player slot:
         //   capacity = sum of providesSupply over completed buildings
         //   foodUsed = food of live units + food of units still in training queues
         //   army     = count of live combat (non-worker) units
-        int capacity[3] = { 0, 0, 0 };
-        int used[3]     = { 0, 0, 0 };
-        int army[3]     = { 0, 0, 0 };
+        struct Tally {
+            int capacity { 0 };
+            int used { 0 };
+            int army { 0 };
+        };
+        std::map<int, Tally> tally;
+        for (const auto& slot : world.players()) {
+            tally[slot.id] = Tally {};
+        }
         const auto& registry = data::DataRegistry::global();
 
         for (const auto& element : world.getElements()) {
             if (auto building = std::dynamic_pointer_cast<model::Building>(element)) {
                 if (building->getAction() == model::ActionType::Dead) continue;
-                const int team = building->getTeamId();
-                if (team < 0 || team > 2) continue;
+                const auto it = tally.find(building->getTeamId());
+                if (it == tally.end()) continue;
                 if (building->isComplete()) {
-                    capacity[team] += registry.building(building->buildingType()).providesSupply;
+                    it->second.capacity += registry.building(building->buildingType()).providesSupply;
                 }
                 // Units still in production reserve their food before they spawn.
                 for (int i = 0; i < building->trainQueueSize(); ++i) {
-                    used[team] += registry.unit(building->trainQueueAt(i)).foodCost;
+                    it->second.used += registry.unit(building->trainQueueAt(i)).foodCost;
                 }
             } else if (auto unit = std::dynamic_pointer_cast<model::Unit>(element)) {
                 if (unit->getAction() == model::ActionType::Dead) continue;
-                const int team = unit->getTeamId();
-                if (team < 0 || team > 2) continue;
-                used[team] += registry.unit(unit->unitType()).foodCost;
-                if (!unit->isWorker()) ++army[team];
+                const auto it = tally.find(unit->getTeamId());
+                if (it == tally.end()) continue;
+                it->second.used += registry.unit(unit->unitType()).foodCost;
+                if (!unit->isWorker()) ++it->second.army;
             }
         }
 
-        for (const int teamId : { model::TeamId::Player, model::TeamId::Enemy }) {
-            auto resources = world.playerResources(teamId);
-            resources.foodCapacity = capacity[teamId];
-            resources.foodUsed = used[teamId];
-            resources.army = army[teamId];
-            world.setPlayerResources(teamId, resources);
-            logResourceChange(teamId, resources);
+        for (const auto& [playerId, counts] : tally) {
+            auto resources = world.playerResources(playerId);
+            resources.foodCapacity = counts.capacity;
+            resources.foodUsed = counts.used;
+            resources.army = counts.army;
+            world.setPlayerResources(playerId, resources);
+            logResourceChange(playerId, resources);
         }
         m_resourceLogReady = true;
     }
 
     void EconomySystem::logResourceChange(
         const int teamId, const model::PlayerResourceState& current) {
-        if (teamId < 0 || teamId > 2) return;
         const auto& prev = m_lastResourceLog[teamId];
         const bool changed = !m_resourceLogReady ||
             prev.gold != current.gold || prev.wood != current.wood ||

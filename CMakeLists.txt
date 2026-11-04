@@ -167,8 +167,8 @@ add_executable(RTS
         src/game/game/systems/CombatSystem.cpp
         include/game/game/systems/UnitOrderSystem.hpp
         src/game/game/systems/UnitOrderSystem.cpp
-        include/game/game/systems/EnemyAiController.hpp
-        src/game/game/systems/EnemyAiController.cpp
+        include/game/game/systems/AiController.hpp
+        src/game/game/systems/AiController.cpp
         include/game/game/systems/MatchRules.hpp
         src/game/game/systems/MatchRules.cpp
         include/game/game/systems/FeedbackSystem.hpp
@@ -222,6 +222,7 @@ add_executable(RTS
         include/core/model/IUIElement.hpp
         include/core/model/Unit.hpp
         include/core/model/PlayerResourceState.hpp
+        include/core/model/PlayerSlot.hpp
         include/core/model/State.hpp
         include/core/model/Data.hpp
         include/core/model/Entity.hpp
@@ -333,7 +334,7 @@ if(BUILD_TESTING)
                 src/game/game/systems/ConstructionSystem.cpp
                 src/game/game/systems/CombatSystem.cpp
                 src/game/game/systems/UnitOrderSystem.cpp
-                src/game/game/systems/EnemyAiController.cpp
+                src/game/game/systems/AiController.cpp
                 src/game/game/systems/MatchRules.cpp
                 src/game/game/systems/FeedbackSystem.cpp
                 src/game/game/systems/MatchSnapshot.cpp

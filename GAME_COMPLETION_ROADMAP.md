@@ -149,10 +149,10 @@ M0 기반 정비
   - S2 결과: `GameLogicManager.cpp` 2,425줄 → 596줄. 분리 전 커밋과 비교해 197개 WorldHash 체크포인트(포트폴리오·스커미시 맵 AI 대전, 경제/전투/순찰/홀드/Shift 큐/랠리/리플레이 시나리오)와 세이브·리플레이 파일 내용이 모두 일치.
 
 #### M0-E3 N-플레이어 모델
-- **M0-E3-01** `L` `P0` `PlayerSlot { id, teamId(동맹 그룹), color, controller(Human/AI/Closed), aiDifficulty, startLocation }` 도입. 고정된 `TeamId::Player/Enemy` 사용처를 `PlayerId`와 `isEnemy(a, b)` / `isAlly(a, b)` 질의로 바꾼다.
-- **M0-E3-02** `M` `P0` 자원·인구·탐사 상태(Fog)를 플레이어별 배열로 바꾼다. HUD는 로컬 플레이어 것만 표시한다.
-- **M0-E3-03** `M` `P0` Save/Replay/WorldHash에 플레이어 슬롯 정보를 포함한다(save v3, v2 읽기 호환 유지 또는 명시적 거부).
-- **M0-E3-04** `S` `P0` 2인 기본 시나리오가 기존과 똑같이 동작하는지 회귀 확인.
+- [x] **M0-E3-01** `L` `P0` `PlayerSlot { id, teamId(동맹 그룹), color, controller(Human/AI/Closed), aiDifficulty, startLocation }` 도입. 고정된 `TeamId::Player/Enemy` 사용처를 `PlayerId`와 `isEnemy(a, b)` / `isAlly(a, b)` 질의로 바꾼다.
+- [x] **M0-E3-02** `M` `P0` 자원·인구·탐사 상태(Fog)를 플레이어별 배열로 바꾼다. HUD는 로컬 플레이어 것만 표시한다. (동맹끼리 시야 공유)
+- [x] **M0-E3-03** `M` `P0` Save/Replay/WorldHash에 플레이어 슬롯 정보를 포함한다(save v3, v2 읽기 호환 유지 또는 명시적 거부).
+- [x] **M0-E3-04** `S` `P0` 2인 기본 시나리오가 기존과 똑같이 동작하는지 회귀 확인. (197개 hash 체크포인트 동일)
 - 완료: 맵에 시작 위치 3~4개를 두고 AI 3명을 넣어도 크래시 없이 각자 자원과 시야를 따로 가진다.
 
 #### M0-E4 헤드리스 시뮬레이션 테스트

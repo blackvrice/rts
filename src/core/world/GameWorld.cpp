@@ -27,9 +27,17 @@ namespace rts::core::world {
         , m_pathManager(std::make_unique<manager::PathManager>())
         , m_gridTransform{64.f} {
         m_tileMap->init(32, 32);
-        m_fog.init(32, 32);
+        m_emptyFog.init(32, 32);
         m_playerResources.emplace(model::PlayerId::Local, model::PlayerResourceState {});
         m_playerResources.emplace(model::PlayerId::Enemy, model::PlayerResourceState {});
+        // Default 1v1 (human vs AI) so a bare world behaves like before; a match
+        // replaces this from its map/config in GameLogicManager::setupInitialWorld.
+        setPlayers({
+            model::PlayerSlot { model::TeamId::Player, model::TeamId::Player,
+                                model::PlayerController::Human, model::PlayerColor::Blue, false },
+            model::PlayerSlot { model::TeamId::Enemy, model::TeamId::Enemy,
+                                model::PlayerController::Ai, model::PlayerColor::Red, false }
+        }, model::TeamId::Player);
     }
 
     GameWorld::~GameWorld() = default;
@@ -55,6 +63,8 @@ namespace rts::core::world {
                 [this](const ecs::EntityId target) -> model::IGameElement* {
                     return resolve(target).get();
                 });
+            gameElement->setRelationQuery(
+                [this](const int a, const int b) { return areEnemies(a, b); });
             gameElement->setProjectileSpawner(
                 [this](const model::Vector2D& origin, model::IGameElement* target,
                        float damage, data::WeaponType weapon, int team,
@@ -163,9 +173,8 @@ namespace rts::core::world {
             if (!victim || victim->getAction() == model::ActionType::Dead) {
                 continue;
             }
-            // No friendly fire and no collateral on neutral objects (resources).
-            const int team = victim->getTeamId();
-            if (team == ownerTeam || team == model::TeamId::Neutral) {
+            // No friendly/allied fire and no collateral on neutral objects (resources).
+            if (!areEnemies(ownerTeam, victim->getTeamId())) {
                 continue;
             }
             const model::Vector2D pos = victim->getPosition();
@@ -184,15 +193,77 @@ namespace rts::core::world {
 
     void GameWorld::initTileMap(const int width, const int height, const float tileSize) {
         m_tileMap->init(width, height);
-        m_fog.init(width, height);
+        m_emptyFog.init(width, height);
+        for (auto& [id, fog] : m_fogs) {
+            fog.init(width, height);
+        }
         m_gridTransform.tileSize = tileSize;
         onCollisionChanged();
     }
 
+    void GameWorld::setPlayers(std::vector<model::PlayerSlot> players, const int localPlayerId) {
+        m_players = std::move(players);
+        // Slot order is iteration order everywhere (economy, AI, hash), so keep it
+        // sorted by id regardless of how the caller listed them.
+        std::sort(m_players.begin(), m_players.end(),
+                  [](const auto& a, const auto& b) { return a.id < b.id; });
+        m_localPlayerId = localPlayerId;
+        m_fogs.clear();
+        for (const auto& slot : m_players) {
+            m_fogs[slot.id].init(gridWidth(), gridHeight());
+        }
+    }
+
+    const model::PlayerSlot* GameWorld::player(const int playerId) const {
+        for (const auto& slot : m_players) {
+            if (slot.id == playerId) return &slot;
+        }
+        return nullptr;
+    }
+
+    model::PlayerSlot* GameWorld::player(const int playerId) {
+        for (auto& slot : m_players) {
+            if (slot.id == playerId) return &slot;
+        }
+        return nullptr;
+    }
+
+    bool GameWorld::areEnemies(const int a, const int b) const {
+        if (a == model::TeamId::Neutral || b == model::TeamId::Neutral || a == b) {
+            return false;
+        }
+        const auto* slotA = player(a);
+        const auto* slotB = player(b);
+        const int allianceA = slotA ? slotA->alliance : a;
+        const int allianceB = slotB ? slotB->alliance : b;
+        return allianceA != allianceB;
+    }
+
+    bool GameWorld::areAllies(const int a, const int b) const {
+        if (a == model::TeamId::Neutral || b == model::TeamId::Neutral) {
+            return false;
+        }
+        return a == b || !areEnemies(a, b);
+    }
+
+    bool GameWorld::isAiControlled(const int playerId) const {
+        const auto* slot = player(playerId);
+        return slot && slot->controller == model::PlayerController::Ai;
+    }
+
+    const map::FogOfWar& GameWorld::fog(const int playerId) const {
+        const auto it = m_fogs.find(playerId);
+        return it != m_fogs.end() ? it->second : m_emptyFog;
+    }
+
     void GameWorld::updateFog() {
-        // Demote last tick's Visible cells to Explored, then re-reveal from each live
-        // player unit/building. Resources grant no vision; enemy elements never reveal.
-        m_fog.resetVisible();
+        // Demote last tick's Visible cells to Explored, then re-reveal every
+        // player's fog from the live units/buildings of that player and its allies
+        // (shared alliance vision). Resources grant no vision; enemy elements never
+        // reveal for you.
+        for (auto& [id, fog] : m_fogs) {
+            fog.resetVisible();
+        }
         m_visionSources.clear();
         const float tileSize = m_gridTransform.tileSize > 0.f ? m_gridTransform.tileSize : 1.f;
         // sightRange is authored as a tile count, but vision should reveal at the
@@ -203,11 +274,11 @@ namespace rts::core::world {
         constexpr float kVisualTilePixels = 64.0f;
         for (const auto& element : m_elements) {
             const auto ge = std::dynamic_pointer_cast<model::IGameElement>(element);
-            if (!ge || ge->getTeamId() != model::TeamId::Player ||
+            if (!ge || ge->getTeamId() == model::TeamId::Neutral ||
                 ge->getAction() == model::ActionType::Dead) {
                 continue;
             }
-            const auto cell = m_gridTransform.worldToGrid(ge->getPosition());
+            const int owner = ge->getTeamId();
             float worldRange = 0.f;  // vision radius in world pixels
             if (const auto unit = std::dynamic_pointer_cast<model::Unit>(element)) {
                 worldRange = std::max(0.0f, unit->getSightRange()) * kVisualTilePixels;
@@ -219,11 +290,18 @@ namespace rts::core::world {
             } else {
                 continue;
             }
+            const auto cell = m_gridTransform.worldToGrid(ge->getPosition());
             const int radiusTiles = static_cast<int>(std::ceil(worldRange / tileSize));
-            m_fog.revealCircle(cell.x, cell.y, radiusTiles);
+            for (auto& [playerId, fog] : m_fogs) {
+                if (areAllies(owner, playerId)) {
+                    fog.revealCircle(cell.x, cell.y, radiusTiles);
+                }
+            }
             // Exact world-space circle for the renderer's smooth reveal (the tile
             // grid above is intentionally coarser for gameplay/explored memory).
-            m_visionSources.push_back({ ge->getPosition(), worldRange });
+            if (areAllies(owner, m_localPlayerId)) {
+                m_visionSources.push_back({ ge->getPosition(), worldRange });
+            }
         }
     }
 
@@ -261,9 +339,16 @@ namespace rts::core::world {
 
         mix(static_cast<std::uint64_t>(m_currentTick));
 
-        for (const int team : { model::TeamId::Player, model::TeamId::Enemy }) {
+        // Player slots (alliances/controllers decide who fights whom) and every
+        // player's economy, in slot-id order.
+        mixSigned(m_localPlayerId);
+        for (const auto& slot : m_players) {
+            const int team = slot.id;
             const auto& r = playerResources(team);
             mix(static_cast<std::uint64_t>(team));
+            mixSigned(slot.alliance);
+            mixSigned(static_cast<int>(slot.controller));
+            mixBool(slot.eliminated);
             mix(static_cast<std::uint64_t>(static_cast<std::int64_t>(r.gold)));
             mix(static_cast<std::uint64_t>(static_cast<std::int64_t>(r.wood)));
             mix(static_cast<std::uint64_t>(static_cast<std::int64_t>(r.foodUsed)));

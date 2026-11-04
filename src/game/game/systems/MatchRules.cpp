@@ -11,17 +11,31 @@ namespace rts::core::manager {
             return false;
         }
 
-        const int playerHalls = queries::countBuildings(
-            world, model::TeamId::Player, model::BuildingType::TownHall);
-        const int enemyHalls = queries::countBuildings(
-            world, model::TeamId::Enemy, model::BuildingType::TownHall);
+        // Elimination is permanent: a rebuilt Town Hall does not bring a player back.
+        for (const auto& slot : world.players()) {
+            if (!slot.eliminated &&
+                queries::countBuildings(world, slot.id, model::BuildingType::TownHall) == 0) {
+                world.player(slot.id)->eliminated = true;
+            }
+        }
 
-        if (playerHalls == 0) {
+        const int local = world.localPlayerId();
+        bool localAllianceAlive = false;
+        bool enemyAlive = false;
+        for (const auto& slot : world.players()) {
+            if (slot.eliminated) continue;
+            if (world.areAllies(local, slot.id)) localAllianceAlive = true;
+            if (world.areEnemies(local, slot.id)) enemyAlive = true;
+        }
+
+        // Defeat wins ties (both sides losing their last hall on the same tick),
+        // matching the original 1v1 rule.
+        if (!localAllianceAlive) {
             world.setGameResult(world::GameResult::Defeat);
             world::emitSound(world, world::SoundCue::Defeat, {}, 80.0f);
             return true;
         }
-        if (enemyHalls == 0) {
+        if (!enemyAlive) {
             world.setGameResult(world::GameResult::Victory);
             world::emitSound(world, world::SoundCue::Victory, {}, 80.0f);
             return true;

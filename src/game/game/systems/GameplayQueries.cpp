@@ -10,12 +10,6 @@
 #include "core/world/WorldRuntimeServices.hpp"
 
 namespace rts::core::manager::queries {
-    bool isOpposingTeam(const int attackerTeamId, const int targetTeamId) {
-        return attackerTeamId != model::TeamId::Neutral &&
-               targetTeamId != model::TeamId::Neutral &&
-               attackerTeamId != targetTeamId;
-    }
-
     bool selectionContains(
         const SelectionSystem::SelectedList& selected,
         const model::IGameElement* candidate) {
@@ -120,6 +114,20 @@ namespace rts::core::manager::queries {
                 building->getTeamId() == teamId &&
                 building->getAction() != model::ActionType::Dead &&
                 (!requireComplete || building->isComplete())) {
+                return building;
+            }
+        }
+        return nullptr;
+    }
+
+    std::shared_ptr<model::Building> findFirstEnemyBuilding(
+        const world::GameWorld& world, const int playerId, const model::BuildingType type) {
+        for (const auto& element : world.getElements()) {
+            auto building = std::dynamic_pointer_cast<model::Building>(element);
+            if (building &&
+                building->buildingType() == type &&
+                world.areEnemies(playerId, building->getTeamId()) &&
+                building->getAction() != model::ActionType::Dead) {
                 return building;
             }
         }

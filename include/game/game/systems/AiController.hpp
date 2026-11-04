@@ -18,14 +18,20 @@ namespace rts::core::manager {
     class MovementSystem;
     class ProductionSystem;
 
-    // Scripted opponent for TeamId::Enemy: keeps a barracks up, trains workers to
-    // a cap and soldiers for waves, sends idle workers to gather, answers threats
-    // near its buildings, and launches attack waves at the player's town hall.
-    // Roadmap M3 replaces this with per-player AI controllers.
-    class EnemyAiController {
+    // Scripted opponent for one AI player slot: keeps a barracks up, trains
+    // workers to a cap and soldiers for waves, sends idle workers to gather,
+    // answers enemy threats near its buildings, and launches attack waves at the
+    // first enemy Town Hall. One instance per AI slot (roadmap M3 replaces the
+    // script with real strategy/difficulty).
+    class AiController {
     public:
-        // One AI step. Does nothing once the match is decided. passive keeps the
-        // economy running but skips the defense and wave passes.
+        explicit AiController(int playerId) : m_playerId(playerId) {}
+
+        int playerId() const noexcept { return m_playerId; }
+
+        // One AI step. Does nothing once the match is decided or this player is
+        // eliminated. passive keeps the economy running but skips the defense and
+        // wave passes.
         void update(world::GameWorld& world, MovementSystem& movement,
                     ProductionSystem& production, float dt, bool passive);
 
@@ -47,10 +53,10 @@ namespace rts::core::manager {
         };
 
         void updateBuildOrder(world::GameWorld& world, ProductionSystem& production);
-        // Enemy economy: train workers (to a cap) and warriors, paying from the
-        // enemy resource pool (no free units).
+        // Economy: train workers (to a cap) and warriors, paying from this
+        // player's resource pool (no free units).
         void updateProduction(world::GameWorld& world, float dt);
-        // Sends idle enemy workers to gather the nearest available resource.
+        // Sends this player's idle workers to gather the nearest available resource.
         void updateWorkers(world::GameWorld& world, float dt);
         void updateDefense(world::GameWorld& world, MovementSystem& movement, float dt);
         // Launches an attack wave once enough idle soldiers have massed, or after a
@@ -58,14 +64,15 @@ namespace rts::core::manager {
         void updateWaves(world::GameWorld& world, MovementSystem& movement, float dt);
         void emitStateFeedback(world::GameWorld& world);
 
-        // Places a barracks near the enemy town hall with an idle worker when
+        // Places a barracks near this player's town hall with an idle worker when
         // affordable and none exists. Returns true when construction started.
-        static bool tryStartBarracks(world::GameWorld& world, ProductionSystem& production);
-        // Staging point 35% of the way from the enemy hall toward the player's.
-        static model::Vector2D rallyPoint(const world::GameWorld& world);
+        bool tryStartBarracks(world::GameWorld& world, ProductionSystem& production) const;
+        // Staging point 35% of the way from our hall toward the first enemy hall.
+        model::Vector2D rallyPoint(const world::GameWorld& world) const;
         static std::shared_ptr<model::Unit> findIdleWorker(const world::GameWorld& world, int teamId);
         static int countCombatUnits(const world::GameWorld& world, int teamId, bool idleOnly);
 
+        int m_playerId;
         BuildOrderState m_state { BuildOrderState::Opening };
         BuildOrderState m_lastFeedbackState { BuildOrderState::Opening };
         float m_produceTimer { 0.f };

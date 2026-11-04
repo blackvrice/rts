@@ -5,15 +5,16 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "core/app/MatchConfig.hpp"
 #include "core/manager/ILogicManager.hpp"
 #include "core/replay/ReplayLog.hpp"
+#include "game/game/systems/AiController.hpp"
 #include "game/game/systems/CollisionSystem.hpp"
 #include "game/game/systems/CombatSystem.hpp"
 #include "game/game/systems/ControlGroupSystem.hpp"
 #include "game/game/systems/EconomySystem.hpp"
-#include "game/game/systems/EnemyAiController.hpp"
 #include "game/game/systems/FeedbackSystem.hpp"
 #include "game/game/systems/MovementSystem.hpp"
 #include "game/game/systems/ProductionSystem.hpp"
@@ -22,6 +23,10 @@
 
 namespace rts::core::world {
     class GameWorld;
+}
+
+namespace rts::core::map {
+    struct MapData;
 }
 
 namespace rts::core::manager {
@@ -52,6 +57,11 @@ namespace rts::core::manager {
         void restartMatch();       // resets the world and repopulates the starting position
         // Clears systems and per-match state before the world is rebuilt (restart/load).
         void resetMatchState();
+        // Player slots for a new match: MatchConfig::players when given, plus every
+        // player id the map uses (local = Human, others = AI, FFA alliances).
+        std::vector<model::PlayerSlot> buildPlayerSlots(const map::MapData& map) const;
+        // One AiController per AI-controlled slot, in slot-id order.
+        void createAiControllers();
         // Save / load the live match to a JSON snapshot (tick, economy, every
         // unit/building/resource's major state). Returns false on I/O/parse failure.
         bool saveGame(const std::string& path);
@@ -99,7 +109,7 @@ namespace rts::core::manager {
         ProductionSystem m_production;
         CombatSystem m_combat;
         UnitOrderSystem m_orders { m_movement, m_economy };
-        EnemyAiController m_enemyAi;
+        std::vector<AiController> m_ais;  // one per AI slot, slot-id order
         FeedbackSystem m_feedback;
 
         // Replay: command stream + mode. m_applyingReplay is set only while the tick

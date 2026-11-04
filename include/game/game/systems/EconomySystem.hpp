@@ -1,5 +1,7 @@
 #pragma once
 
+#include <map>
+
 #include "core/model/PlayerResourceState.hpp"
 #include "game/game/systems/SelectionSystem.hpp"
 
@@ -29,7 +31,7 @@ namespace rts::core::manager {
         // Re-targets workers whose drop-off died or whose node ran dry.
         void handleGatherRedirects(world::GameWorld& world) const;
 
-        // Recomputes each team's food capacity/usage and army size from live
+        // Recomputes every player's food capacity/usage and army size from live
         // units, buildings and training queues, then logs any change.
         void recomputeSupply(world::GameWorld& world);
 
@@ -38,8 +40,8 @@ namespace rts::core::manager {
         // output for the resource-change event).
         void logResourceChange(int teamId, const model::PlayerResourceState& current);
 
-        // Last logged resource snapshot per team (index by TeamId).
-        model::PlayerResourceState m_lastResourceLog[3] {};
+        // Last logged resource snapshot per player id.
+        std::map<int, model::PlayerResourceState> m_lastResourceLog;
         bool m_resourceLogReady { false };
     };
 }

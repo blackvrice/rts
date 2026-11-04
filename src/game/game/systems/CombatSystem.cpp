@@ -216,9 +216,9 @@ namespace rts::core::manager {
                 unit->hasQueuedOrders()) {
                 continue;
             }
-            // Passive mode (MatchConfig debug switch): the enemy never engages on
-            // its own; only the player's idle units auto-acquire nearby threats.
-            if (enemyAiPassive && unit->getTeamId() == model::TeamId::Enemy) {
+            // Passive mode (MatchConfig debug switch): AI players never engage on
+            // their own; only human players' idle units auto-acquire nearby threats.
+            if (enemyAiPassive && world.isAiControlled(unit->getTeamId())) {
                 continue;
             }
 

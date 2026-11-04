@@ -42,9 +42,6 @@ namespace rts::core::manager::queries {
         return dx * dx + dy * dy;
     }
 
-    // Neutral (resources, scenery) is never an enemy of anyone.
-    bool isOpposingTeam(int attackerTeamId, int targetTeamId);
-
     bool selectionContains(const SelectionSystem::SelectedList& selected,
                            const model::IGameElement* candidate);
 
@@ -68,6 +65,11 @@ namespace rts::core::manager::queries {
     std::shared_ptr<model::Building> findBuilding(
         const world::GameWorld& world, int teamId, model::BuildingType type,
         bool requireComplete = false);
+
+    // First live building of the type owned by any enemy of playerId, in world
+    // element order (the AI's default attack/rally target).
+    std::shared_ptr<model::Building> findFirstEnemyBuilding(
+        const world::GameWorld& world, int playerId, model::BuildingType type);
 
     int countBuildings(const world::GameWorld& world, int teamId, model::BuildingType type);
 

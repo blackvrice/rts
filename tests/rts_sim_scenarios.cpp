@@ -12,6 +12,8 @@
 #include "core/data/CombatTypes.hpp"
 #include "core/data/DataPaths.hpp"
 #include "core/data/DataRegistry.hpp"
+#include "core/map/FogOfWar.hpp"
+#include "core/model/PlayerSlot.hpp"
 #include "core/model/Building.hpp"
 #include "core/model/ResourceNode.hpp"
 #include "core/model/Unit.hpp"
@@ -382,6 +384,159 @@ namespace {
         std::error_code ec;
         std::filesystem::remove_all(saveDir, ec);
     }
+
+    rts::core::model::PlayerSlot slot(const int id, const int alliance,
+                                      const rts::core::model::PlayerController controller) {
+        return rts::core::model::PlayerSlot {
+            id, alliance, controller, rts::core::model::defaultPlayerColor(id), false };
+    }
+
+    bool fogVisibleAt(const rts::core::world::GameWorld& world, const int playerId,
+                      const rts::core::model::Vector2D& pos) {
+        const auto cell = world.gridTransform().worldToGrid(pos);
+        return world.fog(playerId).get(cell.x, cell.y) == rts::core::map::FogOfWar::State::Visible;
+    }
+
+    // Four AI players, one per corner, free-for-all: each runs its own economy
+    // and vision, and they end up fighting each other (roadmap M0-E3 done
+    // criterion: 3+ AIs, no crash, separate resources and fog).
+    void testFourPlayerFreeForAll() {
+        using rts::core::model::PlayerController;
+        rts::core::app::MatchConfig config;
+        config.mapPath = testMap("sim_ffa4.json");
+        config.recordReplay = false;
+        config.localPlayerId = 1;  // spectating player 1's view; every slot is AI
+        for (int id = 1; id <= 4; ++id) {
+            config.players.push_back(slot(id, id, PlayerController::Ai));
+        }
+        SimHarness sim(config);
+
+        std::vector<rts::core::model::Vector2D> halls(5);
+        {
+            const auto lock = sim.world().acquireReadLock();
+            expect(sim.world().players().size() == 4, "FFA map creates 4 player slots");
+            for (int id = 1; id <= 4; ++id) {
+                expect(sim.world().isAiControlled(id), "every FFA slot is AI-controlled");
+                expect(sim.economy(id).gold == 500, "each player starts with its own 500 gold");
+                const auto hall = sim.buildings(id, BuildingType::TownHall);
+                expect(hall.size() == 1, "each player owns one Town Hall");
+                if (!hall.empty()) halls[static_cast<std::size_t>(id)] = hall.front()->getPosition();
+            }
+            for (int a = 1; a <= 4; ++a) {
+                for (int b = 1; b <= 4; ++b) {
+                    expect(sim.world().areEnemies(a, b) == (a != b), "FFA: every other player is an enemy");
+                }
+            }
+        }
+
+        sim.tick();
+        {
+            const auto lock = sim.world().acquireReadLock();
+            expect(fogVisibleAt(sim.world(), 1, halls[1]) && !fogVisibleAt(sim.world(), 1, halls[4]),
+                   "player 1 sees its own base but not player 4's");
+            expect(fogVisibleAt(sim.world(), 4, halls[4]) && !fogVisibleAt(sim.world(), 4, halls[1]),
+                   "player 4 has its own fog");
+        }
+
+        // Run until some player loses a unit or building to an enemy attack.
+        const auto anyCombatLoss = [&] {
+            for (const auto& element : sim.world().getElements()) {
+                const auto ge = std::dynamic_pointer_cast<rts::core::model::IGameElement>(element);
+                if (ge && ge->getTeamId() != TeamId::Neutral &&
+                    ge->getAction() == rts::core::model::ActionType::Dead) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        const bool fought = sim.tickUntil(anyCombatLoss, SimHarness::secondsToTicks(300.0f));
+        expect(fought, "the four AIs attack each other within 5 minutes");
+
+        const auto lock = sim.world().acquireReadLock();
+        int economiesMoved = 0;
+        for (int id = 1; id <= 4; ++id) {
+            const auto& e = sim.economy(id);
+            if (e.gold != 500 || e.wood != 300) ++economiesMoved;
+        }
+        expect(economiesMoved == 4, "all four AI economies run independently (" +
+               std::to_string(economiesMoved) + "/4 changed)");
+        std::cout << "[rts_sim_scenarios] FFA after " << sim.world().currentTick() << " ticks:";
+        for (int id = 1; id <= 4; ++id) {
+            std::cout << " p" << id << " gold=" << sim.economy(id).gold
+                      << " food=" << sim.economy(id).foodUsed
+                      << (sim.world().player(id)->eliminated ? " (out)" : "");
+        }
+        std::cout << '\n';
+    }
+
+    // 2v2: players 1+2 vs 3+4. Allies never target each other, share vision,
+    // and win together once both enemy Town Halls fall.
+    void testAlliances() {
+        using rts::core::model::PlayerController;
+        rts::core::app::MatchConfig config;
+        config.mapPath = testMap("sim_alliances.json");
+        config.recordReplay = false;
+        config.players = {
+            slot(1, 1, PlayerController::Human), slot(2, 1, PlayerController::Human),
+            slot(3, 2, PlayerController::Human), slot(4, 2, PlayerController::Human)
+        };
+        SimHarness sim(config);
+
+        rts::core::model::Vector2D scoutPos {};
+        {
+            const auto lock = sim.world().acquireReadLock();
+            const auto& w = sim.world();
+            expect(!w.areEnemies(1, 2) && w.areAllies(1, 2), "players 1 and 2 are allies");
+            expect(w.areEnemies(1, 3) && w.areEnemies(2, 4), "the two alliances are enemies");
+            expect(!w.areEnemies(3, 4), "players 3 and 4 are allies");
+            const auto p1 = sim.units(1, rts::UnitType::Warrior);
+            const auto p2 = sim.units(2, rts::UnitType::Warrior);
+            const auto p3 = sim.units(3, rts::UnitType::Warrior);
+            if (!p1.empty() && !p2.empty() && !p3.empty()) {
+                expect(!p1.front()->canAttackTarget(p2.front().get()), "a unit cannot target an ally");
+                expect(p1.front()->canAttackTarget(p3.front().get()), "a unit can target an enemy alliance");
+            }
+            const auto scouts = sim.units(2, rts::UnitType::Worker);
+            if (!scouts.empty()) scoutPos = scouts.front()->getPosition();
+        }
+
+        sim.tick();
+        {
+            const auto lock = sim.world().acquireReadLock();
+            expect(fogVisibleAt(sim.world(), 1, scoutPos), "player 1 sees through its ally's scout");
+            expect(!fogVisibleAt(sim.world(), 3, scoutPos), "the enemy alliance does not");
+        }
+
+        // Idle units auto-engage: the lone player-3 warrior should fall to the
+        // four allied warriors, and the allies must never fight each other.
+        const bool enemyDown = sim.tickUntil([&] {
+            return sim.units(3, rts::UnitType::Warrior).empty();
+        }, SimHarness::secondsToTicks(30.0f));
+        {
+            const auto lock = sim.world().acquireReadLock();
+            expect(enemyDown, "the allied warriors kill the enemy warrior");
+            expect(sim.units(1, rts::UnitType::Warrior).size() == 2 &&
+                   sim.units(2, rts::UnitType::Warrior).size() == 2,
+                   "no allied warrior is lost (no friendly fire between allies)");
+        }
+
+        // Knock out both enemy halls: the 1+2 alliance wins together.
+        {
+            const auto lock = sim.world().acquireWriteLock();
+            for (const int enemy : { 3, 4 }) {
+                for (const auto& hall : sim.buildings(enemy, BuildingType::TownHall)) {
+                    hall->takeDamage(hall->getMaxHp() * 2.0f, nullptr);
+                }
+            }
+        }
+        sim.tick();
+        const auto lock = sim.world().acquireReadLock();
+        expect(sim.world().player(3)->eliminated && sim.world().player(4)->eliminated,
+               "both enemy players are eliminated without a Town Hall");
+        expect(!sim.world().player(2)->eliminated, "the ally stays in the game");
+        expect(sim.world().gameResult() == rts::core::world::GameResult::Victory,
+               "the local alliance wins once every enemy is eliminated");
+    }
 }
 
 int main() {
@@ -398,6 +553,8 @@ int main() {
     testDeterministicReplayOfScenario();
     testSaveLoadRestoresWorldHash();
     testReplayPlaybackMatchesRecording();
+    testFourPlayerFreeForAll();
+    testAlliances();
     reportSaveLoadContinuation();
 
     if (g_failures != 0) {

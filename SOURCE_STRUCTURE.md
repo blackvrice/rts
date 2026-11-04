@@ -52,6 +52,7 @@ This document is a quick orientation map for future AI agents working in this re
 - `include/core/data` + `src/core/data/DataRegistry.cpp`: `DataRegistry` is the central authority for static unit/building/resource data and sprite/animation clips. It seeds built-in defaults, then `loadFromDirectory()` overlays JSON from `data/`. `unitStaticDataFor`/`buildingStaticDataFor`/`resourceStaticDataFor` delegate to the global registry; the `default*StaticDataFor` helpers in the `*StaticData.hpp` headers are the built-in fallbacks. `DataPaths.hpp` (generated from `.hpp.in`) provides the configured `data/` path.
 - Sprite/animation data: `SpriteData.hpp` defines `SpriteClip`; `DataRegistry` loads `data/animations.json` into a keyed clip map (`sprite(key)`) plus a unit→sprite-set map (`unitSpriteSet`). The view models look up clips by key and fill `DrawSprite.texturePath`; `SfmlRenderManager` loads textures by path (cached). A readable `animations.json` is authoritative (replaces seeds), so clips can be added/removed/changed via data alone.
 - `include/core/model/PlayerResourceState.hpp` defines the player resource snapshot stored by `GameWorld` and forwarded to the HUD.
+- `include/core/model/PlayerSlot.hpp` defines match participants (id, alliance, Human/AI, color, eliminated). Elements store their owner slot id in `getTeamId()`; `GameWorld` holds the slots, the local player id, alliance queries (`areEnemies`/`areAllies`) and one fog grid per player (allies share vision).
 - `include/core/factory` and `include/core/prototype` create game objects from static/prototype data.
 - `include/core/world`, `include/core/path`, and `src/core/world` contain grid/world representation, coordinate transforms, path queries, and map-facing logic. `WorldRuntimeServices` owns transient runtime feedback events, active effect lifetimes, and the per-tick spatial grid used for optimized radius queries.
 - `include/core/render` defines render commands, queues, context, and render-manager interfaces, including the `PlaySound` command used to forward simulation feedback to the platform renderer.
@@ -72,7 +73,7 @@ This document is a quick orientation map for future AI agents working in this re
   - `EconomySystem`: gather orders/redirects, resource deliveries, per-tick supply recount.
   - `ProductionSystem`: train/cancel, buffered unit spawns, rally handling.
   - `ConstructionSystem`: footprint placement checks, AI site search, player build orders.
-  - `EnemyAiController`: the scripted enemy (build order, production, workers, defense, waves) and its save state.
+  - `AiController`: the scripted AI for one AI player slot (build order, production, workers, defense, waves) and its save state. `GameLogicManager` creates one per AI slot.
   - `MatchRules`: victory/defeat. `FeedbackSystem`: hit/death/completion sound and effect events. `MatchSnapshot`: save-file JSON format (capture/restore).
 - `MovementSystem` throttles A* (fresh orders and periodic replans each have their own per-tick budget) and periodically re-plans traveling units to their current final target (`kRepathInterval`) so paths adapt to the changing world.
 

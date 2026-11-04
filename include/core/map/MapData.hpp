@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -17,19 +18,26 @@ namespace rts::core::map {
         int height { 32 };
         float tileSize { 64.0f };
 
-        int playerGold { 500 };
-        int playerWood { 300 };
-        int enemyGold { 500 };
-        int enemyWood { 300 };
+        // Starting stockpile per player id (1 = "player", 2 = "enemy", 3+ = "p3"...).
+        // Ids missing here start with the defaults below.
+        struct StartResources {
+            int gold { 500 };
+            int wood { 300 };
+        };
+        std::map<int, StartResources> startResources;
+        StartResources startResourcesFor(int playerId) const;
+        // Every player id the scenario uses, ascending: always 1 and 2 (the classic
+        // 1v1 slots), plus any owner of a placed building/unit or startResources key.
+        std::vector<int> playerIds() const;
 
         struct BuildingSpawn {
             ::rts::core::model::BuildingType type;
-            int teamId;
+            int teamId;  // owner player id (0 = neutral)
             model::Vector2D position;
         };
         struct UnitSpawn {
             ::rts::UnitType type;
-            int teamId;
+            int teamId;  // owner player id (0 = neutral)
             model::Vector2D position;
         };
         struct ResourceSpawn {

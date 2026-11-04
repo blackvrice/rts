@@ -181,6 +181,7 @@ namespace rts::core::model {
         void setTeamId(int teamId) override;
         void setEntityResolver(std::function<IGameElement*(ecs::EntityId)> resolver) override;
         void setProjectileSpawner(ProjectileSpawner spawner) override;
+        void setRelationQuery(RelationQuery query) override { m_areEnemies = std::move(query); }
 
         void setPath(path::Path p);
         void setMoveTargetWithPath(const std::vector<path::GridPos>& gridPath,
@@ -255,6 +256,10 @@ namespace rts::core::model {
         ecs::EntityId m_attackTargetId { ecs::InvalidEntityId };
         std::function<IGameElement*(ecs::EntityId)> m_resolveEntity;
         ProjectileSpawner m_fireProjectile;  // set for ranged attacks by GameWorld
+        // Set by GameWorld. Without it (a unit outside any world) every other
+        // non-neutral owner counts as an enemy, the pre-alliance rule.
+        RelationQuery m_areEnemies;
+        bool isEnemyOwner(int ownerId) const;
         bool m_attackMoveActive { false };
         bool m_patrolActive { false };
         bool m_patrolHeadingToEnd { true };

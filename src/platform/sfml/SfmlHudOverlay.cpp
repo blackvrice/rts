@@ -32,6 +32,7 @@
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_win32.h"
 #include "platform/sfml/SfmlAssetPaths.hpp"
+#include "core/model/PlayerSlot.hpp"
 
 namespace {
     constexpr ImU32 kConsoleFill = IM_COL32(10, 18, 26, 235);
@@ -730,7 +731,8 @@ namespace rts::platform::sfml {
             return texture("UI Elements/UI Elements/Human Avatars/Avatars_" + num + ".png");
         }
         if (p.buildingTypeId >= 0) {
-            const char* color = (p.team == 2) ? "Red" : "Blue";  // TeamId::Enemy == 2
+            // Placeholder colors until per-player sprite sets exist (roadmap M2-E6).
+            const char* color = rts::core::model::usesBlueSprites(p.team) ? "Blue" : "Red";
             // BuildingType: 0 = TownHall (Castle), others use a House.
             const char* file = (p.buildingTypeId == 0) ? "Castle.png" : "House1.png";
             return texture(std::string("Buildings/") + color + " Buildings/" + file);

@@ -80,7 +80,7 @@ namespace rts::core::manager {
         for (auto candidate : world::queryRadius(world, point, queries::kCommandPickRadius)) {
             if (!candidate ||
                 candidate->getAction() == model::ActionType::Dead ||
-                !queries::isOpposingTeam(team, candidate->getTeamId())) {
+                !world.areEnemies(team, candidate->getTeamId())) {
                 continue;
             }
             if (queries::distanceSq(candidate->getPosition(), point) <= queries::kCommandPickRadiusSq) {
@@ -114,7 +114,7 @@ namespace rts::core::manager {
             unit->setTeamId(spawn.team);
             world.addElement(unit);
             world::emitSound(world, world::SoundCue::ProductionComplete,
-                             *position, spawn.team == model::TeamId::Player ? 62.0f : 34.0f);
+                             *position, spawn.team == world.localPlayerId() ? 62.0f : 34.0f);
             world::emitEffect(world, world::EffectType::ConstructionDust,
                               *position, 42.0f, 0.45f);
 

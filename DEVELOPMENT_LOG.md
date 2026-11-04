@@ -1,5 +1,21 @@
 # Development Log
 
+## 2026-11-04 - Sprint S3 (part 1): N-Player Slots, Alliances, Per-Player Fog
+
+Roadmap tickets: M0-E3-01..04.
+
+- **Player slots** (`include/core/model/PlayerSlot.hpp`): `PlayerSlot { id, alliance, controller (Human/Ai), color, eliminated }`. Elements keep storing their owner in `getTeamId()`; it now means "owner slot id" (0 = neutral, `TeamId::Player`/`Enemy` remain the default ids 1/2).
+- **GameWorld**: `setPlayers(slots, localPlayerId)`, `players()`, `player(id)`, `localPlayerId()`, `areEnemies(a, b)` (different alliances), `areAllies`, `isAiControlled`. Units get the relation through a new injected `IGameElement::setRelationQuery` (like the entity resolver), so `Unit::canAttackTarget` and retaliation never target allies. Splash damage skips allies.
+- **Fog per player** with shared alliance vision: `fog(playerId)`; `fog()` stays the local player's grid; smooth vision circles are the local alliance's.
+- **Maps**: owners can be `"player"`/`"enemy"`/`"p3"`/`"player4"` or an integer; `startResources` accepts the same keys (TMX: `playerGold`, `enemyGold`, `pNGold`/`pNWood`). `MapData::playerIds()` always includes 1 and 2. `playerGold`/`enemyGold` fields were replaced by `startResources` + `startResourcesFor(id)`.
+- **MatchConfig**: optional explicit `players` (alliances, all-AI) and `localPlayerId`. Without them every map id becomes its own alliance (FFA), local = Human, the rest AI.
+- **AI**: `EnemyAiController` -> `AiController(playerId)`, one per AI slot. It rallies toward and attacks the first enemy Town Hall (in a 1v1 that is the player's hall, as before), defends against any enemy, and stops when eliminated.
+- **Rules**: a player without a Town Hall is eliminated (permanently). The result is from the local player's view: Defeat when its whole alliance is out, Victory when every enemy is out. Defeat still wins a same-tick tie.
+- **Economy, save, hash**: supply recount, save players, and WorldHash iterate all slots. Save format v3 adds `slots`, `localPlayer`, and `ais` (one state per AI); v2 saves load as human 1 vs AI 2. WorldHash now also covers the local player id and each slot's alliance/controller/eliminated flag (this intentionally changes all hash values).
+- **UI**: HUD resources, build menu, selection preference, attack cursor, fog hiding, minimap dot colors (own/allied, enemy, neutral) and camera focus use the local player and alliances. Sprites still have only blue/red art: player 1 (and neutral) blue, everyone else red, until M2-E6.
+- Verification: before adding slots to the hash, the 197-checkpoint golden comparison was identical to S2 (only the quick-save file digest changed, as expected for v3), so 1v1 behavior is unchanged. New scenarios: 4-AI FFA on `tests/data/maps/sim_ffa4.json` (4 slots, separate 500-gold economies, separate fog, AIs fight each other; first combat loss after ~57 s) and a 2v2 on `sim_alliances.json` (allies cannot target each other, shared vision, no friendly losses, team victory after both enemy halls fall). `ctest` 2/2 on Linux Debug/RelWithDebInfo; platform/UI files syntax-checked against SFML 3 headers. Windows `RTS.exe` build/run not possible in this session.
+- Follow-up: lobby slot setup (M4-E1), real per-color sprites (M2-E6), smarter AI target choice in FFA (M3).
+
 ## 2026-11-04 - Sprint S2: Split GameLogicManager Into Gameplay Systems
 
 Roadmap tickets: M0-E2-01..06, M0-E4-03 (`GAME_COMPLETION_ROADMAP.md`).

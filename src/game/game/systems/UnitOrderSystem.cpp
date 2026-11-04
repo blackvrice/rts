@@ -58,7 +58,7 @@ namespace rts::core::manager {
         if (ecs::isValid(cmd.targetEntityId())) {
             if (auto byId = world.resolve(cmd.targetEntityId())) {
                 const bool validKind = std::dynamic_pointer_cast<model::ResourceNode>(byId) ||
-                                       queries::isOpposingTeam(attackerTeam, byId->getTeamId());
+                                       world.areEnemies(attackerTeam, byId->getTeamId());
                 const bool nearClick =
                     queries::distanceSq(byId->getPosition(), cmd.target()) <= queries::kCommandPickRadiusSq;
                 if (validKind && nearClick) {
@@ -92,7 +92,7 @@ namespace rts::core::manager {
                     /*workersOnly=*/true);
                 world::emitSound(world, world::SoundCue::ResourceGather,
                                  target->getPosition(), 42.0f);
-            } else if (queries::isOpposingTeam(attackerTeam, target->getTeamId())) {
+            } else if (world.areEnemies(attackerTeam, target->getTeamId())) {
                 enqueueOrderForSelected(
                     world, selected,
                     model::UnitOrder { .type = model::OrderType::Attack,
@@ -118,7 +118,7 @@ namespace rts::core::manager {
 
         // Right-click follows RTS convention: friendly target means move/approach,
         // opposing team target means attack.
-        if (!queries::isOpposingTeam(attackerTeam, target->getTeamId())) {
+        if (!world.areEnemies(attackerTeam, target->getTeamId())) {
             world::emitSound(world, world::SoundCue::MoveOrder,
                              target->getPosition(), 44.0f);
             m_movement.issueMove(world, selected, target->getPosition());

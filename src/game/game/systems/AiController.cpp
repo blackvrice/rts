@@ -1,4 +1,4 @@
-#include "game/game/systems/EnemyAiController.hpp"
+#include "game/game/systems/AiController.hpp"
 
 #include <optional>
 
@@ -25,7 +25,7 @@ namespace rts::core::manager {
         constexpr float kAiDefenseRadius = 420.0f;
     }
 
-    void EnemyAiController::reset() {
+    void AiController::reset() {
         m_produceTimer = 0.f;
         m_gatherTimer = 0.f;
         m_waveTimer = 0.f;
@@ -34,7 +34,7 @@ namespace rts::core::manager {
         m_lastFeedbackState = BuildOrderState::Opening;
     }
 
-    nlohmann::json EnemyAiController::toJson() const {
+    nlohmann::json AiController::toJson() const {
         return nlohmann::json {
             { "state", static_cast<int>(m_state) },
             { "produceTimer", m_produceTimer },
@@ -44,7 +44,7 @@ namespace rts::core::manager {
         };
     }
 
-    void EnemyAiController::fromJson(const nlohmann::json& ai) {
+    void AiController::fromJson(const nlohmann::json& ai) {
         m_state = static_cast<BuildOrderState>(ai.value("state", 0));
         m_produceTimer = ai.value("produceTimer", 0.0f);
         m_gatherTimer = ai.value("gatherTimer", 0.0f);
@@ -53,7 +53,7 @@ namespace rts::core::manager {
         m_lastFeedbackState = m_state;
     }
 
-    std::shared_ptr<model::Unit> EnemyAiController::findIdleWorker(
+    std::shared_ptr<model::Unit> AiController::findIdleWorker(
         const world::GameWorld& world, const int teamId) {
         for (const auto& element : world.getElements()) {
             auto unit = std::dynamic_pointer_cast<model::Unit>(element);
@@ -67,7 +67,7 @@ namespace rts::core::manager {
         return nullptr;
     }
 
-    int EnemyAiController::countCombatUnits(
+    int AiController::countCombatUnits(
         const world::GameWorld& world, const int teamId, const bool idleOnly) {
         int count = 0;
         for (const auto& element : world.getElements()) {
@@ -83,33 +83,33 @@ namespace rts::core::manager {
         return count;
     }
 
-    model::Vector2D EnemyAiController::rallyPoint(const world::GameWorld& world) {
-        const auto enemyHall = queries::findBuilding(world, model::TeamId::Enemy, model::BuildingType::TownHall);
-        const auto playerHall = queries::findBuilding(world, model::TeamId::Player, model::BuildingType::TownHall);
-        if (enemyHall && playerHall) {
-            const auto a = enemyHall->getPosition();
-            const auto b = playerHall->getPosition();
+    model::Vector2D AiController::rallyPoint(const world::GameWorld& world) const {
+        const auto ownHall = queries::findBuilding(world, m_playerId, model::BuildingType::TownHall);
+        const auto targetHall = queries::findFirstEnemyBuilding(world, m_playerId, model::BuildingType::TownHall);
+        if (ownHall && targetHall) {
+            const auto a = ownHall->getPosition();
+            const auto b = targetHall->getPosition();
             return { a.x * 0.65f + b.x * 0.35f, a.y * 0.65f + b.y * 0.35f };
         }
-        return enemyHall ? enemyHall->getPosition() : model::Vector2D{ 0.0f, 0.0f };
+        return ownHall ? ownHall->getPosition() : model::Vector2D{ 0.0f, 0.0f };
     }
 
-    bool EnemyAiController::tryStartBarracks(world::GameWorld& world, ProductionSystem& production) {
-        if (queries::findBuilding(world, model::TeamId::Enemy, model::BuildingType::Barracks)) {
+    bool AiController::tryStartBarracks(world::GameWorld& world, ProductionSystem& production) const {
+        if (queries::findBuilding(world, m_playerId, model::BuildingType::Barracks)) {
             return false;
         }
-        auto worker = findIdleWorker(world, model::TeamId::Enemy);
-        auto townHall = queries::findBuilding(world, model::TeamId::Enemy, model::BuildingType::TownHall);
+        auto worker = findIdleWorker(world, m_playerId);
+        auto townHall = queries::findBuilding(world, m_playerId, model::BuildingType::TownHall);
         if (!worker || !townHall) {
             return false;
         }
 
         const auto data = core::data::buildingStaticDataFor(model::BuildingType::Barracks);
-        if (!queries::hasBuildingRequirements(world, model::TeamId::Enemy, data)) {
+        if (!queries::hasBuildingRequirements(world, m_playerId, data)) {
             return false;
         }
 
-        auto resources = world.playerResources(model::TeamId::Enemy);
+        auto resources = world.playerResources(m_playerId);
         if (!resources.canAfford(data.cost())) {
             return false;
         }
@@ -120,19 +120,19 @@ namespace rts::core::manager {
         }
 
         auto site = std::make_shared<model::Building>(
-            model::BuildingType::Barracks, *sitePos, model::TeamId::Enemy);
+            model::BuildingType::Barracks, *sitePos, m_playerId);
         site->beginConstruction(data.buildTimeSeconds, data.maxHp * 0.1f);
         site->setRallyPoint(rallyPoint(world));
         production.registerBuildingSpawn(*site);
         world.addElement(site);
         resources.pay(data.cost());
-        world.setPlayerResources(model::TeamId::Enemy, resources);
+        world.setPlayerResources(m_playerId, resources);
         worker->buildAt(site.get());
         world::emitEffect(world, world::EffectType::ConstructionDust, *sitePos, 72.0f, 0.65f);
         return true;
     }
 
-    void EnemyAiController::emitStateFeedback(world::GameWorld& world) {
+    void AiController::emitStateFeedback(world::GameWorld& world) {
         if (m_state == m_lastFeedbackState) {
             return;
         }
@@ -142,10 +142,13 @@ namespace rts::core::manager {
         }
     }
 
-    void EnemyAiController::update(
+    void AiController::update(
         world::GameWorld& world, MovementSystem& movement, ProductionSystem& production,
         const float dt, const bool passive) {
         if (world.gameResult() != world::GameResult::InProgress) {
+            return;
+        }
+        if (const auto* slot = world.player(m_playerId); slot && slot->eliminated) {
             return;
         }
 
@@ -160,16 +163,16 @@ namespace rts::core::manager {
         }
     }
 
-    void EnemyAiController::updateBuildOrder(world::GameWorld& world, ProductionSystem& production) {
-        const auto barracks = queries::findBuilding(world, model::TeamId::Enemy, model::BuildingType::Barracks);
-        const int combat = countCombatUnits(world, model::TeamId::Enemy, false);
+    void AiController::updateBuildOrder(world::GameWorld& world, ProductionSystem& production) {
+        const auto barracks = queries::findBuilding(world, m_playerId, model::BuildingType::Barracks);
+        const int combat = countCombatUnits(world, m_playerId, false);
         if (!barracks) {
             m_state = combat > 0 ? BuildOrderState::Rebuild : BuildOrderState::BuildBarracks;
             tryStartBarracks(world, production);
         } else if (combat >= kAiWaveArmySize) {
             m_state = BuildOrderState::Attack;
         } else if (combat > 0 ||
-                   queries::findBuilding(world, model::TeamId::Enemy, model::BuildingType::Barracks, true)) {
+                   queries::findBuilding(world, m_playerId, model::BuildingType::Barracks, true)) {
             m_state = BuildOrderState::ProduceArmy;
         } else {
             m_state = BuildOrderState::Gather;
@@ -177,19 +180,19 @@ namespace rts::core::manager {
         emitStateFeedback(world);
     }
 
-    void EnemyAiController::updateProduction(world::GameWorld& world, const float dt) {
+    void AiController::updateProduction(world::GameWorld& world, const float dt) {
         m_produceTimer += dt;
         if (m_produceTimer < kAiProduceInterval) {
             return;
         }
         m_produceTimer = 0.f;
 
-        auto resources = world.playerResources(model::TeamId::Enemy);
+        auto resources = world.playerResources(m_playerId);
 
         int workerCount = 0;
         for (const auto& element : world.getElements()) {
             auto unit = std::dynamic_pointer_cast<model::Unit>(element);
-            if (unit && unit->getTeamId() == model::TeamId::Enemy &&
+            if (unit && unit->getTeamId() == m_playerId &&
                 unit->isWorker() && unit->getAction() != model::ActionType::Dead) {
                 ++workerCount;
             }
@@ -200,7 +203,7 @@ namespace rts::core::manager {
         for (const auto& element : world.getElements()) {
             auto building = std::dynamic_pointer_cast<model::Building>(element);
             if (!building ||
-                building->getTeamId() != model::TeamId::Enemy ||
+                building->getTeamId() != m_playerId ||
                 !building->isComplete() ||
                 building->getAction() == model::ActionType::Dead ||
                 building->trainQueueSize() > 0) {
@@ -225,10 +228,10 @@ namespace rts::core::manager {
             }
         }
 
-        world.setPlayerResources(model::TeamId::Enemy, resources);
+        world.setPlayerResources(m_playerId, resources);
     }
 
-    void EnemyAiController::updateWorkers(world::GameWorld& world, const float dt) {
+    void AiController::updateWorkers(world::GameWorld& world, const float dt) {
         m_gatherTimer += dt;
         if (m_gatherTimer < kAiGatherInterval) {
             return;
@@ -238,7 +241,7 @@ namespace rts::core::manager {
         for (const auto& element : world.getElements()) {
             auto worker = std::dynamic_pointer_cast<model::Unit>(element);
             if (!worker ||
-                worker->getTeamId() != model::TeamId::Enemy ||
+                worker->getTeamId() != m_playerId ||
                 !worker->isWorker() ||
                 worker->getAction() != model::ActionType::Idle) {
                 continue;
@@ -246,7 +249,7 @@ namespace rts::core::manager {
 
             auto resource = queries::findClosestAvailableResource(
                 world,
-                world.playerResources(model::TeamId::Enemy).wood < 120
+                world.playerResources(m_playerId).wood < 120
                     ? model::ResourceNode::ResourceType::Wood
                     : model::ResourceNode::ResourceType::Gold,
                 *worker);
@@ -265,7 +268,7 @@ namespace rts::core::manager {
         }
     }
 
-    void EnemyAiController::updateDefense(world::GameWorld& world, MovementSystem& movement, const float dt) {
+    void AiController::updateDefense(world::GameWorld& world, MovementSystem& movement, const float dt) {
         m_defenseTimer += dt;
         if (m_defenseTimer < kAiDefenseInterval) {
             return;
@@ -276,7 +279,7 @@ namespace rts::core::manager {
         for (const auto& element : world.getElements()) {
             auto building = std::dynamic_pointer_cast<model::Building>(element);
             if (!building ||
-                building->getTeamId() != model::TeamId::Enemy ||
+                building->getTeamId() != m_playerId ||
                 building->getAction() == model::ActionType::Dead) {
                 continue;
             }
@@ -284,7 +287,7 @@ namespace rts::core::manager {
                      world, building->getPosition(), kAiDefenseRadius)) {
                 auto unit = std::dynamic_pointer_cast<model::Unit>(nearby);
                 if (unit &&
-                    unit->getTeamId() == model::TeamId::Player &&
+                    world.areEnemies(m_playerId, unit->getTeamId()) &&
                     !unit->isWorker() &&
                     unit->getAction() != model::ActionType::Dead) {
                     threatPos = unit->getPosition();
@@ -301,7 +304,7 @@ namespace rts::core::manager {
         for (const auto& element : world.getElements()) {
             auto unit = std::dynamic_pointer_cast<model::Unit>(element);
             if (unit &&
-                unit->getTeamId() == model::TeamId::Enemy &&
+                unit->getTeamId() == m_playerId &&
                 !unit->isWorker() &&
                 unit->getAction() == model::ActionType::Idle) {
                 movement.issueAttackMove(world, *unit, *threatPos);
@@ -310,14 +313,14 @@ namespace rts::core::manager {
         world::emitSound(world, world::SoundCue::AttackOrder, *threatPos, 34.0f);
     }
 
-    void EnemyAiController::updateWaves(world::GameWorld& world, MovementSystem& movement, const float dt) {
+    void AiController::updateWaves(world::GameWorld& world, MovementSystem& movement, const float dt) {
         m_waveTimer += dt;
 
         int idleSoldiers = 0;
         for (const auto& element : world.getElements()) {
             auto unit = std::dynamic_pointer_cast<model::Unit>(element);
             if (unit &&
-                unit->getTeamId() == model::TeamId::Enemy &&
+                unit->getTeamId() == m_playerId &&
                 !unit->isWorker() &&
                 unit->getAction() == model::ActionType::Idle) {
                 ++idleSoldiers;
@@ -334,7 +337,7 @@ namespace rts::core::manager {
                 for (const auto& element : world.getElements()) {
                     auto unit = std::dynamic_pointer_cast<model::Unit>(element);
                     if (unit &&
-                        unit->getTeamId() == model::TeamId::Enemy &&
+                        unit->getTeamId() == m_playerId &&
                         !unit->isWorker() &&
                         unit->getAction() == model::ActionType::Idle &&
                         queries::distanceSq(unit->getPosition(), rally) > 80.0f * 80.0f) {
@@ -346,14 +349,14 @@ namespace rts::core::manager {
         }
         m_waveTimer = 0.f;
 
-        auto target = queries::findBuilding(world, model::TeamId::Player, model::BuildingType::TownHall);
+        auto target = queries::findFirstEnemyBuilding(world, m_playerId, model::BuildingType::TownHall);
         if (!target) {
             return;
         }
         for (const auto& element : world.getElements()) {
             auto unit = std::dynamic_pointer_cast<model::Unit>(element);
             if (unit &&
-                unit->getTeamId() == model::TeamId::Enemy &&
+                unit->getTeamId() == m_playerId &&
                 !unit->isWorker() &&
                 unit->getAction() == model::ActionType::Idle) {
                 movement.issueAttackMove(world, *unit, target->getPosition());

@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <cstdint>
+#include <map>
 #include <mutex>
 #include <shared_mutex>
 #include <string>
@@ -16,6 +17,7 @@
 #include "core/ecs/EntityManager.hpp"
 #include "core/map/FogOfWar.hpp"
 #include "core/model/PlayerResourceState.hpp"
+#include "core/model/PlayerSlot.hpp"
 #include "core/sim/SimClock.hpp"
 #include "core/world/GridTransform.hpp"
 
@@ -104,6 +106,22 @@ namespace rts::core::world {
         // generation and stale handles stop validating. Call once per logic tick.
         void pruneDeadEntities();
 
+        // Match participants. Every element's getTeamId() is its owner's slot id
+        // (0 = neutral). The local player is whose view the UI shows (HUD, fog,
+        // victory/defeat); it may be AI-controlled when spectating. Setting the
+        // players resets every player's fog. Caller holds the write lock.
+        void setPlayers(std::vector<model::PlayerSlot> players, int localPlayerId);
+        const std::vector<model::PlayerSlot>& players() const noexcept { return m_players; }
+        const model::PlayerSlot* player(int playerId) const;
+        model::PlayerSlot* player(int playerId);
+        int localPlayerId() const noexcept { return m_localPlayerId; }
+        // Different non-neutral owners in different alliances. Unknown ids count
+        // as their own alliance, so two unknown players are enemies.
+        bool areEnemies(int a, int b) const;
+        // Same owner or same alliance (never neutral).
+        bool areAllies(int a, int b) const;
+        bool isAiControlled(int playerId) const;
+
         const model::PlayerResourceState& playerResources(int playerId) const;
         void setPlayerResources(int playerId, const model::PlayerResourceState& resources);
 
@@ -125,13 +143,15 @@ namespace rts::core::world {
 
         void onCollisionChanged();
 
-        // Fog of war for the local player. updateFog re-derives the current vision
-        // each tick from live player units/buildings; fog() exposes the grid for
+        // Fog of war per player. updateFog re-derives every player's current
+        // vision each tick from the live units/buildings of that player and its
+        // allies (shared vision); fog() is the local player's grid used for
         // rendering and minimap tinting. Caller holds the write lock for updateFog.
         void updateFog();
-        const map::FogOfWar& fog() const noexcept { return m_fog; }
+        const map::FogOfWar& fog() const noexcept { return fog(m_localPlayerId); }
+        const map::FogOfWar& fog(int playerId) const;
 
-        // Currently-seeing sources (player units/buildings), in world coordinates,
+        // Currently-seeing sources of the local player and its allies, in world coordinates,
         // refreshed every updateFog. The renderer uses these to draw the visible
         // area as smooth circles; the tile fog grid still drives gameplay (enemy
         // hiding) and the explored/unexplored memory.
@@ -165,7 +185,10 @@ namespace rts::core::world {
         std::vector<std::uint8_t> m_structurePathBlocking;
         // gridW*gridH, row-major: 1 where a live unit's current center cell sits.
         std::vector<std::uint8_t> m_unitOccupancy;
-        map::FogOfWar m_fog;  // local player's vision (explored/visible)
+        std::vector<model::PlayerSlot> m_players;
+        int m_localPlayerId { 1 };  // TeamId::Player (default human slot)
+        std::map<int, map::FogOfWar> m_fogs;  // per player id (explored/visible)
+        map::FogOfWar m_emptyFog;             // returned for unknown players
         std::vector<VisionSource> m_visionSources;  // smooth-fog reveal circles (world coords)
         std::vector<std::shared_ptr<model::IElement>> m_elements;
         std::vector<std::shared_ptr<model::Projectile>> m_projectiles;
