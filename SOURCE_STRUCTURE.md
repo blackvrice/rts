@@ -25,6 +25,7 @@ This document is a quick orientation map for future AI agents working in this re
 - `data/` holds runtime JSON design data (`units.json`, `buildings.json`, `resources.json`, `animations.json`) loaded by `DataRegistry`, plus `data/maps/*.json` scenario maps loaded by `core/map/MapLoader`; edit these to retune stats, change sprites/animations, or lay out the starting map without recompiling.
 - `tests/` contains headless test executables. `tests/rts_headless_smoke.cpp` is wired through CTest and checks graphics-free runtime contracts such as data loading, map loading, tech-tree prerequisites, replay log round-trip, fixed math, and the default `portfolio.tmx` logic tick budget.
 - `scripts/` contains offline helper scripts. `scripts/gen_portfolio_map.py` authors walls in tile space and emits the showcase scenario as both `data/maps/portfolio.json` and `data/maps/portfolio.tmx` (the latter with a CSV "collision" tile layer + point-object group), validating entity/footprint placement against the blocked tiles before writing.
+- `GAME_COMPLETION_ROADMAP.md` (root) is the current development plan toward a complete single-player RTS v1.0 (milestones, epics, tickets, sprint order). `DEVELOPMENT_PLAN.md` is the earlier Phase 0-8 implementation history.
 - `docs/` contains human-facing project notes such as architecture orientation and the manual QA checklist.
 - `Tiny Swords (Free Pack)/` contains art assets used by the game.
 - `cmake-build-debug/` is a local build output folder and should not be treated as source.

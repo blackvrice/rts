@@ -1,5 +1,13 @@
 # Development Log
 
+## 2026-11-04 - Full-Game Completion Roadmap
+
+- Added `GAME_COMPLETION_ROADMAP.md` as the current development plan. Portfolio finishing work (README GIF, passive showcase AI) is out of scope; the target is a complete single-player skirmish RTS v1.0.
+- The roadmap records a code-based gap audit (2 building types, 4 unit types, empty `UpgradeType`, declared-but-unhandled `RepairCommand`/`UseAbilityCommand`/`PauseGameCommand`/`ResumeGameCommand`/`NetworkCommand`, fixed 2-player `TeamId`, `kAiPassive = true`, hardcoded `portfolio.tmx`, ~2,400-line `GameLogicManager`, tracked build artifacts), a v1.0 definition of done, design decisions with recommended defaults, and Milestone -> Epic -> Ticket breakdowns (M0 foundation through M9 release, M8 multiplayer deferred to v1.x) with size/priority/completion criteria and a 21-sprint order.
+- Added a pointer at the top of `DEVELOPMENT_PLAN.md` so it is read as implementation history, and listed the roadmap in `SOURCE_STRUCTURE.md`.
+- Verification: documentation-only change; checked roadmap facts against `include/core/model/Building.hpp`, `include/core/data/TechTree.hpp`, `include/core/command/LogicCommand.hpp` (grep found no handlers for the listed commands), `include/core/model/IGameElement.hpp`, `src/game/game/GameLogicManager.cpp`, `src/game/game/systems/CollisionSystem.cpp`, `data/*.json`, and the Tiny Swords asset folders. Build/run was not repeated: no source, build configuration, data, or asset changed, and this Linux cloud session has no access to the Windows CLion CMake toolchain required by `AGENTS.md`.
+- Follow-up: confirm or change the design decisions in roadmap section 3 (D1-D8), then start sprint S1 (M0-E1 cleanup + headless simulation harness).
+
 ## 2026-09-01 - README Gameplay Video
 
 - Replaced the README's gameplay-video placeholder with the published `RTS Portfolio Gameplay Edit` YouTube link and a clickable YouTube thumbnail.
